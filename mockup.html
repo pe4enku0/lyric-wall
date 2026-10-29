@@ -1,0 +1,652 @@
+<title>Музыкальные обои Mac</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one 16:10 Mac screen scaled to fit; reference-style dusty glass UI; controls and notes below */
+@property --hue { syntax: '<number>'; inherits: true; initial-value: 225; }
+@property --sat { syntax: '<number>'; inherits: true; initial-value: 1; }
+:root {
+  --bg: #0b0b0e;
+  --fg: #ecebef;
+  --muted: #8d8a94;
+  --line: rgba(255,255,255,.09);
+  --panel: rgba(255,255,255,.045);
+  --display: 'Onest', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
+header.top h1 { margin: 0; font-size: clamp(20px, 3.4vw, 30px); font-weight: 800; letter-spacing: -.02em; text-wrap: balance; }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------- the screen ---------- */
+.frame {
+  position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 10;
+  border-radius: clamp(8px, 1.4vw, 18px); overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(0,0,0,.55);
+  background: #000;
+}
+.stage {
+  --hue: 225;
+  --ink: #e4e1e8;
+  --ink2: rgba(228,225,232,.62);
+  --sat: 1;
+  transition: --hue 2.4s ease, --sat 1.2s ease;
+  position: absolute; top: 0; left: 0; width: 1280px; height: 800px;
+  transform-origin: 0 0; overflow: hidden; color: var(--ink);
+  background:
+    radial-gradient(620px 420px at 46% 100%, hsl(calc(var(--hue) + 120) calc(40% * var(--sat)) 24% / .95), transparent 75%),
+    radial-gradient(700px 520px at 92% 92%, hsl(calc(var(--hue) + 110) calc(20% * var(--sat)) 17% / .75), transparent 75%),
+    radial-gradient(760px 560px at 40% 38%, hsl(calc(var(--hue) + 60) calc(8% * var(--sat)) 29%), transparent 72%),
+    radial-gradient(900px 600px at 78% 30%, hsl(calc(var(--hue) + 40) calc(8% * var(--sat)) 22%), transparent 70%),
+    linear-gradient(180deg, #222126, #19171c);
+}
+.bgimg { position: absolute; inset: -40px; background-size: cover; background-position: center; transition: opacity .6s ease, filter .4s ease; opacity: 0; }
+.dim { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity .4s ease; pointer-events: none; }
+#snow { position: absolute; inset: 0; width: 1280px; height: 800px; pointer-events: none; }
+.grain { position: absolute; inset: 0; pointer-events: none; opacity: .16; mix-blend-mode: overlay; background-size: 256px 256px; }
+
+.sbar { position: absolute; z-index: 5; top: 0; left: 0; right: 0; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 44px; font-size: 15px; }
+.sbar .l { display: flex; align-items: center; gap: 16px; }
+.sbar .l b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.sbar .l span { color: var(--ink2); font-weight: 500; font-size: 14px; }
+.sbar .r { display: flex; align-items: center; gap: 14px; }
+.notch { position: absolute; z-index: 6; left: 50%; top: 0; width: 200px; height: 34px; margin-left: -100px; background: #000; border-radius: 0 0 16px 16px; }
+
+.cols { position: absolute; top: 74px; left: 64px; right: 56px; bottom: 56px; display: grid; grid-template-columns: 480px 1fr; gap: 60px; }
+.left { display: flex; flex-direction: column; gap: 14px; }
+.glass {
+  position: relative;
+  background: linear-gradient(170deg, rgba(118,113,124,.42), rgba(78,74,84,.34));
+  border: 1px solid rgba(255,255,255,.13); border-radius: 26px;
+  backdrop-filter: blur(26px) saturate(.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 18px 40px rgba(0,0,0,.32);
+}
+
+/* cover */
+.art { height: 236px; overflow: hidden; padding: 0; border-radius: 28px; }
+.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1.2s ease, transform 8s ease-out; }
+.art img.out { opacity: 0; transform: scale(1.06); }
+.art::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 -60px 60px -30px rgba(0,0,0,.55); pointer-events: none; }
+.chip { position: absolute; z-index: 1; top: 16px; left: 18px; display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 99px; background: rgba(20,20,24,.55); backdrop-filter: blur(10px); }
+.dot { position: absolute; z-index: 1; top: 20px; right: 22px; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; }
+.art .cap { position: absolute; z-index: 1; left: 20px; right: 20px; bottom: 16px; display: flex; justify-content: space-between; font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.82); font-variant-numeric: tabular-nums; }
+
+/* player */
+.info { padding: 18px 22px 14px 24px; display: flex; flex-direction: column; gap: 10px; }
+.ttl { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ttl h2 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 6px; line-height: 1.1; }
+.ttl h2 i { font-style: normal; font-size: 10px; font-weight: 800; width: 15px; height: 15px; border-radius: 3px; background: rgba(255,255,255,.55); color: #3d3a42; display: grid; place-items: center; }
+.ttl .ar { font-size: 18px; color: var(--ink2); margin-top: 4px; font-weight: 500; }
+.dots { display: flex; gap: 10px; }
+.dots span { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; }
+.prog { display: flex; align-items: center; gap: 14px; font-family: var(--mono); font-size: 10.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.prog span { width: 30px; }
+.prog span:last-child { text-align: right; width: 34px; }
+.bar { position: relative; flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.18); }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: rgba(255,255,255,.88); }
+.bar b { position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.7); }
+.ctrl { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; }
+.vol { display: flex; align-items: center; gap: 10px; }
+.vol .vb { position: relative; width: 62px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.18); }
+.vol .vb i { position: absolute; left: 0; top: 0; bottom: 0; width: 64%; border-radius: 3px; background: rgba(255,255,255,.85); }
+.mid { display: flex; justify-content: center; align-items: center; gap: 30px; }
+.mid svg { fill: #fff; }
+.ex { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--ink2); }
+.lyb { width: 30px; height: 26px; border-radius: 7px; background: #fff; display: grid; place-items: center; }
+
+/* bottom cards */
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; min-height: 0; }
+.card { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; border-radius: 26px; }
+.ch { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 700; }
+.ch .k { display: flex; align-items: center; gap: 8px; }
+.ch small { font-size: 12px; font-weight: 500; color: var(--ink2); }
+.big { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
+.big b { font-size: 58px; font-weight: 800; letter-spacing: -.04em; line-height: .95; font-variant-numeric: tabular-nums; color: hsl(calc(var(--hue) + 120) 60% 86%); transition: color 2.4s; }
+.big span { font-size: 14px; font-weight: 600; color: var(--ink2); letter-spacing: .04em; }
+#viz { width: 100%; flex: 1; min-height: 0; display: block; }
+.foot { font-size: 11px; color: rgba(228,225,232,.5); }
+
+.q { display: flex; flex-direction: column; gap: 9px; flex: 1; }
+.qi { display: grid; grid-template-columns: 34px 1fr 22px; align-items: center; gap: 10px; transition: opacity .6s; }
+.qi img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
+.qi .t { font-size: 14px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qi .a { font-size: 11px; color: var(--ink2); }
+.qi .c { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.14); display: grid; place-items: center; }
+.qi .c.on { background: #fff; }
+.pill { text-align: center; font-size: 13px; font-weight: 600; padding: 9px 10px; border-radius: 14px; background: rgba(255,255,255,.1); }
+
+/* lyrics */
+.lyr { position: relative; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.lyr .head { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink2); font-weight: 600; padding-left: 2px; }
+.live { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.1); color: var(--ink2); }
+.vp { position: relative; flex: 1; overflow: hidden;
+  -webkit-mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%);
+          mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%); }
+#lines { list-style: none; margin: 0; padding: 0; position: absolute; left: 0; right: 0; top: 0;
+  transition: transform 1s cubic-bezier(.2,.8,.2,1), opacity .7s ease; }
+#lines li {
+  font-size: 52px; line-height: 1.16; font-weight: 800; letter-spacing: -.012em; word-spacing: .08em;
+  padding: 18px 0; transform-origin: left center; color: #d9d6dd; text-wrap: balance;
+  transition: filter 1s ease, opacity 1s ease, transform 1s cubic-bezier(.2,.8,.2,1), color 1s ease;
+}
+#lines li.on { color: #e9e6ec; text-shadow: 0 2px 30px rgba(0,0,0,.25); }
+.src { position: absolute; z-index: 2; right: 56px; bottom: 30px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 14px 6px 6px; border-radius: 99px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); color: var(--ink); }
+.src i { width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,.85); color: #222; font-style: normal; font-size: 10px; font-weight: 800; display: grid; place-items: center; }
+
+/* fake window to show the wallpaper sits under apps */
+.win { position: absolute; z-index: 7; right: 90px; bottom: 90px; width: 470px; height: 300px; border-radius: 14px;
+  background: rgba(30,31,36,.94); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 30px 70px rgba(0,0,0,.6);
+  display: flex; flex-direction: column; overflow: hidden; }
+.win[hidden] { display: none !important; }
+.win .tb { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 13px; color: rgba(255,255,255,.7); }
+.win .tb i { width: 12px; height: 12px; border-radius: 50%; }
+.win .body { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; padding: 22px; }
+.win .f { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: rgba(255,255,255,.7); }
+.win .f span { width: 54px; height: 44px; border-radius: 6px; background: linear-gradient(#5aa9ff, #2f7fe6); }
+
+/* ---------- controls + notes ---------- */
+.ctl { display: flex; flex-wrap: wrap; gap: 10px; }
+.ctl button {
+  font: 600 14px var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+  padding: 10px 16px; border-radius: 12px; cursor: pointer;
+}
+.ctl button:hover { background: rgba(255,255,255,.08); }
+.ctl button:focus-visible { outline: 2px solid #b9b2c8; outline-offset: 2px; }
+.ctl button[aria-pressed="true"] { background: rgba(185,178,200,.16); border-color: rgba(185,178,200,.4); }
+.set { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.set section { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.set h3 { margin: 0; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; }
+.set h3 output { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--muted); }
+.sw { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw button { display: flex; align-items: center; gap: 7px; font: 600 13px var(--display); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 99px; padding: 5px 11px 5px 5px; cursor: pointer; }
+.sw button i { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+.sw button[aria-checked="true"] { border-color: rgba(236,235,239,.7); background: rgba(255,255,255,.08); }
+.sw button:focus-visible { outline: 2px solid #b9b2c8; outline-offset: 2px; }
+.set input[type=range] { width: 100%; accent-color: #d9d4e2; }
+.set .hint { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+.pick { display: inline-flex; align-self: flex-start; font: 600 13px var(--display); color: var(--fg); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+.pick:focus-within, .pick:hover { background: rgba(255,255,255,.13); }
+.vh { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.imgset[aria-disabled="true"] .sl { opacity: .4; }
+.sl { display: flex; flex-direction: column; gap: 6px; }
+.sl div { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); border-top: 1px solid var(--line); margin: 0; }
+.spec div { padding: 14px 16px 14px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.spec dt { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.spec dd { margin: 0; font-size: 15px; font-weight: 600; }
+.note { color: var(--muted); font-size: 13px; max-width: 70ch; line-height: 1.5; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  #lines, #lines li, .art img, .stage { transition-duration: .01s !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Музыкальные обои</h1>
+    <p>Макет в стиле референса · Spotify · окно-обои на Mac</p>
+  </header>
+
+  <div class="frame" id="frame">
+    <div class="stage" id="stage">
+      <div class="bgimg" id="bgimg"></div><div class="dim" id="dim"></div>
+      <canvas id="snow" width="1280" height="800"></canvas>
+      <div class="grain" id="grain"></div>
+
+      <div class="sbar">
+        <div class="l"><b id="clock">07:44</b><span id="date">Чт 29 окт</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(228,225,232,.7)"><path d="M20 15.3A8.5 8.5 0 0 1 8.7 4a8.5 8.5 0 1 0 11.3 11.3Z"/></svg>
+        </div>
+        <div class="r">
+          <svg width="18" height="12" viewBox="0 0 18 12" fill="#e4e1e8"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="#e4e1e8"><path d="M8 2.2c2.4 0 4.6.9 6.2 2.5l1.3-1.3A10.5 10.5 0 0 0 8 .3 10.5 10.5 0 0 0 .5 3.4l1.3 1.3A8.7 8.7 0 0 1 8 2.2Zm0 3.7c1.4 0 2.7.5 3.6 1.4l1.3-1.3A7 7 0 0 0 8 4a7 7 0 0 0-4.9 2l1.3 1.3c1-.9 2.2-1.4 3.6-1.4Zm0 3.6c-.5 0-1 .2-1.3.5L8 11.3 9.3 10c-.3-.3-.8-.5-1.3-.5Z"/></svg>
+          <svg width="28" height="13" viewBox="0 0 28 13"><rect x=".5" y=".5" width="24" height="12" rx="3.5" fill="none" stroke="rgba(228,225,232,.5)"/><rect x="2.5" y="2.5" width="16" height="8" rx="2" fill="#e4e1e8"/><rect x="25.5" y="4.5" width="1.6" height="4" rx=".8" fill="rgba(228,225,232,.5)"/></svg>
+        </div>
+      </div>
+      <div class="notch"></div>
+
+      <div class="cols">
+        <div class="left">
+          <div class="glass art">
+            <img id="artA" alt="">
+            <img id="artB" alt="" class="out">
+            <span class="chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M9 18a3 3 0 1 1-2-2.8V4l12-2v13a3 3 0 1 1-2-2.8V6.4L9 7.8Z"/></svg>Сейчас играет</span>
+            <span class="dot"></span>
+            <div class="cap"><span id="capL">НОЧНОЙ РЕЙС · ТИХИЙ ДВОР</span><span id="capR">00:00:41</span></div>
+          </div>
+
+          <div class="glass info">
+            <div class="ttl">
+              <div><h2><span id="title">Снег на проводах</span><i>E</i></h2><div class="ar" id="artist">ночной рейс, тихий двор</div></div>
+              <div class="dots">
+                <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/></svg></span>
+                <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span>
+              </div>
+            </div>
+            <div class="prog"><span id="cur">0:41</span><div class="bar"><i id="fill"></i><b id="knob"></b></div><span id="rem">-2:07</span></div>
+            <div class="ctrl">
+              <div class="vol">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="rgba(228,225,232,.75)"><path d="M3 9h4l5-5v16l-5-5H3Z"/></svg>
+                <div class="vb"><i></i></div>
+              </div>
+              <div class="mid">
+                <svg width="24" height="17" viewBox="0 0 26 18"><path d="M12 9 24 1v16Z"/><path d="M1 9 13 1v16Z"/></svg>
+                <svg width="18" height="24" viewBox="0 0 18 24" id="pp"><rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/></svg>
+                <svg width="24" height="17" viewBox="0 0 26 18"><path d="M14 9 2 1v16Z"/><path d="M25 9 13 1v16Z"/></svg>
+              </div>
+              <div class="ex">
+                <span class="lyb"><svg width="16" height="14" viewBox="0 0 24 20" fill="#3d3a42"><path d="M3 1h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Zm3 5v2h12V6Zm0 4v2h8v-2Z"/></svg></span>
+                <svg width="20" height="18" viewBox="0 0 24 22" fill="none" stroke="#e4e1e8" stroke-width="1.8"><path d="M6 15H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-3"/><path d="M12 13 7 20h10Z" fill="#e4e1e8" stroke="none"/></svg>
+                <span>MacBook</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="glass card">
+              <div class="ch"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="hsl(350 80% 62%)"><rect x="2" y="9" width="4" height="10" rx="1.5"/><rect x="10" y="4" width="4" height="15" rx="1.5"/><rect x="18" y="12" width="4" height="7" rx="1.5"/></svg>Звук</span><small>Сейчас</small></div>
+              <div class="big"><b id="vol">64</b><span>% ГРОМК.</span></div>
+              <canvas id="viz" width="460" height="150"></canvas>
+              <div class="foot">Визуализатор в такт треку</div>
+            </div>
+            <div class="glass card">
+              <div class="ch"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><rect x="3" y="5" width="18" height="2.4" rx="1.2"/><rect x="3" y="11" width="18" height="2.4" rx="1.2"/><rect x="3" y="17" width="12" height="2.4" rx="1.2"/></svg>Дальше</span><small id="qn">3 трека</small></div>
+              <div class="q" id="queue"></div>
+              <div class="pill" id="mode">Перемешивание: выкл</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lyr">
+          <div class="head">
+            <svg width="15" height="14" viewBox="0 0 24 20" fill="rgba(228,225,232,.62)"><path d="M3 1h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Z"/></svg>
+            Текст песни <span class="live">LIVE</span>
+          </div>
+          <div class="vp"><ul id="lines"></ul></div>
+        </div>
+      </div>
+      <div class="src"><i>L</i>текст из LRCLIB</div>
+
+      <div class="win" id="win" hidden>
+        <div class="tb"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span style="margin-left:10px">Документы</span></div>
+        <div class="body">
+          <div class="f"><span></span>Монтаж</div><div class="f"><span></span>Скрины</div>
+          <div class="f"><span></span>Проекты</div><div class="f"><span></span>Музыка</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ctl">
+    <button id="bPlay" type="button" aria-pressed="false">Пауза</button>
+    <button id="bNext" type="button">Следующий трек</button>
+    <button id="bWin" type="button" aria-pressed="false">Показать окно поверх</button>
+    <button id="bFull" type="button">На весь экран</button>
+  </div>
+
+  <div class="set" aria-label="Настройки">
+    <section>
+      <h3>Фон</h3>
+      <div class="sw" id="sw" role="radiogroup" aria-label="Фон"></div>
+    </section>
+    <section class="imgset" id="imgset">
+      <h3>Картинка</h3>
+      <label class="pick">Выбрать свою картинку…<input class="vh" id="pick" type="file" accept="image/*"></label>
+      <div class="sl"><div><label for="blur">Размытие</label><output id="blurO">0</output></div><input id="blur" type="range" min="0" max="40" step="1" value="0"></div>
+      <div class="sl"><div><label for="dimR">Затемнение</label><output id="dimO">30%</output></div><input id="dimR" type="range" min="0" max="80" step="1" value="30"></div>
+    </section>
+    <section>
+      <h3><label for="spd">Скорость снежинок</label><output id="spdO">1×</output></h3>
+      <input id="spd" type="range" min="0" max="3" step="0.1" value="1">
+      <div class="hint"><span>стоят</span><span>метель</span></div>
+    </section>
+    <section>
+      <h3><label for="cnt">Количество снежинок</label><output id="cntO">90</output></h3>
+      <input id="cnt" type="range" min="0" max="300" step="10" value="90">
+      <div class="hint"><span>нет</span><span>300</span></div>
+    </section>
+  </div>
+
+  <dl class="spec">
+    <div><dt>Стиль</dt><dd>Как на референсе: пыльное стекло</dd></div>
+    <div><dt>Источник</dt><dd>Spotify, через AppleScript</dd></div>
+    <div><dt>Режим</dt><dd>Окно-обои под всеми окнами</dd></div>
+    <div><dt>Текущая строка</dt><dd>Блюр и фокус</dd></div>
+    <div><dt>Фон</dt><dd>Цвет, своя картинка или обложка трека</dd></div>
+    <div><dt>Снежинки</dt><dd>Скорость и количество настраиваются</dd></div>
+    <div><dt>Вместо пульса и лекарств</dt><dd>Звук с визуализатором и очередь</dd></div>
+  </dl>
+  <p class="note">Треки, обложки и строки текста придуманы для макета. Громкость и перемешивание Spotify отдаёт сразу. Очередь «Дальше» доступна только через Spotify Web API со входом в аккаунт, это можно добавить последним шагом.</p>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), frame = $('frame');
+
+  const fit = () => { stage.style.transform = `scale(${frame.clientWidth / 1280})`; };
+  addEventListener('resize', fit); fit();
+
+  /* film grain */
+  (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'), d = g.createImageData(256, 256);
+    for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+    g.putImageData(d, 0, 0); $('grain').style.backgroundImage = `url(${c.toDataURL()})`;
+  })();
+
+  /* ---------- generated covers ---------- */
+  function cover(kind) {
+    const c = document.createElement('canvas'); c.width = 960; c.height = 472;
+    const g = c.getContext('2d');
+    let s = [7, 19, 31, 43][kind]; const r = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    if (kind === 0) {
+      let gr = g.createLinearGradient(0, 0, 960, 472);
+      gr.addColorStop(0, '#2a2a2e'); gr.addColorStop(1, '#0c0c0e');
+      g.fillStyle = gr; g.fillRect(0, 0, 960, 472);
+      const m = g.createRadialGradient(330, 200, 10, 330, 200, 260);
+      m.addColorStop(0, 'rgba(240,240,245,.85)'); m.addColorStop(.3, 'rgba(200,200,210,.35)'); m.addColorStop(1, 'rgba(200,200,210,0)');
+      g.fillStyle = m; g.fillRect(0, 0, 960, 472);
+      g.save(); g.translate(720, -40); g.rotate(.06);
+      for (let i = 0; i < 22; i++) {
+        g.fillStyle = `rgba(${40 + i * 2},${40 + i * 2},${46 + i * 2},1)`; g.fillRect(-140, i * 24, 380, 14);
+        g.fillStyle = 'rgba(180,180,190,.25)'; g.fillRect(-140, i * 24 + 14, 380, 2);
+      }
+      g.restore();
+      g.fillStyle = 'rgba(8,8,10,.9)'; g.beginPath(); g.moveTo(170, 472); g.lineTo(200, 330); g.quadraticCurveTo(250, 250, 330, 270); g.quadraticCurveTo(410, 290, 430, 472); g.fill();
+      g.beginPath(); g.arc(330, 215, 62, 0, Math.PI * 2); g.fillStyle = 'rgba(225,225,232,.92)'; g.fill();
+      g.fillStyle = 'rgba(10,10,12,.75)'; g.beginPath(); g.arc(352, 228, 58, -.6, 1.9); g.fill();
+    } else if (kind === 1) {
+      let gr = g.createLinearGradient(0, 0, 960, 472);
+      gr.addColorStop(0, '#3a1424'); gr.addColorStop(.6, '#180812'); gr.addColorStop(1, '#09050a');
+      g.fillStyle = gr; g.fillRect(0, 0, 960, 472);
+      for (let i = 9; i > 0; i--) { g.beginPath(); g.arc(600, 236, i * 32, 0, Math.PI * 2); g.strokeStyle = `hsla(${335 + i * 3},80%,${60 + i * 2}%,${.12 + (9 - i) * .06})`; g.lineWidth = 3; g.stroke(); }
+      const gl = g.createRadialGradient(600, 236, 0, 600, 236, 130); gl.addColorStop(0, 'rgba(255,110,165,.75)'); gl.addColorStop(1, 'rgba(255,110,165,0)');
+      g.fillStyle = gl; g.fillRect(0, 0, 960, 472);
+      for (let i = 0; i < 14; i++) { g.fillStyle = `rgba(255,${140 + r() * 70},${190 + r() * 50},${.2 + r() * .35})`; g.fillRect(0, 30 + i * 32 + r() * 10, 960 * r(), 2); }
+    } else {
+      const hues = [0, 0, 160, 30];
+      let gr = g.createLinearGradient(0, 0, 0, 472);
+      gr.addColorStop(0, `hsl(${hues[kind]} 25% 30%)`); gr.addColorStop(1, `hsl(${hues[kind]} 20% 8%)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 960, 472);
+      for (let i = 0; i < 40; i++) { g.fillStyle = `hsla(${hues[kind]},40%,${50 + r() * 30}%,${r() * .4})`; g.beginPath(); g.arc(r() * 960, r() * 472, 4 + r() * 60, 0, Math.PI * 2); g.fill(); }
+    }
+    return c.toDataURL('image/jpeg', .9);
+  }
+
+  const T = [
+    { title: 'Снег на проводах', artist: 'ночной рейс, тихий двор', hue: 228, dur: 168, start: 41, img: cover(0), vol: 64, shuffle: false,
+      lines: ['Город выключил огни', 'Я считаю фонари до утра', 'Снег ложится на провода', 'И молчит, как ты вчера', 'Если слышишь, не звони', 'Я и так тебя найду', 'В каждом кадре, в каждом сне', 'Где-то в этом феврале'] },
+    { title: 'Неон', artist: 'ровно в 3', hue: 300, dur: 192, start: 58, img: cover(1), vol: 71, shuffle: true,
+      lines: ['Неон стекает по стеклу', 'Мы опять не спим', 'Две минуты до весны', 'И одна до тишины', 'Ты смеёшься невпопад', 'Я снимаю всё подряд', 'Пусть горит, пока горит', 'Этот город не простит'] },
+    { title: 'Окна напротив', artist: 'пятый этаж', hue: 180, dur: 201, start: 30, img: cover(2), vol: 58, shuffle: true,
+      lines: ['В окнах напротив горит', 'Чей-то длинный разговор', 'Я молчу, и снег молчит', 'Застывает коридор', 'Мы не виделись с весны', 'Но ты снишься до сих пор'] },
+    { title: 'Без сигнала', artist: 'тихий двор', hue: 30, dur: 175, start: 22, img: cover(3), vol: 66, shuffle: false,
+      lines: ['Нет сигнала, нет звонков', 'Только шум под потолком', 'Я пишу тебе без слов', 'И стираю целиком', 'Утро смотрит сквозь стекло', 'Будто знает обо всём'] }
+  ];
+
+  /* ---------- background presets ---------- */
+  function dusk() {
+    const c = document.createElement('canvas'); c.width = 1600; c.height = 1000;
+    const g = c.getContext('2d');
+    let sd = 11; const r = () => (sd = (sd * 9301 + 49297) % 233280) / 233280;
+    const sky = g.createLinearGradient(0, 0, 0, 1000);
+    sky.addColorStop(0, '#7d8494'); sky.addColorStop(.35, '#a59ea4'); sky.addColorStop(.62, '#d3ad98'); sky.addColorStop(.78, '#e9b588'); sky.addColorStop(.86, '#c99178'); sky.addColorStop(1, '#3a2f33');
+    g.fillStyle = sky; g.fillRect(0, 0, 1600, 1000);
+    const sun = g.createRadialGradient(1050, 800, 0, 1050, 800, 520);
+    sun.addColorStop(0, 'rgba(255,214,170,.75)'); sun.addColorStop(1, 'rgba(255,214,170,0)');
+    g.fillStyle = sun; g.fillRect(0, 0, 1600, 1000);
+    g.filter = 'blur(22px)';
+    for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${150 + r() * 60},${140 + r() * 50},${150 + r() * 40},${.18 + r() * .25})`; g.beginPath(); g.ellipse(r() * 1600, 120 + r() * 520, 120 + r() * 260, 18 + r() * 40, 0, 0, Math.PI * 2); g.fill(); }
+    g.filter = 'none';
+    g.fillStyle = '#231d22';
+    g.beginPath(); g.moveTo(0, 1000); g.lineTo(0, 900);
+    for (let x = 0; x <= 1600; x += 40) g.lineTo(x, 890 + Math.sin(x / 90) * 10 - (r() > .8 ? 30 + r() * 40 : 0));
+    g.lineTo(1600, 1000); g.fill();
+    const poles = [140, 520, 930, 1360];
+    g.strokeStyle = '#1e191e'; g.lineCap = 'round';
+    poles.forEach((x, i) => {
+      const top = 430 + i * 25; g.lineWidth = 9; g.beginPath(); g.moveTo(x, 1000); g.lineTo(x, top); g.stroke();
+      g.lineWidth = 5; g.beginPath(); g.moveTo(x - 60, top + 30); g.lineTo(x + 60, top + 30); g.moveTo(x - 44, top + 70); g.lineTo(x + 44, top + 70); g.stroke();
+    });
+    g.lineWidth = 1.6; g.strokeStyle = 'rgba(30,25,30,.85)';
+    [[-60, 30], [60, 30], [-44, 70], [44, 70]].forEach(([dx, dy]) => {
+      g.beginPath(); g.moveTo(0, 470 + dy);
+      poles.forEach((x, i) => { const y = 430 + i * 25 + dy; const px = i ? poles[i - 1] + dx : -100; const py = i ? 430 + (i - 1) * 25 + dy : 470 + dy; g.moveTo(px, py); g.quadraticCurveTo((px + x + dx) / 2, Math.max(py, y) + 55, x + dx, y); });
+      g.quadraticCurveTo(1500, 520 + dy + 55, 1700, 500 + dy); g.stroke();
+    });
+    return c.toDataURL('image/jpeg', .88);
+  }
+  const DUSK = dusk();
+  let userImg = null, blurV = 0, dimV = 30;
+
+  const BG = [
+    { id: 'dusk', name: 'Картинка: сумерки', img: 'dusk', hue: 330, sat: 1, sw: 'linear-gradient(180deg, #8a8a98, #e3b08a 70%, #2a2226)' },
+    { id: 'photo', name: 'Своя картинка', img: 'photo', hue: 225, sat: 1, sw: 'linear-gradient(135deg, #6d7a8f, #b79a8c)' },
+    { id: 'cover', name: 'Обложка трека', img: 'cover', hue: null, sat: 1, sw: 'radial-gradient(circle at 35% 35%, #ddd, #555 60%, #222)' },
+    { id: 'auto', name: 'Из обложки', hue: null, sat: 1, sw: 'conic-gradient(#8a5a7a, #4f6a9a, #6a8a6a, #9a7a4a, #8a5a7a)' },
+    { id: 'lilac', name: 'Сирень', hue: 225, sat: 1, sw: 'linear-gradient(160deg, #4a4550, #5a2a38)' },
+    { id: 'graphite', name: 'Графит', hue: 225, sat: .12, sw: 'linear-gradient(160deg, #46454a, #262529)' },
+    { id: 'night', name: 'Ночь', hue: 95, sat: 1.4, sw: 'linear-gradient(160deg, #3c4450, #1f2f52)' },
+    { id: 'pine', name: 'Хвоя', hue: 30, sat: 1.2, sw: 'linear-gradient(160deg, #3f4844, #1f4a36)' },
+    { id: 'sunset', name: 'Закат', hue: 265, sat: 1.5, sw: 'linear-gradient(160deg, #4d4545, #6a3420)' }
+  ];
+  let bgId = 'dusk';
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
+  function applyBg() {
+    const b = BG.find(x => x.id === bgId) || BG[0];
+    stage.style.setProperty('--hue', b.hue == null ? T[ti].hue : b.hue);
+    stage.style.setProperty('--sat', b.sat);
+    const el = $('bgimg'), dm = $('dim');
+    let src = null;
+    if (b.img === 'dusk') src = DUSK;
+    else if (b.img === 'photo') src = userImg || DUSK;
+    else if (b.img === 'cover') src = T[ti].img;
+    const bl = b.img === 'cover' ? Math.max(30, blurV) : blurV;
+    const dv = b.img === 'cover' ? Math.max(45, dimV) : dimV;
+    el.style.filter = bl ? `blur(${bl}px)` : 'none';
+    dm.style.opacity = src ? dv / 100 : 0;
+    const set = $('imgset'); if (set) set.setAttribute('aria-disabled', String(!src));
+    if (!src) { el.style.opacity = 0; el.dataset.src = ''; return; }
+    if (el.dataset.src === src) { el.style.opacity = 1; return; }
+    el.dataset.src = src;
+    if (el.style.opacity === '1') {
+      el.style.opacity = 0;
+      setTimeout(() => { if (el.dataset.src === src) { el.style.backgroundImage = `url(${src})`; el.style.opacity = 1; } }, 450);
+    } else { el.style.backgroundImage = `url(${src})`; requestAnimationFrame(() => { el.style.opacity = 1; }); }
+  }
+
+  const LINE = 2900;
+  let ti = 0, li = 0, lineT = 0, playing = true, pos = T[0].start, last = performance.now();
+  let front = $('artA'), back = $('artB');
+  const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const hms = s => { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
+
+  function renderLines() {
+    const ul = $('lines'); ul.innerHTML = '';
+    T[ti].lines.forEach(t => { const el = document.createElement('li'); el.textContent = t; ul.appendChild(el); });
+  }
+  function focusLine(instant) {
+    const ul = $('lines'), items = ul.children;
+    for (let i = 0; i < items.length; i++) {
+      const d = i - li, a = Math.abs(d), el = items[i];
+      el.classList.toggle('on', d === 0);
+      el.style.filter = d === 0 ? 'none' : d < 0 ? `blur(${1.6 + a * 1.2}px)` : `blur(${Math.min(2.4 + a * 1.6, 8)}px)`;
+      el.style.opacity = d === 0 ? 1 : d < 0 ? Math.max(.2, .62 - a * .15) : Math.max(.22, .7 - a * .14);
+      el.style.transform = d === 0 ? 'scale(1)' : 'scale(.97)';
+    }
+    const target = items[li]; if (!target) return;
+    if (instant) ul.style.transition = 'none';
+    ul.style.transform = `translateY(${118 - target.offsetTop}px)`;
+    if (instant) { ul.offsetHeight; ul.style.transition = ''; }
+  }
+  function renderQueue() {
+    const q = $('queue'); q.innerHTML = '';
+    for (let k = 1; k <= 3; k++) {
+      const t = T[(ti + k) % T.length], row = document.createElement('div');
+      row.className = 'qi';
+      row.innerHTML = `<img alt="" src="${t.img}"><div style="min-width:0"><div class="t"></div><div class="a"></div></div><span class="c${k === 1 ? ' on' : ''}">${k === 1 ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="#3d3a42"><path d="M7 4v16l13-8Z"/></svg>' : ''}</span>`;
+      row.querySelector('.t').textContent = t.title; row.querySelector('.a').textContent = t.artist;
+      q.appendChild(row);
+    }
+  }
+
+  function setTrack(i, first) {
+    ti = i; const t = T[ti];
+    applyBg();
+    $('title').textContent = t.title; $('artist').textContent = t.artist;
+    $('capL').textContent = t.artist.replace(',', ' ·').toUpperCase();
+    $('vol').textContent = t.vol;
+    $('mode').textContent = 'Перемешивание: ' + (t.shuffle ? 'вкл' : 'выкл');
+    renderQueue();
+    if (first) front.src = t.img;
+    else { back.src = t.img; back.classList.remove('out'); front.classList.add('out'); [front, back] = [back, front]; }
+    pos = t.start; li = 0; lineT = 0;
+    const ul = $('lines');
+    if (first) { renderLines(); focusLine(true); }
+    else { ul.style.opacity = 0; setTimeout(() => { renderLines(); focusLine(true); ul.style.opacity = 1; }, 650); }
+  }
+  setTrack(0, true);
+  if (document.fonts) document.fonts.ready.then(() => focusLine(true));
+
+  /* ---------- snow ---------- */
+  const sc = $('snow'), sx = sc.getContext('2d');
+  const mk = () => ({ x: Math.random() * 1280, y: Math.random() * 800, r: .5 + Math.random() * 1.6,
+    v: 5 + Math.random() * 14, w: Math.random() * 6.3, a: .12 + Math.random() * .5 });
+  let flakes = Array.from({ length: 90 }, mk), speed = reduce ? 0 : 1;
+  function setCount(n) { while (flakes.length < n) flakes.push(mk()); flakes.length = n; }
+  function drawSnow(dt) {
+    sx.clearRect(0, 0, 1280, 800);
+    for (const f of flakes) {
+      if (playing && speed > 0) { f.y += f.v * dt * speed; f.w += dt * .5 * Math.max(.4, speed); f.x += Math.sin(f.w) * 6 * dt * Math.max(.4, speed); }
+      if (f.y > 810) { f.y = -10; f.x = Math.random() * 1280; }
+      sx.globalAlpha = f.a; sx.fillStyle = '#f1eef4';
+      sx.beginPath(); sx.arc(f.x, f.y, f.r, 0, Math.PI * 2); sx.fill();
+    }
+    sx.globalAlpha = 1;
+  }
+
+  /* ---------- visualizer ---------- */
+  const vc = $('viz'), vx = vc.getContext('2d'), N = 26, lv = new Array(N).fill(.2);
+  function drawViz(time) {
+    const W = vc.width, H = vc.height, bw = W / N;
+    vx.clearRect(0, 0, W, H);
+    const beat = Math.pow(Math.max(0, Math.sin(time / 1000 * Math.PI * 2.1)), 8);
+    for (let i = 0; i < N; i++) {
+      const base = .22 + .18 * Math.sin(i * .55 + time / 700) + .14 * Math.sin(i * 1.3 - time / 430);
+      const tgt = playing ? Math.min(1, Math.max(.05, base + beat * (1 - i / N) * .65 + Math.random() * .08)) : .04;
+      lv[i] += (tgt - lv[i]) * .18;
+      const h = lv[i] * H, x = i * bw + 2;
+      const gr = vx.createLinearGradient(0, H - h, 0, H);
+      gr.addColorStop(0, 'rgba(255,92,112,.95)'); gr.addColorStop(1, 'rgba(255,92,112,.15)');
+      vx.fillStyle = gr; vx.shadowColor = 'rgba(255,80,100,.6)'; vx.shadowBlur = 8;
+      vx.beginPath();
+      vx.roundRect ? vx.roundRect(x, H - h, bw - 6, h, 3) : vx.rect(x, H - h, bw - 6, h);
+      vx.fill();
+    }
+    vx.shadowBlur = 0;
+  }
+
+  /* ---------- clock ---------- */
+  const wd = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'], mo = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  function tickClock() {
+    const d = new Date();
+    $('clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    $('date').textContent = `${wd[d.getDay()]} ${d.getDate()} ${mo[d.getMonth()]}`;
+  }
+  tickClock(); setInterval(tickClock, 10000);
+
+  /* ---------- main loop ---------- */
+  function loop(now) {
+    const dt = Math.min(.1, (now - last) / 1000); last = now;
+    if (playing) {
+      pos += dt; lineT += dt * 1000;
+      if (lineT >= LINE) {
+        lineT = 0; li++;
+        if (li >= T[ti].lines.length) setTrack((ti + 1) % T.length); else focusLine();
+      }
+    }
+    const t = T[ti], p = Math.min(1, pos / t.dur);
+    $('fill').style.width = (p * 100) + '%'; $('knob').style.left = (p * 100) + '%';
+    $('cur').textContent = fmt(pos); $('rem').textContent = '-' + fmt(t.dur - pos);
+    $('capR').textContent = hms(pos);
+    drawSnow(dt); drawViz(now);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ---------- settings ---------- */
+  const sw = $('sw');
+  BG.forEach(b => {
+    const btn = document.createElement('button'); btn.type = 'button'; btn.setAttribute('role', 'radio'); btn.id = 'bg-' + b.id;
+    btn.innerHTML = `<i style="background:${b.sw}"></i>`; btn.append(b.name);
+    btn.addEventListener('click', () => { if (b.id === 'photo' && !userImg) { $('pick').click(); return; } bgId = b.id; store.set('mw-bg2', bgId); markBg(); applyBg(); });
+    sw.appendChild(btn);
+  });
+  function markBg() { [...sw.children].forEach(c => c.setAttribute('aria-checked', String(c.id === 'bg-' + bgId))); }
+  const spd = $('spd'), cnt = $('cnt');
+  function onSpd() { speed = +spd.value; $('spdO').textContent = (+spd.value).toFixed(1).replace('.0', '') + '×'; store.set('mw-spd', spd.value); }
+  function onCnt() { setCount(+cnt.value); $('cntO').textContent = cnt.value; store.set('mw-cnt', cnt.value); }
+  userImg = store.get('mw-img');
+  bgId = BG.some(b => b.id === store.get('mw-bg2')) ? store.get('mw-bg2') : 'dusk';
+  if (bgId === 'photo' && !userImg) bgId = 'dusk';
+  const blurR = $('blur'), dimR = $('dimR');
+  if (store.get('mw-blur') != null) blurR.value = store.get('mw-blur');
+  if (store.get('mw-dim') != null) dimR.value = store.get('mw-dim');
+  function onImgSl() { blurV = +blurR.value; dimV = +dimR.value; $('blurO').textContent = blurV; $('dimO').textContent = dimV + '%'; store.set('mw-blur', blurV); store.set('mw-dim', dimV); applyBg(); }
+  blurR.addEventListener('input', onImgSl); dimR.addEventListener('input', onImgSl);
+  $('pick').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const k = Math.min(1, 1920 / Math.max(im.width, im.height));
+        const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        userImg = c.toDataURL('image/jpeg', .85);
+        store.set('mw-img', userImg);
+        bgId = 'photo'; store.set('mw-bg2', bgId); markBg(); applyBg();
+      };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+    e.target.value = '';
+  });
+  blurV = +blurR.value; dimV = +dimR.value; $('blurO').textContent = blurV; $('dimO').textContent = dimV + '%';
+  if (store.get('mw-spd') != null) spd.value = store.get('mw-spd'); else if (reduce) spd.value = 0;
+  if (store.get('mw-cnt') != null) cnt.value = store.get('mw-cnt');
+  spd.addEventListener('input', onSpd); cnt.addEventListener('input', onCnt);
+  markBg(); applyBg(); onSpd(); onCnt();
+
+  /* ---------- controls ---------- */
+  const pp = $('pp');
+  $('bPlay').addEventListener('click', e => {
+    playing = !playing; e.currentTarget.textContent = playing ? 'Пауза' : 'Играть';
+    e.currentTarget.setAttribute('aria-pressed', String(!playing));
+    pp.innerHTML = playing ? '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>' : '<path d="M2 1 17 12 2 23Z"/>';
+  });
+  $('bNext').addEventListener('click', () => setTrack((ti + 1) % T.length));
+  $('bWin').addEventListener('click', e => {
+    const w = $('win'); w.hidden = !w.hidden;
+    e.currentTarget.setAttribute('aria-pressed', String(!w.hidden));
+    e.currentTarget.textContent = w.hidden ? 'Показать окно поверх' : 'Убрать окно';
+  });
+  $('bFull').addEventListener('click', () => {
+    const f = frame.requestFullscreen || frame.webkitRequestFullscreen;
+    if (f) { try { const r = f.call(frame); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
+  });
+  document.addEventListener('fullscreenchange', () => setTimeout(fit, 50));
+})();
+</script>
