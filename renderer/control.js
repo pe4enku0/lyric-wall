@@ -75,6 +75,7 @@
   $('optLogin').onclick = e => set('loginItem', !isOn(e.currentTarget));
   $('optLang').onclick = e => { const b = e.target.closest('button'); if (b) set('language', b.dataset.v); };
   $('optMode').onclick = e => { const b = e.target.closest('button'); if (b) set('winMode', b.dataset.v); };
+  $('bLook').onclick = () => api.openSettings();
   $('bLog').onclick = () => api.openLog();
   $('bQuit').onclick = () => api.quit();
 
@@ -82,7 +83,7 @@
   render(await api.controlState());
 
   // Make the window exactly as tall as its content (it differs per language and system).
-  const fit = () => api.controlResize(Math.ceil(document.querySelector('main').getBoundingClientRect().height));
+  const fit = () => api.fitWindow(Math.ceil(document.querySelector('main').getBoundingClientRect().height));
   if (document.fonts) await document.fonts.ready;
   fit();
 })();

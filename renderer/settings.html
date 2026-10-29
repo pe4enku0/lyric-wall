@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https:">
+<title>Lyric Wall</title>
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/onest/index.css">
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/jetbrains-mono/index.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1 data-i18n="look.title"></h1>
+    <p data-i18n="look.subtitle"></p>
+  </header>
+
+  <div class="set">
+    <section>
+      <h3 data-i18n="look.background"></h3>
+      <div class="sw" id="sw" role="radiogroup"></div>
+    </section>
+    <section class="imgset" id="imgset">
+      <h3 data-i18n="look.picture"></h3>
+      <label class="pick"><span data-i18n="look.choose"></span><input class="vh" id="pick" type="file" accept="image/*"></label>
+      <p class="err" id="pickErr" data-i18n="look.badImage" hidden></p>
+      <div class="sl"><div><label for="blur" data-i18n="look.blur"></label><output id="blurO"></output></div><input id="blur" type="range" min="0" max="40" step="1"></div>
+      <div class="sl"><div><label for="dimR" data-i18n="look.dim"></label><output id="dimO"></output></div><input id="dimR" type="range" min="0" max="80" step="1"></div>
+    </section>
+    <section>
+      <h3><label for="spd" data-i18n="look.snowSpeed"></label><output id="spdO"></output></h3>
+      <input id="spd" type="range" min="0" max="3" step="0.1">
+      <div class="hint"><span data-i18n="look.still"></span><span data-i18n="look.blizzard"></span></div>
+    </section>
+    <section>
+      <h3><label for="cnt" data-i18n="look.snowCount"></label><output id="cntO"></output></h3>
+      <input id="cnt" type="range" min="0" max="300" step="10">
+      <div class="hint"><span data-i18n="look.none"></span><span>300</span></div>
+    </section>
+  </div>
+</main>
+<script src="common.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

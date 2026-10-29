@@ -1,0 +1,40 @@
+/* Settings window: the settings block from mockup.html, 1:1. */
+:root {
+  --bg: #0b0b0e;
+  --fg: #ecebef;
+  --muted: #8d8a94;
+  --line: rgba(255,255,255,.09);
+  --panel: rgba(255,255,255,.045);
+  --display: 'Onest Variable', 'Onest', -apple-system, 'Segoe UI', Arial, sans-serif;
+  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--display); user-select: none; cursor: default; overflow: hidden; }
+/* The window height follows this block (settings.js reports it to the main process). */
+main { box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+/* macOS: the window buttons sit over the content, leave room and let the header drag the window. */
+.plat-darwin main { padding-top: 40px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; -webkit-app-region: drag; }
+header.top h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+
+.set { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.set section { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.set h3 { margin: 0; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; }
+.set h3 output { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--muted); }
+.sw { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw button { display: flex; align-items: center; gap: 7px; font: 600 13px var(--display); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 99px; padding: 5px 11px 5px 5px; cursor: pointer; }
+.sw button i { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+.sw button[aria-checked="true"] { border-color: rgba(236,235,239,.7); background: rgba(255,255,255,.08); }
+.sw button:focus-visible { outline: 2px solid #b9b2c8; outline-offset: 2px; }
+.set input[type=range] { width: 100%; accent-color: #d9d4e2; }
+.set .hint { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+.pick { display: inline-flex; align-self: flex-start; font: 600 13px var(--display); color: var(--fg); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+.pick:focus-within, .pick:hover { background: rgba(255,255,255,.13); }
+.vh { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.imgset[aria-disabled="true"] .sl { opacity: .4; }
+.sl { display: flex; flex-direction: column; gap: 6px; }
+.sl div { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.sl output { font-family: var(--mono); }
+.err { margin: -4px 0 0; font-size: 12px; color: #f0a3a3; }
+.err[hidden] { display: none; }

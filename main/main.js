@@ -20,6 +20,7 @@ const lyrics = require('./lyrics');
 const wallpaper = require('./wallpaper');
 const actions = require('./actions');
 const control = require('./control');
+require('./settings-window');
 const tray = require('./tray');
 
 const startedAt = Date.now();

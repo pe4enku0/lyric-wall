@@ -10,7 +10,9 @@
   $('device').textContent = info.deviceLabel;
 
   /* Background and snow settings. Defaults from the mockup for now; the settings window comes in step 6. */
-  const S = { bg: 'dusk', blur: 0, dim: 30, speed: reduce ? 0 : 1, count: 90, userImg: null };
+  // Look from the settings window (main/appearance.js); the own picture is loaded separately.
+  let S = { bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0 };
+  let userImg = null;
 
   /* The mockup is drawn for 1280×800. Scale so the height is ~800 mockup points
      and the width stretches to the screen (16:9, 16:10 and so on). */
@@ -90,37 +92,65 @@
   }
   const DUSK = dusk();
 
-  const BG = [
-    { id: 'dusk', img: 'dusk', hue: 330, sat: 1 },
-    { id: 'photo', img: 'photo', hue: 225, sat: 1 },
-    { id: 'cover', img: 'cover', hue: null, sat: 1 },
-    { id: 'auto', hue: null, sat: 1 },
-    { id: 'lilac', hue: 225, sat: 1 },
-    { id: 'graphite', hue: 225, sat: .12 },
-    { id: 'night', hue: 95, sat: 1.4 },
-    { id: 'pine', hue: 30, sat: 1.2 },
-    { id: 'sunset', hue: 265, sat: 1.5 }
-  ];
-
   /* ---------- current track ---------- */
-  let track = { id: null, hue: 225, cover: NO_COVER, duration: 0 };
+  let track = { id: null, tone: null, cover: NO_COVER, duration: 0 };
   let playing = false;
   const clock = LW.createClock();
 
-  // A stable colour per track until "colour from cover" arrives in step 6.
-  const hueOf = id => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; };
+  // Colour of the cover for "From cover": the average hue of its colourful pixels (null = a grey cover).
+  function coverTone(src) {
+    return new Promise(resolve => {
+      if (!src || src === NO_COVER) { resolve(null); return; }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas'); c.width = c.height = 24;
+          const g = c.getContext('2d', { willReadFrequently: true });
+          g.drawImage(img, 0, 0, 24, 24);
+          const d = g.getImageData(0, 0, 24, 24).data, n = d.length / 4;
+          let x = 0, y = 0, w = 0, sat = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i] / 255, gr = d[i + 1] / 255, b = d[i + 2] / 255;
+            const max = Math.max(r, gr, b), min = Math.min(r, gr, b), ch = max - min;
+            if (!ch) continue;
+            const h = (max === r ? (gr - b) / ch : max === gr ? (b - r) / ch + 2 : (r - gr) / ch + 4) * Math.PI / 3;
+            x += Math.cos(h) * ch; y += Math.sin(h) * ch; w += ch; // colourful pixels count more
+            sat += ch / (1 - Math.abs(max + min - 1));
+          }
+          resolve(w / n < .04 ? { hue: null, sat: 0 } : { hue: (Math.atan2(y, x) * 180 / Math.PI + 360) % 360, sat: sat / n });
+        } catch (_) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+  function updateTone() {
+    const id = track.id;
+    coverTone(track.cover).then(tone => { if (track.id === id) { track.tone = tone; applyBg(); } });
+  }
+
+  // Tint of the gradient behind the glass. The main glow uses hue + 120 (as in the mockup).
+  function tint(b) {
+    if (b.hue != null) return [b.hue, b.sat];
+    const tone = track.tone;
+    if (tone && tone.hue != null) return [tone.hue - 120, Math.min(1.6, .5 + tone.sat * 1.4)];
+    if (tone) return [225, .12]; // grey cover: graphite
+    return [225, 1];
+  }
 
   function applyBg() {
-    const b = BG.find(x => x.id === S.bg) || BG[0];
-    stage.style.setProperty('--hue', b.hue == null ? track.hue : b.hue);
-    stage.style.setProperty('--sat', b.sat);
+    const b = LW.BACKGROUNDS.find(x => x.id === S.bg) || LW.BACKGROUNDS[0];
+    const [hue, sat] = tint(b);
+    stage.style.setProperty('--hue', hue);
+    stage.style.setProperty('--sat', sat);
     const el = $('bgimg'), dm = $('dim');
     let src = null;
     if (b.img === 'dusk') src = DUSK;
-    else if (b.img === 'photo') src = S.userImg || DUSK;
+    else if (b.img === 'photo') src = userImg || DUSK;
     else if (b.img === 'cover') src = track.cover;
-    const bl = b.img === 'cover' ? Math.max(30, S.blur) : S.blur;
-    const dv = b.img === 'cover' ? Math.max(45, S.dim) : S.dim;
+    const bl = b.img === 'cover' ? Math.max(30, S.imgBlur) : S.imgBlur;
+    const dv = b.img === 'cover' ? Math.max(45, S.imgDim) : S.imgDim;
     el.style.filter = bl ? `blur(${bl}px)` : 'none';
     dm.style.opacity = src ? dv / 100 : 0;
     if (!src) { el.style.opacity = 0; el.dataset.src = ''; return; }
@@ -253,7 +283,7 @@
 
   function showMessage(state) {
     if (track.id === state) return;
-    track = { id: state, hue: 225, cover: NO_COVER, duration: 0 };
+    track = { id: state, tone: null, cover: NO_COVER, duration: 0 };
     clock.set(0, false); setPlaying(false);
     $('title').textContent = t(`state.${state}.title`);
     $('artist').textContent = t(`state.${state}.detail`);
@@ -267,14 +297,14 @@
   function showTrack(s) {
     const changed = s.id !== track.id;
     if (changed) {
-      track = { id: s.id, hue: hueOf(s.id), cover: s.art || NO_COVER, duration: s.duration || 0 };
+      track = { id: s.id, tone: null, cover: s.art || NO_COVER, duration: s.duration || 0 };
       $('title').textContent = s.title || '';
       $('artist').textContent = s.artist || '';
       $('capL').textContent = [s.artist, s.album].filter(Boolean).join(' · ').toUpperCase();
       setLyrics(latestLyrics.id === s.id ? latestLyrics : { id: s.id, status: 'loading' });
-      applyBg();
+      applyBg(); updateTone();
     } else if (s.art && s.art !== track.cover) {
-      track.cover = s.art; applyBg();
+      track.cover = s.art; applyBg(); updateTone();
     }
     track.duration = s.duration || track.duration;
     setCover(track.cover);
@@ -299,7 +329,7 @@
   let flakes = [];
   function setCount(n) { while (flakes.length < n) flakes.push(mk()); flakes.length = n; }
   function drawSnow(dt) {
-    const speed = S.speed;
+    const speed = S.snowSpeed;
     sx.clearRect(0, 0, W, H);
     for (const f of flakes) {
       if (playing && speed > 0) { f.y += f.v * dt * speed; f.w += dt * .5 * Math.max(.4, speed); f.x += Math.sin(f.w) * 6 * dt * Math.max(.4, speed); }
@@ -351,7 +381,16 @@
 
   /* ---------- start ---------- */
   addEventListener('resize', fit); api.onLayoutChanged(fit); fit();
-  setCount(S.count);
+  // Apply the look; fetch the own picture only when it is new.
+  function applyLook(look) {
+    const newImage = look.imageVersion !== S.imageVersion || (look.bg === 'photo' && !userImg);
+    S = look;
+    setCount(S.snowCount);
+    applyBg();
+    if (newImage && look.hasImage) api.getImage().then(url => { userImg = url; applyBg(); });
+  }
+  api.onLook(applyLook);
+  applyLook(await api.getLook());
   showMessage('starting');
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());

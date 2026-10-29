@@ -1,0 +1,66 @@
+// Shared look and behaviour of the app's normal windows (control window, settings window).
+const { app, BrowserWindow, ipcMain, nativeTheme } = require('electron');
+const path = require('path');
+
+const isMac = process.platform === 'darwin';
+const ICON = path.join(__dirname, '..', 'assets', 'icon-win.png');
+const open = new Map(); // window -> its fixed width
+
+function reveal(win) {
+  if (!win.isDestroyed() && !win.isVisible()) { win.center(); win.show(); win.focus(); }
+}
+
+function focus(win) {
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+// The window is shown once its page reports its height (window:fit), or after 2 s at the latest.
+function createAppWindow(file, width) {
+  nativeTheme.themeSource = 'dark';
+  if (isMac && app.dock) {
+    // While a window is open the app gets a Dock icon (and Cmd+Tab), like a normal app.
+    app.dock.show();
+    if (!app.isPackaged) app.dock.setIcon(path.join(__dirname, '..', 'assets', 'icon-mac.png'));
+  }
+  const win = new BrowserWindow({
+    width,
+    height: 600,
+    useContentSize: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    show: false,
+    title: 'Lyric Wall',
+    icon: ICON,
+    backgroundColor: '#1d1b21',
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+  if (!isMac) win.setMenu(null);
+  open.set(win, width);
+  setTimeout(() => reveal(win), 2000);
+  win.on('closed', () => {
+    open.delete(win);
+    if (isMac && app.dock && open.size === 0) app.dock.hide();
+  });
+  win.loadFile(path.join(__dirname, '..', 'renderer', file));
+  return win;
+}
+
+// Make a window exactly as tall as its content (it differs per language and system).
+ipcMain.on('window:fit', (e, height) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win || !open.has(win)) return;
+  win.setContentSize(open.get(win), Math.max(300, Math.min(1000, Math.round(height))));
+  reveal(win);
+});
+
+module.exports = { createAppWindow, focus };

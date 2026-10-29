@@ -38,7 +38,10 @@ npm run window   # show the wallpaper in a normal window to look at the design
 
 Opening the app (or clicking its icon again while it runs) shows the **control window**:
 what is playing, playback buttons, wallpaper on/off, language, start at login, log, quit.
-You can close it — the wallpaper keeps running. The same controls are in the menu bar icon (Mac)
+**Background and snow…** (or **Settings…** in the tray) opens the settings: background preset,
+colour from the cover, blurred cover, your own picture (copied into the app data folder), picture blur
+and dim, snow speed and amount. Changes show right away and are saved.
+You can close the window — the wallpaper keeps running. The same controls are in the menu bar icon (Mac)
 or the tray icon (Windows). When started at login the app stays in the background without a window.
 The log and settings live in the app data folder:
 Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`.
@@ -48,7 +51,7 @@ Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`
 | Folder | Contents |
 |---|---|
 | `main/` | main process: windows, tray, player, settings, log, languages |
-| `renderer/` | the wallpaper UI (look taken from `mockup.html`) and the control window |
+| `renderer/` | the wallpaper UI (look taken from `mockup.html`), the control and settings windows |
 | `adapters/` | `mac.js` and `win.js` (+ `win-media.ps1`); each system loads only its own file |
 | `locales/` | UI text in English (`en.json`) and Russian (`ru.json`) |
 | `assets/` | app icon (`icon-mac.png`, `icon-win.png`), menu bar and tray icons |

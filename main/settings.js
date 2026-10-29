@@ -9,7 +9,14 @@ const file = path.join(app.getPath('userData'), 'settings.json');
 const defaults = {
   wallpaperEnabled: true,
   language: 'auto', // 'auto' | 'en' | 'ru'
-  winMode: 'auto' // Windows: 'auto' = behind desktop icons, 'bottom' = fallback below all windows
+  winMode: 'auto', // Windows: 'auto' = behind desktop icons, 'bottom' = fallback below all windows
+  // Look of the wallpaper (the settings window, see main/appearance.js)
+  bg: 'dusk',
+  imgBlur: 0,
+  imgDim: 30,
+  snowSpeed: 1,
+  snowCount: 90,
+  imageVersion: 0 // changes every time a new own picture is chosen
 };
 
 let data = { ...defaults };
@@ -19,15 +26,27 @@ try {
   if (e.code !== 'ENOENT') log.warn('Could not read settings, using defaults:', e.message);
 }
 
-function get(key) { return data[key]; }
+let saveTimer = null;
 
-function set(key, value) {
-  data[key] = value;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
   try {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
   } catch (e) {
     log.error('Could not save settings:', e.message);
   }
 }
+
+function get(key) { return data[key]; }
+
+// Saved a moment later, so dragging a slider does not write the file on every step.
+function set(key, value) {
+  data[key] = value;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 300);
+}
+
+app.on('will-quit', () => { if (saveTimer) save(); });
 
 module.exports = { get, set };

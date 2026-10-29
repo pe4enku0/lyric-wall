@@ -5,6 +5,7 @@ const adapter = require('../adapters');
 const settings = require('./settings');
 const player = require('./player');
 const lyrics = require('./lyrics');
+const appearance = require('./appearance');
 const log = require('./log');
 
 // npm run window: show the wallpaper in a normal window to look at the design while developing.
@@ -89,6 +90,7 @@ function onDisplayChange() {
 }
 
 lyrics.setSink(r => send('lyrics:state', r));
+appearance.onChange(() => send('look:changed', appearance.get()));
 
 function watchDisplays() {
   screen.on('display-metrics-changed', onDisplayChange);

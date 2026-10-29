@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('lyricWall', {
   info: () => ipcRenderer.invoke('app:info'),
+  // Normal windows: report the content height so the window fits it
+  fitWindow: height => ipcRenderer.send('window:fit', height),
   onLayoutChanged: cb => ipcRenderer.on('layout:changed', () => cb()),
 
   // Player: snapshots and commands 'toggle' | 'next' | 'prev'
@@ -18,7 +20,14 @@ contextBridge.exposeInMainWorld('lyricWall', {
   controlState: () => ipcRenderer.invoke('control:state'),
   controlSet: (key, value) => ipcRenderer.invoke('control:set', key, value),
   onControlChanged: cb => ipcRenderer.on('control:changed', (_e, state) => cb(state)),
-  controlResize: height => ipcRenderer.send('control:resize', height),
   openLog: () => ipcRenderer.send('control:openLog'),
-  quit: () => ipcRenderer.send('control:quit')
+  quit: () => ipcRenderer.send('control:quit'),
+  openSettings: () => ipcRenderer.send('settings:open'),
+
+  // Look of the wallpaper (settings window)
+  getLook: () => ipcRenderer.invoke('look:get'),
+  setLook: (key, value) => ipcRenderer.invoke('look:set', key, value),
+  saveImage: dataUrl => ipcRenderer.invoke('look:saveImage', dataUrl),
+  getImage: () => ipcRenderer.invoke('look:image'),
+  onLook: cb => ipcRenderer.on('look:changed', (_e, look) => cb(look))
 });

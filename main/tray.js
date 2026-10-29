@@ -3,6 +3,7 @@ const { app, Tray, Menu } = require('electron');
 const adapter = require('../adapters');
 const actions = require('./actions');
 const control = require('./control');
+const settingsWindow = require('./settings-window');
 const player = require('./player');
 const { t } = require('./i18n');
 
@@ -18,7 +19,7 @@ function refresh() {
     { label: t('tray.playPause'), enabled: s.wallpaperEnabled, click: () => player.control('toggle') },
     { label: t('tray.next'), enabled: s.wallpaperEnabled, click: () => player.control('next') },
     { type: 'separator' },
-    { label: t('tray.settings'), click: control.show }
+    { label: t('tray.settings'), click: settingsWindow.show }
   ];
   if (process.platform === 'win32') {
     items.push({ label: t('tray.mode'), submenu: [
