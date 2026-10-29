@@ -7,12 +7,24 @@
 
   let look = await api.getLook();
 
-  /* ---------- background swatches ---------- */
+  /* ---------- themes: each card is drawn with the theme's own colours (themes.css) ---------- */
+  const themesEl = $('themes');
+  for (const id of LW.THEMES) {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.setAttribute('role', 'radio'); btn.dataset.id = id;
+    btn.innerHTML = `<span class="thp themed" data-theme="${id}"><span class="thg"><b>Aa</b><i></i></span></span><span class="thn"></span>`;
+    btn.querySelector('.thn').textContent = t(`theme.${id}`);
+    btn.addEventListener('click', () => set('theme', id));
+    themesEl.appendChild(btn);
+  }
+
+  /* ---------- background swatches (the colour presets only with dusty glass) ---------- */
   const sw = $('sw');
   for (const b of LW.BACKGROUNDS) {
     const btn = document.createElement('button');
     btn.type = 'button'; btn.setAttribute('role', 'radio'); btn.dataset.id = b.id;
-    btn.innerHTML = `<i style="background:${b.sw}"></i>`;
+    // the theme's own background shows the current theme in its swatch
+    btn.innerHTML = b.id === 'theme' ? '<i class="themed"></i>' : `<i style="background:${b.sw}"></i>`;
     btn.append(t(`bg.${b.id}`));
     btn.addEventListener('click', () => {
       // "Your picture" without a picture yet: open the file dialog first.
@@ -23,7 +35,13 @@
   }
 
   function render() {
-    for (const btn of sw.children) btn.setAttribute('aria-checked', String(btn.dataset.id === look.bg));
+    for (const btn of themesEl.children) btn.setAttribute('aria-checked', String(btn.dataset.id === look.theme));
+    const offered = LW.backgroundsFor(look.theme).map(b => b.id);
+    for (const btn of sw.children) {
+      btn.setAttribute('aria-checked', String(btn.dataset.id === look.bg));
+      btn.hidden = !offered.includes(btn.dataset.id);
+    }
+    sw.querySelector('[data-id="theme"] i').dataset.theme = look.theme;
     const bg = LW.BACKGROUNDS.find(b => b.id === look.bg);
     $('imgset').setAttribute('aria-disabled', String(!(bg && bg.img)));
     $('blur').value = look.imgBlur; $('blurO').textContent = look.imgBlur;
@@ -37,6 +55,7 @@
   async function set(key, value) {
     look = await api.setLook(key, value);
     render();
+    fit(); // the list of backgrounds may have changed
   }
 
   /* ---------- sliders ---------- */

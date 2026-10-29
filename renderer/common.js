@@ -3,6 +3,7 @@ window.LW = {
   // Background presets from mockup.html. hue/sat tint the gradient behind the glass
   // (null = taken from the track cover); img: which picture is shown; sw: the swatch in the settings.
   BACKGROUNDS: [
+    { id: 'theme', hue: 225, sat: 1, sw: '' }, // the theme's own background (swatch drawn from the theme)
     { id: 'dusk', img: 'dusk', hue: 330, sat: 1, sw: 'linear-gradient(180deg, #8a8a98, #e3b08a 70%, #2a2226)' },
     { id: 'photo', img: 'photo', hue: 225, sat: 1, sw: 'linear-gradient(135deg, #6d7a8f, #b79a8c)' },
     { id: 'cover', img: 'cover', hue: null, sat: 1, sw: 'radial-gradient(circle at 35% 35%, #ddd, #555 60%, #222)' },
@@ -13,6 +14,12 @@ window.LW = {
     { id: 'pine', hue: 30, sat: 1.2, sw: 'linear-gradient(160deg, #3f4844, #1f4a36)' },
     { id: 'sunset', hue: 265, sat: 1.5, sw: 'linear-gradient(160deg, #4d4545, #6a3420)' }
   ],
+  THEMES: ['dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'],
+  // Backgrounds offered with a theme: the colour presets only with dusty glass.
+  backgroundsFor(theme) {
+    const dustyOnly = ['dusk', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
+    return LW.BACKGROUNDS.filter(b => (theme === 'dusty' ? b.id !== 'theme' : !dustyOnly.includes(b.id)));
+  },
 
   // Loads the UI language and fills every element that has data-i18n="key".
   async initI18n() {

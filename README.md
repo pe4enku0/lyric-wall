@@ -28,7 +28,11 @@ The builds are not signed with a paid certificate:
   wallpaper mode (Windows), language, start at login, open log, quit.
 - **The control window** (tray → Open Lyric Wall, or start the app again): what is playing, playback buttons,
   wallpaper on/off and its CPU use, language, start at login, log, quit. Closing it keeps the wallpaper running.
-- **Settings** (tray → Settings…, or "Background and snow…" in the control window): background preset,
+- **Themes** (Settings → Theme): Dusty glass (the mockup), Pastel, Sakura, Night rain, Neon, AMOLED black, Warm vinyl,
+  Matcha and Y2K chrome. A theme sets the whole look — background, glass, text, the current lyric line, the sound bars
+  and the particles (snow, butterflies, petals, rain, stars, dust, leaves or glitter). Your picture and the blurred cover
+  work with every theme; the colour backgrounds belong to Dusty glass.
+- **Settings** (tray → Settings…, or "Background and snow…" in the control window): theme, background preset,
   colour from the cover, blurred cover, your own picture (copied into the app data folder), picture blur and dim,
   snow speed and amount, the sound card, smoothness (30 / 20 / 15 frames per second), pausing on battery.
   Changes show right away and are saved.

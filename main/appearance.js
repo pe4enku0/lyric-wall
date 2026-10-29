@@ -12,7 +12,10 @@ const log = require('./log');
 const IMAGE = path.join(app.getPath('userData'), 'background.jpg');
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
-const BACKGROUNDS = ['dusk', 'photo', 'cover', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
+const THEMES = ['dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'];
+// 'theme' = the theme's own background. The colour presets belong to the dusty-glass theme only.
+const BACKGROUNDS = ['theme', 'dusk', 'photo', 'cover', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
+const DUSTY_ONLY = ['dusk', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
 const LIMITS = { imgBlur: [0, 40], imgDim: [0, 80], snowSpeed: [0, 3], snowCount: [0, 300] };
 
 const events = new EventEmitter();
@@ -21,6 +24,7 @@ const hasImage = () => fs.existsSync(IMAGE);
 
 function get() {
   return {
+    theme: settings.get('theme'),
     bg: settings.get('bg'),
     imgBlur: settings.get('imgBlur'),
     imgDim: settings.get('imgDim'),
@@ -36,8 +40,15 @@ function get() {
 }
 
 function set(key, value) {
-  if (key === 'bg') {
+  if (key === 'theme') {
+    if (!THEMES.includes(value)) return get();
+    // A theme sets the whole look: switch to its own background, but keep a picture or the cover.
+    const bg = settings.get('bg');
+    if (value !== 'dusty' && DUSTY_ONLY.includes(bg)) settings.set('bg', 'theme');
+    if (value === 'dusty' && bg === 'theme') settings.set('bg', 'dusk');
+  } else if (key === 'bg') {
     if (!BACKGROUNDS.includes(value) || (value === 'photo' && !hasImage())) return get();
+    if (settings.get('theme') !== 'dusty' && DUSTY_ONLY.includes(value)) return get();
   } else if (['pauseOnBattery', 'showLyrics', 'audioReactive'].includes(key)) {
     value = !!value;
   } else if (key === 'fps') {

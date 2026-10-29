@@ -1,0 +1,213 @@
+/* Wallpaper themes. A theme sets the whole look: background, glass, text, icons, the current lyric line,
+   the sound bars and the particles (read by app.js from --particles and --p1…--p3).
+   Used by the wallpaper (.stage) and by the theme previews in the settings window. */
+@property --hue { syntax: '<number>'; inherits: true; initial-value: 225; }
+@property --sat { syntax: '<number>'; inherits: true; initial-value: 1; }
+
+/* Dusty glass — the look of mockup.html (the default; also the values every theme starts from). */
+.themed {
+  --stage-bg:
+    radial-gradient(620px 420px at 46% 100%, hsl(calc(var(--hue) + 120) calc(40% * var(--sat)) 24% / .95), transparent 75%),
+    radial-gradient(700px 520px at 92% 92%, hsl(calc(var(--hue) + 110) calc(20% * var(--sat)) 17% / .75), transparent 75%),
+    radial-gradient(760px 560px at 40% 38%, hsl(calc(var(--hue) + 60) calc(8% * var(--sat)) 29%), transparent 72%),
+    radial-gradient(900px 600px at 78% 30%, hsl(calc(var(--hue) + 40) calc(8% * var(--sat)) 22%), transparent 70%),
+    linear-gradient(180deg, #222126, #19171c);
+  --glass-bg: linear-gradient(170deg, rgba(118,113,124,.42), rgba(78,74,84,.34));
+  --glass-border: rgba(255,255,255,.13);
+  --glass-filter: blur(26px) saturate(.9);
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 18px 40px rgba(0,0,0,.32);
+  --ink: #e4e1e8; --ink2: rgba(228,225,232,.62); --ink3: rgba(228,225,232,.5);
+  --icon: #fff; --icon-inv: #3d3a42; --btn-light: #fff;
+  --soft: rgba(255,255,255,.12); --track: rgba(255,255,255,.18); --fill: rgba(255,255,255,.88);
+  --knob: #fff; --knob-glow: rgba(255,255,255,.7);
+  --big: hsl(calc(var(--hue) + 120) 60% 86%);
+  --line: #d9d6dd; --line-on: #e9e6ec; --line-on-bg: none; --line-on-shadow: 0 2px 30px rgba(0,0,0,.25); --line-on-filter: none;
+  --msg: rgba(228,225,232,.72); --plain: #e4e1e8;
+  --dim: #000; --grain-opacity: .16; --grain-blend: overlay;
+  --viz-rgb: 255,92,112; --viz-off: rgba(255,255,255,.13);
+  --particles: snow; --p1: #f1eef4; --p2: #f1eef4; --p3: #f1eef4;
+}
+
+/* Pastel: light, white frosted glass, red-to-pink current line, butterflies and sparkles. */
+.themed[data-theme="pastel"] {
+  --stage-bg:
+    radial-gradient(640px 480px at 72% 62%, rgba(255,170,200,.75), transparent 70%),
+    radial-gradient(760px 560px at 18% 28%, rgba(205,195,255,.8), transparent 72%),
+    radial-gradient(620px 460px at 55% 108%, rgba(255,214,190,.8), transparent 70%),
+    radial-gradient(500px 400px at 95% 10%, rgba(190,220,255,.7), transparent 70%),
+    linear-gradient(160deg, #fdf3f8, #f1effd);
+  --glass-bg: linear-gradient(170deg, rgba(255,255,255,.78), rgba(255,255,255,.56));
+  --glass-border: rgba(255,255,255,.95);
+  --glass-filter: blur(26px) saturate(1.3);
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 18px 40px rgba(150,110,170,.16);
+  --ink: #2a2430; --ink2: rgba(42,36,48,.55); --ink3: rgba(42,36,48,.45);
+  --icon: #2a2430; --icon-inv: #fff; --btn-light: #2a2430;
+  --soft: rgba(42,36,48,.07); --track: rgba(42,36,48,.14); --fill: rgba(42,36,48,.75);
+  --knob: #fff; --knob-glow: rgba(120,80,140,.35);
+  --big: #2a2430;
+  --line: #4a3f52; --line-on: transparent; --line-on-bg: linear-gradient(90deg, #e3264a, #f0569a 55%, #f59ac6); --line-on-shadow: none;
+  --msg: rgba(42,36,48,.6); --plain: #2a2430;
+  --dim: #fff; --grain-opacity: .07; --grain-blend: soft-light;
+  --viz-rgb: 240,74,106; --viz-off: rgba(42,36,48,.1);
+  --particles: butterflies; --p1: #f48fb1; --p2: #f06292; --p3: #ffcf7a;
+}
+
+/* Sakura: soft pink, cherry current line, falling petals. */
+.themed[data-theme="sakura"] {
+  --stage-bg:
+    radial-gradient(700px 500px at 80% 20%, rgba(255,192,210,.8), transparent 70%),
+    radial-gradient(800px 600px at 10% 90%, rgba(255,214,224,.85), transparent 72%),
+    radial-gradient(600px 500px at 50% 50%, rgba(255,240,236,.9), transparent 75%),
+    linear-gradient(170deg, #fff6f3, #fde6ec);
+  --glass-bg: linear-gradient(170deg, rgba(255,255,255,.72), rgba(255,240,244,.55));
+  --glass-border: rgba(255,255,255,.9);
+  --glass-filter: blur(24px) saturate(1.2);
+  --glass-shadow: inset 0 1px 0 #fff, 0 18px 40px rgba(190,90,120,.14);
+  --ink: #4a1f2c; --ink2: rgba(74,31,44,.58); --ink3: rgba(74,31,44,.45);
+  --icon: #4a1f2c; --icon-inv: #fff; --btn-light: #b8325a;
+  --soft: rgba(184,50,90,.08); --track: rgba(74,31,44,.14); --fill: #c2185b;
+  --knob: #fff; --knob-glow: rgba(194,24,91,.4);
+  --big: #b8325a;
+  --line: #6b3443; --line-on: transparent; --line-on-bg: linear-gradient(90deg, #b0124f, #e0507c); --line-on-shadow: none;
+  --msg: rgba(74,31,44,.6); --plain: #4a1f2c;
+  --dim: #fff; --grain-opacity: .06; --grain-blend: soft-light;
+  --viz-rgb: 224,85,120; --viz-off: rgba(74,31,44,.1);
+  --particles: petals; --p1: #f8bbd0; --p2: #f48fb1; --p3: #fde2ea;
+}
+
+/* Night rain: dark blue, cold light, rain streaks. */
+.themed[data-theme="rain"] {
+  --stage-bg:
+    radial-gradient(800px 500px at 70% 15%, rgba(70,110,170,.45), transparent 70%),
+    radial-gradient(700px 520px at 15% 85%, rgba(40,70,120,.5), transparent 72%),
+    radial-gradient(500px 300px at 60% 100%, rgba(120,150,200,.25), transparent 70%),
+    linear-gradient(180deg, #0b1424, #13213a 60%, #0d1729);
+  --glass-bg: linear-gradient(170deg, rgba(60,85,125,.4), rgba(30,45,75,.35));
+  --glass-border: rgba(170,205,255,.16);
+  --glass-filter: blur(26px) saturate(1.1);
+  --glass-shadow: inset 0 1px 0 rgba(200,225,255,.12), 0 18px 40px rgba(0,0,0,.4);
+  --ink: #e3ecfa; --ink2: rgba(210,225,245,.62); --ink3: rgba(210,225,245,.48);
+  --icon: #eaf2ff; --icon-inv: #13213a; --btn-light: #dbe8ff;
+  --soft: rgba(190,215,255,.12); --track: rgba(190,215,255,.18); --fill: rgba(220,235,255,.9);
+  --knob: #fff; --knob-glow: rgba(150,200,255,.7);
+  --big: #9ccfff;
+  --line: #b8c8e0; --line-on: transparent; --line-on-bg: linear-gradient(180deg, #ffffff, #a8d4ff); --line-on-shadow: none;
+  --line-on-filter: drop-shadow(0 0 18px rgba(120,180,255,.35));
+  --msg: rgba(210,225,245,.72); --plain: #e3ecfa;
+  --viz-rgb: 95,180,255; --viz-off: rgba(190,215,255,.12);
+  --particles: rain; --p1: rgba(180,210,255,.6); --p2: rgba(200,225,255,.4); --p3: rgba(255,255,255,.5);
+}
+
+/* Neon / synthwave: dark violet, glowing grid on the horizon, pink-to-cyan current line, twinkling stars. */
+.themed[data-theme="neon"] {
+  --stage-bg:
+    radial-gradient(420px 220px at 50% 72%, rgba(255,140,70,.55), transparent 70%),
+    radial-gradient(1000px 420px at 50% 78%, rgba(255,60,200,.32), transparent 70%),
+    repeating-linear-gradient(180deg, rgba(255,80,220,.35) 0 1px, transparent 1px 34px) 0 100% / 100% 30% no-repeat,
+    repeating-linear-gradient(90deg, rgba(255,80,220,.22) 0 1px, transparent 1px 72px) 0 100% / 100% 30% no-repeat,
+    linear-gradient(180deg, #0f0a2b 0%, #2a0f48 62%, #3d0f4f 70%, #150825 100%);
+  --glass-bg: linear-gradient(170deg, rgba(60,25,100,.5), rgba(25,10,55,.45));
+  --glass-border: rgba(255,90,220,.45);
+  --glass-filter: blur(24px) saturate(1.3);
+  --glass-shadow: inset 0 1px 0 rgba(255,150,240,.2), 0 0 26px rgba(255,60,200,.22), 0 18px 40px rgba(0,0,0,.45);
+  --ink: #f6ecff; --ink2: rgba(235,215,255,.65); --ink3: rgba(235,215,255,.5);
+  --icon: #fff; --icon-inv: #2a0f48; --btn-light: #ff4fd8;
+  --soft: rgba(255,120,240,.14); --track: rgba(255,150,240,.2); --fill: #ff4fd8;
+  --knob: #fff; --knob-glow: rgba(255,79,216,.9);
+  --big: #4fd8ff;
+  --line: #cdb8ef; --line-on: transparent; --line-on-bg: linear-gradient(90deg, #ff4fd8, #a35bff 50%, #4fd8ff); --line-on-shadow: none;
+  --line-on-filter: drop-shadow(0 0 14px rgba(255,79,216,.55));
+  --msg: rgba(235,215,255,.75); --plain: #f6ecff;
+  --grain-opacity: .12;
+  --viz-rgb: 255,79,216; --viz-off: rgba(255,150,240,.14);
+  --particles: stars; --p1: #ffffff; --p2: #4fd8ff; --p3: #ff4fd8;
+}
+
+/* AMOLED black: pure black, no glass, no particles — the strictest and most frugal. */
+.themed[data-theme="amoled"] {
+  --stage-bg: #000;
+  --glass-bg: transparent;
+  --glass-border: rgba(255,255,255,.14);
+  --glass-filter: none;
+  --glass-shadow: none;
+  --ink: #fff; --ink2: rgba(255,255,255,.6); --ink3: rgba(255,255,255,.42);
+  --icon: #fff; --icon-inv: #000; --btn-light: #fff;
+  --soft: rgba(255,255,255,.1); --track: rgba(255,255,255,.2); --fill: #fff;
+  --knob: #fff; --knob-glow: transparent;
+  --big: #fff;
+  --line: #fff; --line-on: #fff; --line-on-shadow: none;
+  --msg: rgba(255,255,255,.7); --plain: #fff;
+  --grain-opacity: 0;
+  --viz-rgb: 255,255,255; --viz-off: rgba(255,255,255,.12);
+  --particles: none;
+}
+
+/* Warm vinyl: cream and brown like an old record player, heavy film grain, amber line, dust in the light. */
+.themed[data-theme="vinyl"] {
+  --stage-bg:
+    radial-gradient(700px 500px at 80% 20%, rgba(255,170,80,.35), transparent 70%),
+    radial-gradient(800px 600px at 20% 90%, rgba(150,80,40,.45), transparent 72%),
+    radial-gradient(500px 400px at 55% 55%, rgba(255,200,140,.12), transparent 75%),
+    linear-gradient(170deg, #2e2016, #1c140e);
+  --glass-bg: linear-gradient(170deg, rgba(150,105,60,.38), rgba(90,60,35,.34));
+  --glass-border: rgba(255,210,150,.18);
+  --glass-filter: blur(24px) saturate(1.1) sepia(.15);
+  --glass-shadow: inset 0 1px 0 rgba(255,220,170,.14), 0 18px 40px rgba(0,0,0,.4);
+  --ink: #f6e6cf; --ink2: rgba(246,230,207,.62); --ink3: rgba(246,230,207,.48);
+  --icon: #fbeedd; --icon-inv: #3a2616; --btn-light: #f6d9a8;
+  --soft: rgba(255,215,160,.12); --track: rgba(255,215,160,.2); --fill: #ffc36b;
+  --knob: #ffe2b3; --knob-glow: rgba(255,180,90,.7);
+  --big: #ffc36b;
+  --line: #e6cfb0; --line-on: transparent; --line-on-bg: linear-gradient(90deg, #ffd27a, #ff9a4a); --line-on-shadow: none;
+  --line-on-filter: drop-shadow(0 2px 20px rgba(255,150,60,.25));
+  --msg: rgba(246,230,207,.72); --plain: #f6e6cf;
+  --grain-opacity: .3;
+  --viz-rgb: 255,179,92; --viz-off: rgba(255,215,160,.12);
+  --particles: dust; --p1: rgba(255,220,170,.85); --p2: rgba(255,200,140,.65); --p3: rgba(255,240,215,.75);
+}
+
+/* Matcha: light green and cream, green current line, falling leaves. */
+.themed[data-theme="matcha"] {
+  --stage-bg:
+    radial-gradient(700px 500px at 75% 25%, rgba(200,225,170,.8), transparent 70%),
+    radial-gradient(800px 600px at 15% 85%, rgba(220,235,200,.85), transparent 72%),
+    radial-gradient(500px 400px at 50% 100%, rgba(250,240,215,.8), transparent 70%),
+    linear-gradient(170deg, #f5f8ee, #eef3e4);
+  --glass-bg: linear-gradient(170deg, rgba(255,255,255,.75), rgba(250,252,244,.55));
+  --glass-border: rgba(255,255,255,.95);
+  --glass-filter: blur(24px) saturate(1.2);
+  --glass-shadow: inset 0 1px 0 #fff, 0 18px 40px rgba(90,120,60,.14);
+  --ink: #23331f; --ink2: rgba(35,51,31,.58); --ink3: rgba(35,51,31,.45);
+  --icon: #23331f; --icon-inv: #fff; --btn-light: #3f6b34;
+  --soft: rgba(63,107,52,.08); --track: rgba(35,51,31,.14); --fill: #4f8a3f;
+  --knob: #fff; --knob-glow: rgba(79,138,63,.4);
+  --big: #3f6b34;
+  --line: #3d5236; --line-on: transparent; --line-on-bg: linear-gradient(90deg, #3f7a33, #8bbf5a); --line-on-shadow: none;
+  --msg: rgba(35,51,31,.6); --plain: #23331f;
+  --dim: #fff; --grain-opacity: .06; --grain-blend: soft-light;
+  --viz-rgb: 106,168,79; --viz-off: rgba(35,51,31,.1);
+  --particles: leaves; --p1: #8bbf5a; --p2: #b5d68a; --p3: #6aa84f;
+}
+
+/* Y2K chrome: silver and pearl, chrome glass, iridescent current line, glitter. */
+.themed[data-theme="chrome"] {
+  --stage-bg:
+    radial-gradient(600px 420px at 80% 25%, rgba(200,235,255,.8), transparent 70%),
+    radial-gradient(600px 460px at 20% 80%, rgba(255,214,245,.75), transparent 70%),
+    radial-gradient(500px 380px at 55% 55%, rgba(225,255,225,.6), transparent 72%),
+    linear-gradient(135deg, #d9dde6, #f6f7fa 40%, #cfd4df 62%, #eef0f6);
+  --glass-bg: linear-gradient(160deg, rgba(255,255,255,.88), rgba(215,220,232,.62));
+  --glass-border: #fff;
+  --glass-filter: blur(22px) saturate(1.4);
+  --glass-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(150,160,180,.3), 0 18px 40px rgba(90,100,130,.2);
+  --ink: #2b2f3a; --ink2: rgba(43,47,58,.58); --ink3: rgba(43,47,58,.45);
+  --icon: #2b2f3a; --icon-inv: #fff; --btn-light: #2b2f3a;
+  --soft: rgba(43,47,58,.08); --track: rgba(43,47,58,.14); --fill: #6f78c8;
+  --knob: #fff; --knob-glow: rgba(140,150,220,.6);
+  --big: #5a63b8;
+  --line: #3c4150; --line-on: transparent; --line-on-bg: linear-gradient(90deg, #7f7fd5, #86a8e7 35%, #7fd8d0 65%, #e88fcf); --line-on-shadow: none;
+  --msg: rgba(43,47,58,.6); --plain: #2b2f3a;
+  --dim: #fff; --grain-opacity: .08; --grain-blend: soft-light;
+  --viz-rgb: 138,143,216; --viz-off: rgba(43,47,58,.1);
+  --particles: glitter; --p1: #ffffff; --p2: #c9b6ff; --p3: #9fe8ff;
+}

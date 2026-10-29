@@ -12,7 +12,7 @@
   $('device').textContent = info.deviceLabel;
 
   // Look from the settings window (main/appearance.js); the own picture is loaded separately.
-  let S = { bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0, showLyrics: true, audioReactive: false, fps: 30 };
+  let S = { theme: 'dusty', bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0, showLyrics: true, audioReactive: false, fps: 30 };
   let userImg = null;
 
   /* The mockup is drawn for 1280×800. Scale so the height is ~800 mockup points
@@ -190,7 +190,7 @@
     for (let i = 0; i < items.length; i++) {
       const d = i - li, a = Math.abs(d), el = items[i];
       el.classList.toggle('on', d === 0);
-      el.style.filter = d === 0 ? 'none' : d < 0 ? `blur(${1.6 + a * 1.2}px)` : `blur(${Math.min(2.4 + a * 1.6, 8)}px)`;
+      el.style.filter = d === 0 ? '' : d < 0 ? `blur(${1.6 + a * 1.2}px)` : `blur(${Math.min(2.4 + a * 1.6, 8)}px)`;
       el.style.opacity = d === 0 ? 1 : d < 0 ? Math.max(.2, .62 - a * .15) : Math.max(.22, .7 - a * .14);
       el.style.transform = d === 0 ? 'scale(1)' : 'scale(.97)';
       el.style.visibility = a > 7 ? 'hidden' : ''; // far lines are out of view anyway
@@ -382,19 +382,103 @@
     lastSig = sig;
   }
 
-  /* ---------- snow ---------- */
-  const mk = () => ({ x: Math.random() * W, y: Math.random() * H, r: .5 + Math.random() * 1.6,
-    v: 5 + Math.random() * 14, w: Math.random() * 6.3, a: .12 + Math.random() * .5 });
+  /* ---------- particles: snow, butterflies, petals, rain… (the theme chooses, themes.css) ---------- */
+  // speed: how fast it falls; sway: side movement; size: in mockup points.
+  const KINDS = {
+    snow:        { speed: 1,   sway: 6,  size: [.5, 2.1] },
+    butterflies: { speed: .5,  sway: 18, size: [6, 11] },    // a third are butterflies, the rest sparkles
+    petals:      { speed: .9,  sway: 14, size: [5, 9] },
+    rain:        { speed: 22,  sway: 0,  size: [14, 28] },
+    stars:       { speed: .25, sway: 3,  size: [1.5, 3.5] },
+    dust:        { speed: -.3, sway: 8,  size: [.8, 2.6] }, // floats up slowly
+    leaves:      { speed: .8,  sway: 16, size: [5, 8] },
+    glitter:     { speed: .4,  sway: 4,  size: [1.5, 3.5] },
+    none:        { speed: 0,   sway: 0,  size: [0, 0] }
+  };
+  let pKind = 'snow', pColors = ['#f1eef4'];
+  let vizRgb = '255,92,112', vizOff = 'rgba(255,255,255,.13)';
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const mk = () => {
+    const k = KINDS[pKind] || KINDS.snow;
+    return {
+      x: Math.random() * W, y: Math.random() * H, s: rnd(k.size[0], k.size[1]),
+      v: 5 + Math.random() * 14, w: Math.random() * 6.3, a: .12 + Math.random() * .5,
+      rot: Math.random() * 6.3, spin: rnd(-1.2, 1.2),
+      c: pColors[Math.floor(Math.random() * pColors.length)],
+      fly: pKind === 'butterflies' && Math.random() < .35 // a butterfly, not a sparkle
+    };
+  };
   let flakes = [];
   function setCount(n) { while (flakes.length < n) flakes.push(mk()); flakes.length = n; }
-  function drawSnow(dt) {
-    const speed = S.snowSpeed;
+  // Read the theme's particles and sound-bar colours (after the theme changed).
+  function readTheme() {
+    const cs = getComputedStyle(stage);
+    const kind = cs.getPropertyValue('--particles').trim() || 'snow';
+    pColors = ['--p1', '--p2', '--p3'].map(v => cs.getPropertyValue(v).trim()).filter(Boolean);
+    vizRgb = cs.getPropertyValue('--viz-rgb').trim() || vizRgb;
+    vizOff = cs.getPropertyValue('--viz-off').trim() || vizOff;
+    if (kind !== pKind || !flakes.length) { pKind = kind; flakes = flakes.map(mk); }
+  }
+
+  function star4(x, y, r) {
+    sx.beginPath(); sx.moveTo(x, y - r);
+    sx.quadraticCurveTo(x, y, x + r, y); sx.quadraticCurveTo(x, y, x, y + r);
+    sx.quadraticCurveTo(x, y, x - r, y); sx.quadraticCurveTo(x, y, x, y - r);
+    sx.fill();
+  }
+  function wing(x, y, rx, ry, rot) { sx.beginPath(); sx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); sx.fill(); }
+  function drawOne(f) {
+    const s = f.s;
+    sx.fillStyle = f.c; sx.strokeStyle = f.c;
+    switch (pKind) {
+      case 'snow': sx.globalAlpha = f.a; sx.beginPath(); sx.arc(f.x, f.y, s, 0, Math.PI * 2); sx.fill(); break;
+      case 'dust': sx.globalAlpha = f.a * .7; sx.beginPath(); sx.arc(f.x, f.y, s, 0, Math.PI * 2); sx.fill(); break;
+      case 'rain':
+        sx.globalAlpha = .25 + f.a * .5; sx.lineWidth = 1;
+        sx.beginPath(); sx.moveTo(f.x, f.y); sx.lineTo(f.x - s * .18, f.y + s); sx.stroke();
+        break;
+      case 'stars': case 'glitter':
+        sx.globalAlpha = (.35 + .65 * Math.abs(Math.sin(f.w * 2.2))) * Math.min(1, f.a + .35);
+        star4(f.x, f.y, s);
+        break;
+      case 'butterflies':
+        if (!f.fly) { sx.globalAlpha = (.3 + .7 * Math.abs(Math.sin(f.w * 2.2))) * .8; star4(f.x, f.y, s * .35); break; }
+        sx.globalAlpha = .55 + f.a * .6;
+        sx.save(); sx.translate(f.x, f.y); sx.rotate(Math.sin(f.w) * .4);
+        sx.scale(.3 + .7 * Math.abs(Math.sin(f.w * 5)), 1); // wings flap
+        wing(-s * .55, -s * .25, s * .6, s * .45, -.5); wing(s * .55, -s * .25, s * .6, s * .45, .5);
+        wing(-s * .4, s * .35, s * .38, s * .3, .4); wing(s * .4, s * .35, s * .38, s * .3, -.4);
+        sx.restore();
+        break;
+      case 'petals':
+        sx.globalAlpha = .55 + f.a * .6;
+        sx.save(); sx.translate(f.x, f.y); sx.rotate(f.rot);
+        wing(0, 0, s, s * .55, 0);
+        sx.restore();
+        break;
+      case 'leaves':
+        sx.globalAlpha = .55 + f.a * .6;
+        sx.save(); sx.translate(f.x, f.y); sx.rotate(f.rot);
+        sx.beginPath(); sx.moveTo(-s, 0); sx.quadraticCurveTo(0, -s * .6, s, 0); sx.quadraticCurveTo(0, s * .6, -s, 0); sx.fill();
+        sx.restore();
+        break;
+    }
+  }
+  function drawParticles(dt) {
+    const speed = S.snowSpeed, k = KINDS[pKind] || KINDS.snow;
     sx.clearRect(0, 0, W, H);
+    if (pKind === 'none') return;
+    const m = Math.max(.4, speed);
     for (const f of flakes) {
-      if (playing && speed > 0) { f.y += f.v * dt * speed; f.w += dt * .5 * Math.max(.4, speed); f.x += Math.sin(f.w) * 6 * dt * Math.max(.4, speed); }
-      if (f.y > H + 10) { f.y = -10; f.x = Math.random() * W; }
-      sx.globalAlpha = f.a; sx.fillStyle = '#f1eef4';
-      sx.beginPath(); sx.arc(f.x, f.y, f.r, 0, Math.PI * 2); sx.fill();
+      if (playing && speed > 0) {
+        f.y += f.v * dt * speed * k.speed;
+        f.w += dt * .5 * m;
+        f.x += Math.sin(f.w) * k.sway * dt * m;
+        f.rot += f.spin * dt * m;
+      }
+      if (f.y > H + 30) { f.y = -30; f.x = Math.random() * W; }
+      if (f.y < -30) { f.y = H + 30; f.x = Math.random() * W; }
+      drawOne(f);
     }
     sx.globalAlpha = 1;
   }
@@ -465,10 +549,10 @@
       vx.roundRect ? vx.roundRect(x, VH - h, bw - 6, h, 3) : vx.rect(x, VH - h, bw - 6, h);
       if (i < lit) {
         const gr = vx.createLinearGradient(0, VH - h, 0, VH);
-        gr.addColorStop(0, 'rgba(255,92,112,.95)'); gr.addColorStop(1, 'rgba(255,92,112,.15)');
-        vx.fillStyle = gr; vx.shadowColor = 'rgba(255,80,100,.6)'; vx.shadowBlur = 8;
+        gr.addColorStop(0, `rgba(${vizRgb},.95)`); gr.addColorStop(1, `rgba(${vizRgb},.15)`);
+        vx.fillStyle = gr; vx.shadowColor = `rgba(${vizRgb},.6)`; vx.shadowBlur = 8;
       } else {
-        vx.fillStyle = 'rgba(255,255,255,.13)'; vx.shadowBlur = 0;
+        vx.fillStyle = vizOff; vx.shadowBlur = 0;
       }
       vx.fill();
       if (Math.abs(tgt - lv[i]) > .003) moving = true;
@@ -505,7 +589,7 @@
     if (pct !== lastPct) { lastPct = pct; $('fill').style.width = pct + '%'; $('knob').style.left = pct + '%'; }
     setText('cur', fmt(pos)); setText('rem', '-' + fmt(d - pos)); setText('capR', hms(pos));
     updateLyrics(pos, d);
-    drawSnow(dt);
+    drawParticles(dt);
     const vizMoving = drawViz();
     if (playing || vizMoving) scheduleFrame();
   }
@@ -609,6 +693,8 @@
     const newImage = look.imageVersion !== S.imageVersion || (look.bg === 'photo' && !userImg);
     if (look.audioReactive && !S.audioReactive) audioFailed = false; // turned on again: try again
     S = look;
+    stage.dataset.theme = S.theme || 'dusty';
+    readTheme();
     setCount(S.snowCount);
     applyBg();
     $('lyr').classList.toggle('off', !S.showLyrics);

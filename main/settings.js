@@ -11,6 +11,7 @@ const defaults = {
   language: 'auto', // 'auto' | 'en' | 'ru'
   winMode: 'auto', // Windows: 'auto' = behind desktop icons, 'bottom' = fallback below all windows
   // Look of the wallpaper (the settings window, see main/appearance.js)
+  theme: 'dusty',
   bg: 'dusk',
   imgBlur: 0,
   imgDim: 30,
