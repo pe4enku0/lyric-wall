@@ -79,5 +79,16 @@
   "bg.graphite": "Graphite",
   "bg.night": "Night",
   "bg.pine": "Pine",
-  "bg.sunset": "Sunset"
+  "bg.sunset": "Sunset",
+  "control.status.running": "Running",
+  "control.status.paused": "Paused",
+  "control.status.off": "Off",
+  "control.cpu": "CPU",
+  "pause.locked": "screen locked",
+  "pause.sleep": "sleep",
+  "pause.fullscreen": "game or full-screen app",
+  "pause.battery": "on battery",
+  "look.power": "Power saving",
+  "look.pauseOnBattery": "Pause the wallpaper on battery",
+  "look.pauseHint": "The wallpaper always pauses when the screen is locked, the computer sleeps or (on Windows) a game or another app is full screen."
 }

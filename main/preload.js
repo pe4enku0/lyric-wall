@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('lyricWall', {
   // Normal windows: report the content height so the window fits it
   fitWindow: height => ipcRenderer.send('window:fit', height),
   onLayoutChanged: cb => ipcRenderer.on('layout:changed', () => cb()),
+  // { paused, reasons }: the wallpaper stops drawing completely while paused
+  getRender: () => ipcRenderer.invoke('render:get'),
+  onRender: cb => ipcRenderer.on('render:state', (_e, st) => cb(st)),
 
   // Player: snapshots and commands 'toggle' | 'next' | 'prev'
   getPlayer: () => ipcRenderer.invoke('player:get'),
@@ -20,6 +23,8 @@ contextBridge.exposeInMainWorld('lyricWall', {
   controlState: () => ipcRenderer.invoke('control:state'),
   controlSet: (key, value) => ipcRenderer.invoke('control:set', key, value),
   onControlChanged: cb => ipcRenderer.on('control:changed', (_e, state) => cb(state)),
+  // { cpu, paused, reasons } every 2 s
+  onStatus: cb => ipcRenderer.on('control:status', (_e, st) => cb(st)),
   openLog: () => ipcRenderer.send('control:openLog'),
   quit: () => ipcRenderer.send('control:quit'),
   openSettings: () => ipcRenderer.send('settings:open'),

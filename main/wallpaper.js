@@ -6,6 +6,7 @@ const settings = require('./settings');
 const player = require('./player');
 const lyrics = require('./lyrics');
 const appearance = require('./appearance');
+const power = require('./power');
 const log = require('./log');
 
 // npm run window: show the wallpaper in a normal window to look at the design while developing.
@@ -65,9 +66,21 @@ function create() {
 
   win.webContents.on('render-process-gone', (_e, d) => log.error('Wallpaper UI crashed:', d.reason));
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
-  unsubscribe = player.subscribe(snap => { send('player:state', snap); lyrics.onSnapshot(snap); });
+  listen(!power.state().paused);
   return win;
 }
+
+// Spotify is read only while the wallpaper is drawn (a paused wallpaper needs nothing).
+function listen(on) {
+  if (on && !unsubscribe) unsubscribe = player.subscribe(snap => { send('player:state', snap); lyrics.onSnapshot(snap); });
+  if (!on && unsubscribe) { unsubscribe(); unsubscribe = null; }
+}
+
+power.onChange(st => {
+  if (!win) return;
+  send('render:state', st);
+  listen(!st.paused);
+});
 
 function destroy() {
   clearTimeout(restartTimer);

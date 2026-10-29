@@ -2,7 +2,8 @@
 // What the UI gets: { id, status, lines?, plain? }
 //   id:     the Spotify track id the lyrics belong to
 //   status: 'loading' | 'synced' | 'plain' | 'instrumental' | 'not-found' | 'offline' | 'busy' | 'error'
-//   lines:  [{ t: seconds, text }] for synced lyrics; plain: [text] for plain lyrics
+//   lines:  [{ t: seconds, text, words? }] for synced lyrics; plain: [text] for plain lyrics
+//   words:  [{ t, text }] only when the lyrics have exact word times (enhanced LRC)
 const { app, net } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -21,14 +22,22 @@ let current = { id: null, status: 'none' };
 let sink = null;
 let retryTimer = null;
 
+const toSeconds = (m, s) => Number(m) * 60 + Number(s);
+
 // "[01:23.45] words" -> { t: 83.45, text: 'words' }. A line may have several time stamps.
+// Enhanced LRC also times every word: "[01:23.45] <01:23.45> Hello <01:24.10> world".
 function parseLrc(text) {
   const lines = [];
   for (const raw of text.split(/\r?\n/)) {
     const stamps = [...raw.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
     if (!stamps.length) continue;
-    const words = raw.replace(/\[[^\]]*\]/g, '').trim();
-    for (const m of stamps) lines.push({ t: Number(m[1]) * 60 + Number(m[2]), text: words });
+    const body = raw.replace(/\[[^\]]*\]/g, '');
+    const tagged = [...body.matchAll(/<(\d+):(\d+(?:\.\d+)?)>([^<]*)/g)]
+      .map(m => ({ t: toSeconds(m[1], m[2]), text: m[3].trim() }))
+      .filter(w => w.text);
+    const words = tagged.length ? tagged : null;
+    const clean = words ? words.map(w => w.text).join(' ') : body.trim();
+    for (const m of stamps) lines.push({ t: toSeconds(m[1], m[2]), text: clean, ...(words && { words }) });
   }
   return lines.sort((a, b) => a.t - b.t);
 }

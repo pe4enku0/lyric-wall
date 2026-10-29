@@ -1,5 +1,5 @@
-// Look of the wallpaper: background, picture blur/dim, snow. Changed in the settings window,
-// applied by the wallpaper right away and kept in settings.json.
+// Options of the settings window: background, picture blur/dim, snow, pausing on battery.
+// Applied right away and kept in settings.json.
 const { app } = require('electron');
 const { EventEmitter } = require('events');
 const fs = require('fs');
@@ -26,13 +26,16 @@ function get() {
     snowSpeed: settings.get('snowSpeed'),
     snowCount: settings.get('snowCount'),
     hasImage: hasImage(),
-    imageVersion: settings.get('imageVersion')
+    imageVersion: settings.get('imageVersion'),
+    pauseOnBattery: settings.get('pauseOnBattery')
   };
 }
 
 function set(key, value) {
   if (key === 'bg') {
     if (!BACKGROUNDS.includes(value) || (value === 'photo' && !hasImage())) return get();
+  } else if (key === 'pauseOnBattery') {
+    value = !!value;
   } else if (LIMITS[key]) {
     const [lo, hi] = LIMITS[key];
     value = Math.min(hi, Math.max(lo, Number(value) || 0));

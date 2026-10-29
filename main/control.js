@@ -4,10 +4,13 @@ const { app, ipcMain } = require('electron');
 const { createAppWindow, focus } = require('./windows');
 const actions = require('./actions');
 const player = require('./player');
+const power = require('./power');
+const { cpuPercent } = require('./metrics');
 const log = require('./log');
 
 let win = null;
 let unsubscribe = null;
+let statusTimer = null;
 
 function send(channel, ...args) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
@@ -18,9 +21,13 @@ function show() {
   win = createAppWindow('control.html', 440);
   win.on('closed', () => {
     win = null;
+    clearInterval(statusTimer);
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   });
   unsubscribe = player.subscribe(snap => send('player:state', snap));
+  // CPU use of the whole app and whether the wallpaper is paused, every 2 s while the window is open.
+  cpuPercent();
+  statusTimer = setInterval(() => send('control:status', { cpu: cpuPercent(), ...power.state() }), 2000);
   log.info('Control window opened');
 }
 

@@ -17,6 +17,9 @@ const settings = require('./settings');
 const i18n = require('./i18n');
 const player = require('./player');
 const lyrics = require('./lyrics');
+const power = require('./power');
+const appearance = require('./appearance');
+const { cpuPercent } = require('./metrics');
 const wallpaper = require('./wallpaper');
 const actions = require('./actions');
 const control = require('./control');
@@ -35,6 +38,7 @@ ipcMain.handle('app:info', () => ({
 ipcMain.handle('player:get', () => player.get());
 ipcMain.on('player:control', (_e, cmd) => player.control(cmd));
 ipcMain.handle('lyrics:get', () => lyrics.get());
+ipcMain.handle('render:get', () => power.state());
 
 // Started automatically at login: stay in the background without opening a window.
 function startedAtLogin() {
@@ -55,9 +59,13 @@ app.on('activate', () => { if (Date.now() - startedAt > 3000) control.show(); })
 app.whenReady().then(() => {
   log.info(`Start Lyric Wall ${app.getVersion()}: ${process.platform} ${os.release()}, Electron ${process.versions.electron}, adapter ${adapter.name}, language ${i18n.lang()}`);
   adapter.init();
+  power.start();
+  appearance.onChange(power.checkBattery);
   wallpaper.watchDisplays();
   if (settings.get('wallpaperEnabled')) wallpaper.create();
   tray.create();
+  // Note the CPU use in the log every 10 minutes (the control window shows it live).
+  setInterval(() => log.info(`CPU: ${cpuPercent().toFixed(1)}% (wallpaper ${power.state().paused ? 'paused' : 'running'})`), 10 * 60 * 1000);
   if (startedAtLogin()) log.info('Started at login: no window');
   else control.show();
 

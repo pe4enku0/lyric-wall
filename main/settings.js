@@ -16,7 +16,8 @@ const defaults = {
   imgDim: 30,
   snowSpeed: 1,
   snowCount: 90,
-  imageVersion: 0 // changes every time a new own picture is chosen
+  imageVersion: 0, // changes every time a new own picture is chosen
+  pauseOnBattery: false // stop the wallpaper while running on battery (main/power.js)
 };
 
 let data = { ...defaults };

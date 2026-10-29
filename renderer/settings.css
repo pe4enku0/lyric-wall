@@ -36,5 +36,9 @@ header.top p { margin: 0; color: var(--muted); font-size: 14px; }
 .sl { display: flex; flex-direction: column; gap: 6px; }
 .sl div { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
 .sl output { font-family: var(--mono); }
+.set section.wide { grid-column: 1 / -1; }
+.chk { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.chk input { width: 18px; height: 18px; margin: 0; accent-color: #d9d4e2; }
+.note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
 .err { margin: -4px 0 0; font-size: 12px; color: #f0a3a3; }
 .err[hidden] { display: none; }

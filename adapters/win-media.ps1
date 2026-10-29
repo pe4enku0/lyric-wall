@@ -1,6 +1,7 @@
 # Lyric Wall media helper for Windows (keep this file ASCII-only: PowerShell 5.1 reads it as ANSI).
 # Reads the Spotify session from Windows.Media.Control (the media controls in the volume flyout),
-# prints one JSON line per second and accepts commands on stdin: toggle, next, prev.
+# prints one JSON line per second while music plays (every 2 s otherwise)
+# and accepts commands on stdin: toggle, next, prev.
 # No Spotify login is needed. Spotify volume is not available here, so "volume" is always null.
 $ErrorActionPreference = 'Stop'
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -52,9 +53,11 @@ function Get-Art($props) {
 }
 
 $lastArtKey = ''
+$script:playing = $false
 
 function Send-State {
   $s = Get-Spotify
+  $script:playing = $false
   if ($null -eq $s) { Send @{ state = 'not-running' }; return }
   $info = $s.GetPlaybackInfo()
   $status = [int]$info.PlaybackStatus  # 4 = Playing, 5 = Paused
@@ -62,6 +65,7 @@ function Send-State {
   $props = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
   $tl = $s.GetTimelineProperties()
   $playing = ($status -eq 4)
+  $script:playing = $playing
   $duration = ($tl.EndTime - $tl.StartTime).TotalSeconds
   $position = ($tl.Position - $tl.StartTime).TotalSeconds
   # Spotify updates the timeline rarely; add the time passed since its last update.
@@ -102,8 +106,10 @@ $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), $utf
 $pending = $reader.ReadLineAsync()
 while ($true) {
   try { Send-State } catch { Send @{ state = 'error'; message = $_.Exception.Message } }
-  # Wait up to 1 second for a command; stdin closes when the app exits.
-  if ($pending.Wait(1000)) {
+  # Wait for a command (1 s while playing, 2 s otherwise); stdin closes when the app exits.
+  $waitMs = 2000
+  if ($script:playing) { $waitMs = 1000 }
+  if ($pending.Wait($waitMs)) {
     $cmd = $pending.Result
     if ($null -eq $cmd) { break }
     try { Send-MediaCommand $cmd.Trim() } catch { Send @{ state = 'error'; message = $_.Exception.Message } }

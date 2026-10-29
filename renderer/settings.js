@@ -30,6 +30,7 @@
     $('dimR').value = look.imgDim; $('dimO').textContent = look.imgDim + '%';
     $('spd').value = look.snowSpeed; $('spdO').textContent = (+look.snowSpeed).toFixed(1).replace('.0', '') + '×';
     $('cnt').value = look.snowCount; $('cntO').textContent = look.snowCount;
+    $('battery').checked = !!look.pauseOnBattery;
   }
   async function set(key, value) {
     look = await api.setLook(key, value);
@@ -45,6 +46,8 @@
   slider('dimR', 'imgDim');
   slider('spd', 'snowSpeed');
   slider('cnt', 'snowCount');
+
+  $('battery').addEventListener('change', e => set('pauseOnBattery', e.target.checked));
 
   /* ---------- own picture ---------- */
   // Resize to at most 2560 px and turn into JPEG here; the main process copies it into the app data folder.

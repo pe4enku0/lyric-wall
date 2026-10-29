@@ -2,6 +2,8 @@
 (async () => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
+  // Write to the page only when the value really changes: every write makes the glass repaint.
+  const put = (obj, key, value) => { if (obj[key] !== value) obj[key] = value; };
   const stage = $('stage');
   const api = window.lyricWall;
 
@@ -166,12 +168,33 @@
   const hms = s => { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
 
   /* ---------- lyrics (main/lyrics.js loads them from LRCLIB) ---------- */
-  const LEAD = 0.25; // show a line a moment before it is sung
+  const LEAD = 0.25;      // show a line a moment before it is sung
+  const WORD_LEAD = 0.05; // and a word just before
   let lyr = { id: null, status: 'none' }; // what is shown now
   let latestLyrics = { id: null };        // last result from the main process (may arrive before the track)
-  let synced = [];                        // [{ t, text }] for synced lyrics
-  let li = 0;
+  let synced = [];                        // [{ t, text, words: [{ t, text }] | null }] for synced lyrics
+  let li = 0;                             // current line
+  let wi = -1;                            // last sung word of the current line
   let fadeTimer = null;
+  let lastScroll = null;
+
+  // Time of every word. Exact times if the lyrics have them (enhanced LRC); otherwise estimated:
+  // the line's singing time is shared between its words by their syllables.
+  const syllables = w => Math.max(1, (w.match(/[aeiouyаеёиоуыэюяäöüåæøéèáóíú]/gi) || []).length);
+  function timeWords(lines) {
+    return lines.map((l, i) => {
+      if (l.text === '♪') return { ...l, words: null };
+      if (l.words && l.words.length) return l;
+      const tokens = l.text.split(/\s+/).filter(Boolean);
+      const next = i + 1 < lines.length ? lines[i + 1].t : l.t + 6;
+      const span = Math.min((next - l.t) * .92, Math.max(1.2, tokens.join('').length * .2));
+      const weights = tokens.map(w => syllables(w) + .5);
+      const total = weights.reduce((a, b) => a + b, 0);
+      let acc = 0;
+      const words = tokens.map((text, k) => { const w = { t: l.t + span * acc / total, text }; acc += weights[k]; return w; });
+      return { ...l, words };
+    });
+  }
 
   function renderLines(lines) {
     const ul = $('lines'); ul.innerHTML = '';
@@ -180,6 +203,22 @@
       if (text) el.textContent = text; else el.className = 'gap';
       ul.appendChild(el);
     });
+  }
+  // Synced lines: every word in its own span so it can pop.
+  function renderSynced() {
+    const ul = $('lines'); ul.innerHTML = '';
+    for (const l of synced) {
+      const el = document.createElement('li');
+      if (l.words) {
+        l.words.forEach((w, k) => {
+          if (k) el.append(' ');
+          const sp = document.createElement('span');
+          sp.className = 'w'; sp.textContent = w.text;
+          el.appendChild(sp);
+        });
+      } else el.textContent = l.text;
+      ul.appendChild(el);
+    }
   }
   function focusLine(instant) {
     const ul = $('lines'), items = ul.children;
@@ -203,18 +242,40 @@
     while (lo <= hi) { const mid = (lo + hi) >> 1; if (synced[mid].t <= pos + LEAD) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
     return ans;
   }
+  // Sung words of the current line are bright, the rest dim. A word reached while playing pops;
+  // after a seek (a jump over several words) they just light up.
+  function updateWords(pos, lineChanged) {
+    const l = synced[li], el = $('lines').children[li];
+    if (!l || !l.words || !el) return;
+    let k = -1;
+    while (k + 1 < l.words.length && l.words[k + 1].t <= pos + WORD_LEAD) k++;
+    if (k === wi && !lineChanged) return;
+    const prev = lineChanged ? -1 : wi;
+    const pop = k > prev && k - prev <= 2;
+    const spans = el.children;
+    for (let j = 0; j < spans.length; j++) {
+      spans[j].classList.toggle('sung', j <= k);
+      if (j > k || lineChanged) spans[j].classList.remove('pop');
+      if (pop && j > prev && j <= k) spans[j].classList.add('pop');
+    }
+    wi = k;
+  }
 
   function showLyrics(r) {
     lyr = r;
+    lastScroll = null;
     $('live').hidden = r.status !== 'synced';
     const ul = $('lines');
     ul.className = r.status === 'synced' ? '' : r.status === 'plain' ? 'plain' : 'msg';
     if (r.status === 'synced') {
       // A "♪" line for the intro and for instrumental breaks (empty lines in the LRC file).
-      synced = r.lines.map(l => ({ t: l.t, text: l.text || '♪' }));
-      if (!synced.length || synced[0].t > 2) synced.unshift({ t: 0, text: '♪' });
-      renderLines(synced.map(l => l.text));
+      const lines = r.lines.map(l => ({ t: l.t, text: l.text || '♪', words: l.words }));
+      if (!lines.length || lines[0].t > 2) lines.unshift({ t: 0, text: '♪' });
+      synced = timeWords(lines);
+      renderSynced();
       li = lineAt(clock.now());
+      wi = -1;
+      updateWords(clock.now(), true);
     } else if (r.status === 'plain') {
       synced = [];
       renderLines(r.plain);
@@ -224,6 +285,7 @@
       renderLines(r.status === 'none' ? [] : [t(`lyrics.${r.status}`)]);
     }
     focusLine(true);
+    wake();
   }
   // New lyrics fade out the old ones first.
   function setLyrics(r) {
@@ -241,13 +303,15 @@
   // Called every frame with the current position.
   function updateLyrics(pos, d) {
     if (lyr.status === 'synced' && synced.length) {
-      const i = lineAt(pos);
-      if (i !== li) { li = i; focusLine(false); }
+      const i = lineAt(pos), changed = i !== li;
+      if (changed) { li = i; focusLine(false); }
+      updateWords(pos, changed);
     } else if (lyr.status === 'plain' && d) {
       // Plain lyrics have no timing: scroll them evenly through the song.
       const ul = $('lines'), vp = ul.parentElement;
       const travel = Math.max(0, ul.scrollHeight - vp.clientHeight * .6);
-      ul.style.transform = `translateY(${40 - travel * Math.min(1, pos / d)}px)`;
+      const y = Math.round(40 - travel * Math.min(1, pos / d));
+      if (y !== lastScroll) { lastScroll = y; ul.style.transform = `translateY(${y}px)`; }
     }
   }
 
@@ -278,7 +342,8 @@
   const PLAY_ICON = '<path d="M2 1 17 12 2 23Z"/>';
   function setPlaying(on) {
     playing = on;
-    $('pp').innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+    const pp = $('pp'), icon = on ? 'pause' : 'play';
+    if (pp.dataset.icon !== icon) { pp.dataset.icon = icon; pp.innerHTML = on ? PAUSE_ICON : PLAY_ICON; }
   }
 
   function showMessage(state) {
@@ -309,18 +374,27 @@
     track.duration = s.duration || track.duration;
     setCover(track.cover);
 
-    if (s.volume == null) { $('vol').textContent = '—'; $('volBox').style.visibility = 'hidden'; }
-    else { $('vol').textContent = Math.round(s.volume); $('volBar').style.width = s.volume + '%'; $('volBox').style.visibility = ''; }
-    $('mode').hidden = s.shuffle == null;
-    if (s.shuffle != null) $('mode').textContent = t(s.shuffle ? 'ui.shuffleOn' : 'ui.shuffleOff');
+    if (s.volume == null) { put($('vol'), 'textContent', '—'); put($('volBox').style, 'visibility', 'hidden'); }
+    else {
+      put($('vol'), 'textContent', String(Math.round(s.volume)));
+      put($('volBar').style, 'width', Math.round(s.volume) + '%');
+      put($('volBox').style, 'visibility', '');
+    }
+    put($('mode'), 'hidden', s.shuffle == null);
+    if (s.shuffle != null) put($('mode'), 'textContent', t(s.shuffle ? 'ui.shuffleOn' : 'ui.shuffleOff'));
 
     clock.update(s, changed);
     setPlaying(clock.playing);
   }
 
+  let lastSig = '';
   function onPlayer(s) {
     if (s && (s.state === 'playing' || s.state === 'paused') && s.id) showTrack(s);
     else showMessage(s && s.state ? s.state : 'error');
+    // While paused the same update comes every second: draw only if something changed.
+    const sig = s ? [s.state, s.id, s.playing, Math.round(s.position || 0), s.volume, s.shuffle, s.art].join('|') : '';
+    if (playing || sig !== lastSig) wake();
+    lastSig = sig;
   }
 
   /* ---------- snow ---------- */
@@ -346,6 +420,7 @@
     const VW = vc.width, VH = vc.height, bw = VW / N;
     vx.clearRect(0, 0, VW, VH);
     const beat = Math.pow(Math.max(0, Math.sin(time / 1000 * Math.PI * 2.1)), 8);
+    let moving = false;
     for (let i = 0; i < N; i++) {
       const base = .22 + .18 * Math.sin(i * .55 + time / 700) + .14 * Math.sin(i * 1.3 - time / 430);
       const tgt = playing ? Math.min(1, Math.max(.05, base + beat * (1 - i / N) * .65 + Math.random() * .08)) : .04;
@@ -357,36 +432,62 @@
       vx.beginPath();
       vx.roundRect ? vx.roundRect(x, VH - h, bw - 6, h, 3) : vx.rect(x, VH - h, bw - 6, h);
       vx.fill();
+      if (Math.abs(tgt - lv[i]) > .003) moving = true;
     }
     vx.shadowBlur = 0;
+    return moving;
   }
 
-  /* ---------- main loop ---------- */
-  let last = performance.now();
+  /* ---------- main loop ----------
+     At most 30 frames per second. When nothing moves (music paused, visualizer settled) it sleeps until
+     something changes, and while the wallpaper is paused (locked screen, game, battery) it stops completely. */
+  const FRAME_MS = 1000 / 30;
+  let last = performance.now(), lastFrame = 0, raf = 0, frozen = false, lastPct = -1;
+  const shown = {};
+  const setText = (id, v) => { if (shown[id] !== v) { shown[id] = v; $(id).textContent = v; } };
+  function wake() {
+    if (raf || frozen) return;
+    last = performance.now();
+    raf = requestAnimationFrame(loop);
+  }
   function loop(now) {
+    raf = 0;
+    if (frozen) return;
+    if (now - lastFrame < FRAME_MS - 1) { raf = requestAnimationFrame(loop); return; }
+    lastFrame = now;
     const dt = Math.min(.1, (now - last) / 1000); last = now;
-    const d = track.duration, pos = d ? Math.min(d, clock.now()) : 0, p = d ? pos / d : 0;
-    $('fill').style.width = (p * 100) + '%'; $('knob').style.left = (p * 100) + '%';
-    $('cur').textContent = fmt(pos); $('rem').textContent = '-' + fmt(d - pos);
-    $('capR').textContent = hms(pos);
+    const d = track.duration, pos = d ? Math.min(d, clock.now()) : 0;
+    const pct = d ? Math.round(pos / d * 1000) / 10 : 0;
+    if (pct !== lastPct) { lastPct = pct; $('fill').style.width = pct + '%'; $('knob').style.left = pct + '%'; }
+    setText('cur', fmt(pos)); setText('rem', '-' + fmt(d - pos)); setText('capR', hms(pos));
     updateLyrics(pos, d);
-    drawSnow(dt); drawViz(now);
-    requestAnimationFrame(loop);
+    drawSnow(dt);
+    const vizMoving = drawViz(now);
+    if (playing || vizMoving) raf = requestAnimationFrame(loop);
+  }
+  function setFrozen(st) {
+    frozen = !!st.paused;
+    document.body.classList.toggle('frozen', frozen);
+    if (!frozen) wake();
   }
 
   /* ---------- controls (work in "npm run window"; on the desktop use the tray menu) ---------- */
-  $('pp').addEventListener('click', () => { clock.toggle(); setPlaying(clock.playing); api.control('toggle'); });
+  $('pp').addEventListener('click', () => { clock.toggle(); setPlaying(clock.playing); api.control('toggle'); wake(); });
   $('bNext').addEventListener('click', () => api.control('next'));
   $('bPrev').addEventListener('click', () => api.control('prev'));
 
   /* ---------- start ---------- */
-  addEventListener('resize', fit); api.onLayoutChanged(fit); fit();
+  const refit = () => { fit(); wake(); };
+  addEventListener('resize', refit); api.onLayoutChanged(refit); fit();
+  api.onRender(setFrozen);
+  setFrozen(await api.getRender());
   // Apply the look; fetch the own picture only when it is new.
   function applyLook(look) {
     const newImage = look.imageVersion !== S.imageVersion || (look.bg === 'photo' && !userImg);
     S = look;
     setCount(S.snowCount);
     applyBg();
+    wake();
     if (newImage && look.hasImage) api.getImage().then(url => { userImg = url; applyBg(); });
   }
   api.onLook(applyLook);
@@ -397,5 +498,5 @@
   api.onLyrics(onLyrics);
   onLyrics(await api.getLyrics());
   if (document.fonts) document.fonts.ready.then(() => focusLine(true));
-  requestAnimationFrame(loop);
+  wake();
 })();

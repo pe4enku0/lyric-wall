@@ -6,7 +6,8 @@ const log = require('../main/log');
 
 const SEP = '\x1f';
 
-// One long-running osascript process: once per second it prints the Spotify state as one line.
+// One long-running osascript process: it prints the Spotify state as one line every second while
+// music plays and every 2 seconds otherwise.
 // Fields are separated by character 31 so titles with tabs or commas are safe.
 // "is running" is checked first so the script never launches Spotify by itself.
 const LOOP_SCRIPT = `
@@ -27,12 +28,17 @@ end snapshot
 
 repeat
   try
-    log snapshot()
+    set s to snapshot()
+    log s
+    if s starts with "playing" then
+      delay 1
+    else
+      delay 2
+    end if
   on error msg number num
     log "error" & (character id 31) & num & (character id 31) & msg
-    delay 4
+    delay 5
   end try
-  delay 1
 end repeat
 `;
 

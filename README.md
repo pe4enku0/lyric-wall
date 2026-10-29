@@ -27,6 +27,17 @@ The builds are not signed with a paid certificate:
 - **Windows:** Spotify is read through Windows media controls (the same as the volume flyout).
   No Spotify login is needed. Spotify's own volume is not available there, so the number is hidden.
 
+## Lyrics and performance
+
+- Synced lyrics from [LRCLIB](https://lrclib.net) follow the song with a blur/focus effect; the word being sung
+  pops up and glows. Exact word times are used when the lyrics have them, otherwise they are estimated
+  from the line timing. Found lyrics are cached in the app data folder.
+- The wallpaper draws at most 30 frames per second, sleeps when nothing moves (music paused) and stops
+  completely when the screen is locked, the computer sleeps, a game or another app is full screen (Windows)
+  or, if turned on in the settings, while running on battery.
+- The control window shows how much CPU the app uses. Idle (music paused) it is about 0.5% of one CPU core
+  on a MacBook.
+
 ## Run from source (Mac)
 
 ```bash

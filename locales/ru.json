@@ -79,5 +79,16 @@
   "bg.graphite": "Графит",
   "bg.night": "Ночь",
   "bg.pine": "Хвоя",
-  "bg.sunset": "Закат"
+  "bg.sunset": "Закат",
+  "control.status.running": "Работают",
+  "control.status.paused": "На паузе",
+  "control.status.off": "Выключены",
+  "control.cpu": "процессор",
+  "pause.locked": "экран заблокирован",
+  "pause.sleep": "сон",
+  "pause.fullscreen": "игра или окно на весь экран",
+  "pause.battery": "работа от батареи",
+  "look.power": "Экономия энергии",
+  "look.pauseOnBattery": "Останавливать обои от батареи",
+  "look.pauseHint": "Обои всегда замирают, когда экран заблокирован, компьютер спит или (на Windows) открыта игра или окно на весь экран."
 }

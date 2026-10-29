@@ -55,10 +55,12 @@
   onPlayer(await api.getPlayer());
 
   /* ---------- switches ---------- */
+  let wallOn = true;
   function seg(id, value) {
     for (const b of $(id).children) b.setAttribute('aria-pressed', String(b.dataset.v === value));
   }
   function render(st) {
+    wallOn = st.wallpaperEnabled;
     $('ver').textContent = 'v' + st.version;
     $('optWall').setAttribute('aria-checked', String(st.wallpaperEnabled));
     seg('optLang', st.language === 'en' || st.language === 'ru' ? st.language : 'auto');
@@ -81,6 +83,16 @@
 
   api.onControlChanged(render);
   render(await api.controlState());
+  $('wallState').textContent = t(wallOn ? 'control.status.running' : 'control.status.off');
+
+  /* ---------- wallpaper state and CPU use ---------- */
+  api.onStatus(st => {
+    const state = !wallOn ? t('control.status.off')
+      : st.paused ? `${t('control.status.paused')}: ${st.reasons.map(r => t('pause.' + r)).join(', ')}`
+      : t('control.status.running');
+    $('wallState').textContent = `${state} · ${t('control.cpu')} ${st.cpu.toFixed(1)}%`;
+    fit(); // the text may take two lines
+  });
 
   // Make the window exactly as tall as its content (it differs per language and system).
   const fit = () => api.fitWindow(Math.ceil(document.querySelector('main').getBoundingClientRect().height));

@@ -12,6 +12,10 @@ const WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_NOREDIRECTIO
 const SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
 const HWND_BOTTOM = 1, GW_HWNDLAST = 1, GW_HWNDPREV = 3, GW_CHILD = 5, GA_PARENT = 1;
 const SW_HIDE = 0, SW_SHOWNA = 8, LWA_ALPHA = 0x2, SMTO_NORMAL = 0;
+const MONITOR_DEFAULTTONEAREST = 2;
+// SHQueryUserNotificationState: busy / Direct3D full screen / presentation mode / full-screen Store app
+const QUNS_FULLSCREEN = [2, 3, 4, 7];
+const DESKTOP_CLASSES = ['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd'];
 
 // Windows functions from user32.dll via koffi, loaded on first use.
 let u = null;
@@ -19,7 +23,9 @@ function user32() {
   if (u) return u;
   const koffi = require('koffi');
   const lib = koffi.load('user32.dll');
+  const shell = koffi.load('shell32.dll');
   koffi.struct('RECT', { left: 'int32', top: 'int32', right: 'int32', bottom: 'int32' });
+  koffi.struct('MONITORINFO', { cbSize: 'uint32', rcMonitor: 'RECT', rcWork: 'RECT', dwFlags: 'uint32' });
   const fn = sig => lib.func(sig);
   u = {
     FindWindowW: fn('intptr_t __stdcall FindWindowW(str16 cls, str16 name)'),
@@ -34,7 +40,13 @@ function user32() {
     SetLayeredWindowAttributes: fn('int __stdcall SetLayeredWindowAttributes(intptr_t hwnd, uint32_t key, uint8_t alpha, uint32_t flags)'),
     GetWindowRect: fn('int __stdcall GetWindowRect(intptr_t hwnd, _Out_ RECT *rect)'),
     ShowWindow: fn('int __stdcall ShowWindow(intptr_t hwnd, int cmd)'),
-    IsWindow: fn('int __stdcall IsWindow(intptr_t hwnd)')
+    IsWindow: fn('int __stdcall IsWindow(intptr_t hwnd)'),
+    GetForegroundWindow: fn('intptr_t __stdcall GetForegroundWindow()'),
+    GetClassNameW: fn('int __stdcall GetClassNameW(intptr_t hwnd, _Out_ uint8_t *buf, int max)'),
+    GetWindowThreadProcessId: fn('uint32_t __stdcall GetWindowThreadProcessId(intptr_t hwnd, _Out_ uint32_t *pid)'),
+    MonitorFromWindow: fn('intptr_t __stdcall MonitorFromWindow(intptr_t hwnd, uint32_t flags)'),
+    GetMonitorInfoW: fn('int __stdcall GetMonitorInfoW(intptr_t monitor, _Inout_ MONITORINFO *info)'),
+    SHQueryUserNotificationState: shell.func('int __stdcall SHQueryUserNotificationState(_Out_ int *state)')
   };
   return u;
 }
@@ -136,6 +148,29 @@ function placeBottom(hwnd, display) {
   const after = above && above !== hwnd ? above : HWND_BOTTOM;
   w.SetWindowPos(hwnd, after, b.x, b.y, b.width, b.height, SWP_NOACTIVATE);
 }
+
+// Is a game or another app covering the whole screen? Asks Windows first (the same check it uses to
+// hold back notifications), then compares the active window with its monitor.
+function fullscreenAppActive() {
+  const w = user32();
+  const quns = [0];
+  if (w.SHQueryUserNotificationState(quns) === 0 && QUNS_FULLSCREEN.includes(quns[0])) return true;
+  const fg = w.GetForegroundWindow();
+  if (!fg) return false;
+  const pid = [0];
+  w.GetWindowThreadProcessId(fg, pid);
+  if (pid[0] === process.pid) return false;
+  const buf = Buffer.alloc(512);
+  const len = w.GetClassNameW(fg, buf, 256);
+  if (DESKTOP_CLASSES.includes(buf.toString('utf16le', 0, len * 2))) return false;
+  const r = {}, info = { cbSize: 40 };
+  w.GetWindowRect(fg, r);
+  if (!w.GetMonitorInfoW(w.MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST), info)) return false;
+  const m = info.rcMonitor;
+  return r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom;
+}
+
+let fullscreenWarned = false;
 
 // ---------- Spotify through the PowerShell helper ----------
 
@@ -256,6 +291,15 @@ module.exports = {
       log.error('Wallpaper: error while turning off:', e.message);
     }
     state = { mode: null, parent: 0, workerw: 0 };
+  },
+
+  isFullscreenAppActive() {
+    try {
+      return fullscreenAppActive();
+    } catch (e) {
+      if (!fullscreenWarned) { fullscreenWarned = true; log.warn('Full-screen check failed:', e.message); }
+      return false;
+    }
   },
 
   startNowPlaying(cb) {
