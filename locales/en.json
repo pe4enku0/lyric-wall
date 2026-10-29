@@ -98,5 +98,8 @@
   "ui.volSpotify": "Spotify volume",
   "ui.volSystem": "System volume",
   "ui.withSound": "moves with the music",
-  "look.fps": "Smoothness, frames per second"
+  "look.fps": "Smoothness, frames per second",
+  "welcome.title": "Lyric Wall is running",
+  "welcome.body.mac": "The wallpaper is on. Settings and controls are in the menu bar icon.",
+  "welcome.body.win": "The wallpaper is on. Settings and controls are in the tray icon next to the clock."
 }

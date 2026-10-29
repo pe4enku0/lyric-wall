@@ -1,6 +1,11 @@
 // Bridge between the UI and the main process. The UI only sees window.lyricWall.
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Errors in any window of the app go to the log file.
+const sendError = text => ipcRenderer.send('app:log', 'error', `${location.pathname.split('/').pop()}: ${String(text).slice(0, 500)}`);
+window.addEventListener('error', e => sendError(`${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+window.addEventListener('unhandledrejection', e => sendError(e.reason && e.reason.stack || e.reason));
+
 contextBridge.exposeInMainWorld('lyricWall', {
   info: () => ipcRenderer.invoke('app:info'),
   // Normal windows: report the content height so the window fits it

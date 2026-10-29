@@ -67,7 +67,6 @@ function create() {
     restartTimer = setTimeout(() => { if (settings.get('wallpaperEnabled')) create(); }, 3000);
   });
 
-  win.webContents.on('render-process-gone', (_e, d) => log.error('Wallpaper UI crashed:', d.reason));
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   listen(!power.state().paused);
   return win;

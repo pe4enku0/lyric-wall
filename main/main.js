@@ -1,10 +1,13 @@
 // Main process: windows, tray, system integration.
-const { app, ipcMain, shell, session, desktopCapturer } = require('electron');
+const { app, ipcMain, shell, session, desktopCapturer, Notification, screen } = require('electron');
 const os = require('os');
 const log = require('./log');
 
 process.on('uncaughtException', e => log.error('Uncaught error:', e && e.stack || e));
 process.on('unhandledRejection', e => log.error('Unhandled promise rejection:', e && e.stack || e));
+
+// Windows needs this for notifications and to group the app correctly.
+if (process.platform === 'win32') app.setAppUserModelId('io.github.pe4enku0.lyricwall');
 
 // Only one copy of the app.
 if (!app.requestSingleInstanceLock()) {
@@ -37,30 +40,37 @@ ipcMain.handle('app:info', () => ({
 }));
 ipcMain.handle('player:get', () => player.get());
 ipcMain.on('player:control', (_e, cmd, value) => player.control(cmd, value));
-ipcMain.on('app:log', (_e, level, text) => (level === 'warn' ? log.warn : log.info)('UI:', text));
+ipcMain.on('app:log', (_e, level, text) => (log[level] || log.info)('UI:', text));
 ipcMain.on('app:openSoundSettings', () => shell.openExternal(adapter.soundSettingsUrl));
 ipcMain.on('app:openControl', () => control.show());
 ipcMain.handle('lyrics:get', () => lyrics.get());
 ipcMain.handle('render:get', () => power.state());
 
-// Started automatically at login: stay in the background without opening a window.
-function startedAtLogin() {
-  if (actions.LOGIN_ARGS.some(a => process.argv.includes(a))) return true;
-  if (process.platform === 'darwin') {
-    const s = app.getLoginItemSettings();
-    return !!s.wasOpenedAtLogin || (s.openAtLogin && os.uptime() < 180);
-  }
-  return false;
+// First start: tell where the app went, since it opens no window.
+function welcome() {
+  settings.set('welcomeShown', true);
+  if (!Notification.isSupported()) return;
+  new Notification({
+    title: i18n.t('welcome.title'),
+    body: i18n.t(process.platform === 'darwin' ? 'welcome.body.mac' : 'welcome.body.win')
+  }).show();
 }
 
-// Clicking the app icon while it is already running opens the control window.
+// Starting the app again while it is already running opens the control window.
+// Crashed parts of the app (a window's page, the GPU process…) are noted in the log.
+app.on('render-process-gone', (_e, wc, d) => log.error('A window crashed:', d.reason, d.exitCode, wc.getURL().split('/').pop()));
+app.on('child-process-gone', (_e, d) => { if (d.reason !== 'clean-exit') log.error('App process gone:', d.type, d.reason, d.exitCode); });
+
 app.on('second-instance', () => { log.info('App icon clicked again: opening the control window'); control.show(); });
 // macOS sends "activate" when the app is opened again from Finder / Launchpad / Dock.
 // It also fires right at start, so the first seconds are ignored.
 app.on('activate', () => { if (Date.now() - startedAt > 3000) control.show(); });
 
 app.whenReady().then(() => {
-  log.info(`Start Lyric Wall ${app.getVersion()}: ${process.platform} ${os.release()}, Electron ${process.versions.electron}, adapter ${adapter.name}, language ${i18n.lang()}`);
+  const d = screen.getPrimaryDisplay();
+  log.info(`Start Lyric Wall ${app.getVersion()}${app.isPackaged ? '' : ' (development)'}: ${process.platform} ${os.release()} ${process.arch}, ` +
+    `Electron ${process.versions.electron}, adapter ${adapter.name}, language ${i18n.lang()}, ` +
+    `screen ${d.size.width}x${d.size.height} at ${d.scaleFactor}x, ${screen.getAllDisplays().length} display(s)`);
   adapter.init();
   // The wallpaper's sound card may listen to the computer's sound ("loopback"); only the sound is used.
   session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
@@ -75,8 +85,9 @@ app.whenReady().then(() => {
   tray.create();
   // Note the CPU use in the log every 10 minutes (the control window shows it live).
   setInterval(() => log.info(`CPU: ${cpuPercent().toFixed(1)}% (wallpaper ${power.state().paused ? 'paused' : 'running'})`), 10 * 60 * 1000);
-  if (startedAtLogin()) log.info('Started at login: no window');
-  else control.show();
+  // The app starts in the background: no window, no taskbar / Dock icon, only the tray / menu bar icon.
+  // The control window opens from the tray menu or when the app is started again.
+  if (!settings.get('welcomeShown')) welcome();
 
   // For the automatic check in GitHub Actions: start, run for 10 seconds, quit.
   if (process.argv.includes('--smoke-test')) {

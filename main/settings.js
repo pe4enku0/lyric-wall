@@ -20,6 +20,7 @@ const defaults = {
   pauseOnBattery: false, // stop the wallpaper while running on battery (main/power.js)
   showLyrics: true,
   fps: 30, // wallpaper frames per second: 30, 20 or 15
+  welcomeShown: false, // the first-start notification was shown
   // Sound card bars follow the computer's sound. macOS asks for the screen recording permission, so off there.
   audioReactive: process.platform === 'win32'
 };

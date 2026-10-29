@@ -19,24 +19,84 @@ The builds are not signed with a paid certificate:
 - Windows shows "Windows protected your PC" → **More info** → **Run anyway**.
 - macOS may refuse to open it → **System Settings → Privacy & Security → Open Anyway**.
 
+## Using the app
+
+- **Starting it** turns the wallpaper on and opens no window: the app lives only in the **tray**
+  (Windows, next to the clock — maybe under the **^** arrow) or the **menu bar** (Mac). No taskbar or Dock icon.
+  The first start shows a short notification saying so.
+- **The tray / menu bar icon:** open Lyric Wall, wallpaper on/off, play/pause, next track, settings,
+  wallpaper mode (Windows), language, start at login, open log, quit.
+- **The control window** (tray → Open Lyric Wall, or start the app again): what is playing, playback buttons,
+  wallpaper on/off and its CPU use, language, start at login, log, quit. Closing it keeps the wallpaper running.
+- **Settings** (tray → Settings…, or "Background and snow…" in the control window): background preset,
+  colour from the cover, blurred cover, your own picture (copied into the app data folder), picture blur and dim,
+  snow speed and amount, the sound card, smoothness (30 / 20 / 15 frames per second), pausing on battery.
+  Changes show right away and are saved.
+
+### Buttons on the wallpaper
+
+| Button | What it does |
+|---|---|
+| ⏮ ⏯ ⏭ | previous track, play / pause, next track |
+| progress bar | jump to that place in the song |
+| volume bar · speaker | set the volume · mute / unmute (Spotify volume on Mac, system volume on Windows) |
+| "Shuffle" | shuffle on / off |
+| cover | open Spotify |
+| white lyrics button | hide / show the lyrics |
+| device ("MacBook" / "PC") | open the system sound settings |
+| "…" | open the control window |
+| ★ | likes need the Spotify login (step 9); for now it says so |
+
+The wallpaper lies under the desktop icons and gets no clicks itself. Invisible click areas sit over the buttons,
+**behind all other windows**, like desktop widgets: when windows cover the wallpaper they get the clicks as
+usual; on the free desktop the buttons work. Clicks next to the buttons still go to the desktop.
+
+- **macOS:** a small native helper (`mac-helper/ClickLayer.swift`) makes non-activating panels over the buttons.
+  macOS gives clicks only to normal windows, and a normal app window that takes a click would activate the app —
+  which makes macOS bring back the windows it moved aside to show the desktop. These panels do not activate
+  anything, stay in place when the desktop is shown and are left out of window cycling.
+- **Windows:** an invisible window above the desktop icons takes clicks only while the pointer is over a button
+  (the app checks the pointer position 20 times a second). It is removed while a game or another app is full screen.
+
 ## Spotify
 
 - **macOS:** the Spotify desktop app is read through AppleScript. On first start macOS asks whether
   Lyric Wall may control Spotify. If you said no: System Settings → Privacy & Security → Automation →
   Lyric Wall → turn on Spotify.
 - **Windows:** Spotify is read through Windows media controls (the same as the volume flyout).
-  No Spotify login is needed. Spotify's own volume is not available there, so the number is hidden.
+  No Spotify login is needed. Spotify's own volume is not available there, so the system volume is shown.
 
 ## Lyrics and performance
 
-- Synced lyrics from [LRCLIB](https://lrclib.net) follow the song with a blur/focus effect; the word being sung
-  pops up and glows. Exact word times are used when the lyrics have them, otherwise they are estimated
-  from the line timing. Found lyrics are cached in the app data folder.
-- The wallpaper draws at most 30 frames per second, sleeps when nothing moves (music paused) and stops
-  completely when the screen is locked, the computer sleeps, a game or another app is full screen (Windows)
-  or, if turned on in the settings, while running on battery.
-- The control window shows how much CPU the app uses. Idle (music paused) it is about 0.5% of one CPU core
-  on a MacBook.
+- Synced lyrics from [LRCLIB](https://lrclib.net) follow the song with a blur/focus effect. The search and
+  LRCLIB's own database are asked at the same time, so lyrics usually appear in 0.1–0.3 s. Found lyrics are
+  cached in the app data folder; without synced lyrics plain lyrics scroll with the song.
+- The wallpaper draws at most 30 frames per second (20 or 15 in the settings), sleeps when nothing moves
+  (music paused) and stops completely when the screen is locked, the computer sleeps, a game or another app
+  is full screen (Windows) or, if turned on in the settings, while running on battery.
+- The control window shows how much CPU the app uses. On a MacBook: about 1% of one CPU core with the music
+  paused; while music plays and the wallpaper is fully visible, about 34% at 30 frames and 21% at 15 frames.
+
+## Log
+
+Everything important goes to `lyric-wall.log` in the app data folder (tray → **Open log**):
+start (system, screen), how the wallpaper window was placed, Spotify tracks and commands, lyrics, pauses
+(locked screen, game, battery), button presses, errors in any window and crashed processes.
+The log stays on the computer; over 1 MB it is moved to `lyric-wall.log.old`.
+
+App data folder: Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`.
+
+## Checking on Windows after installing
+
+1. The installer runs without admin rights; a "Lyric Wall" shortcut appears on the desktop and in Start.
+2. Start it: no window opens, a notification says Lyric Wall is running, the icon is in the tray (maybe under **^**).
+3. The wallpaper is **behind the desktop icons**, the icons and desktop clicks work as before.
+4. Play music in Spotify: track, cover, moving progress bar and synced lyrics appear.
+5. The volume number matches the Windows volume; the bars move with the music.
+6. Wallpaper buttons: ⏯, ⏭, progress bar, volume, "Shuffle" work; the cursor turns into a hand over them.
+7. Start a game full screen: the log shows `Render paused (+fullscreen)`; FPS is not lower than without the app.
+8. Tray → Wallpaper off: the normal Windows wallpaper comes back.
+9. If the wallpaper is black or missing: tray → Wallpaper mode → Below all windows, then send the log.
 
 ## Run from source (Mac)
 
@@ -47,29 +107,19 @@ npm start        # start the wallpaper (an icon appears in the menu bar)
 npm run window   # show the wallpaper in a normal window to look at the design
 ```
 
-On macOS `npm start` also builds the small click helper (`mac-helper/ClickLayer.swift`) that makes the
-wallpaper buttons clickable; it needs the Xcode Command Line Tools (`xcode-select --install`).
-
-Opening the app (or clicking its icon again while it runs) shows the **control window**:
-what is playing, playback buttons, wallpaper on/off, language, start at login, log, quit.
-**Background and snow…** (or **Settings…** in the tray) opens the settings: background preset,
-colour from the cover, blurred cover, your own picture (copied into the app data folder), picture blur
-and dim, snow speed and amount. Changes show right away and are saved.
-You can close the window — the wallpaper keeps running. The same controls are in the menu bar icon (Mac)
-or the tray icon (Windows). When started at login the app stays in the background without a window.
-The log and settings live in the app data folder:
-Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`.
+On macOS `npm start` also builds the click helper (`mac-helper/ClickLayer.swift`); it needs the
+Xcode Command Line Tools (`xcode-select --install`). Without them the buttons use a simpler click layer.
 
 ## Project layout
 
 | Folder | Contents |
 |---|---|
-| `main/` | main process: windows, tray, player, settings, log, languages |
+| `main/` | main process: windows, tray, player, lyrics, settings, log, languages, click layer |
 | `renderer/` | the wallpaper UI (look taken from `mockup.html`), the control and settings windows |
 | `adapters/` | `mac.js` and `win.js` (+ `win-media.ps1`); each system loads only its own file |
-| `locales/` | UI text in English (`en.json`) and Russian (`ru.json`) |
 | `mac-helper/` | native macOS helper that makes the wallpaper buttons clickable |
 | `scripts/` | build script for the helper |
+| `locales/` | UI text in English (`en.json`) and Russian (`ru.json`) |
 | `assets/` | app icon (`icon-mac.png`, `icon-win.png`), menu bar and tray icons |
 | `mockup.html` | the original design mockup |
 

@@ -1,5 +1,5 @@
 // Shared look and behaviour of the app's normal windows (control window, settings window).
-const { app, BrowserWindow, ipcMain, nativeTheme } = require('electron');
+const { BrowserWindow, ipcMain, nativeTheme } = require('electron');
 const path = require('path');
 
 const isMac = process.platform === 'darwin';
@@ -19,11 +19,6 @@ function focus(win) {
 // The window is shown once its page reports its height (window:fit), or after 2 s at the latest.
 function createAppWindow(file, width) {
   nativeTheme.themeSource = 'dark';
-  if (isMac && app.dock) {
-    // While a window is open the app gets a Dock icon (and Cmd+Tab), like a normal app.
-    app.dock.show();
-    if (!app.isPackaged) app.dock.setIcon(path.join(__dirname, '..', 'assets', 'icon-mac.png'));
-  }
   const win = new BrowserWindow({
     width,
     height: 600,
@@ -35,6 +30,7 @@ function createAppWindow(file, width) {
     title: 'Lyric Wall',
     icon: ICON,
     backgroundColor: '#1d1b21',
+    skipTaskbar: true, // the app lives in the tray only, also while a window is open
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     autoHideMenuBar: true,
     webPreferences: {
@@ -47,10 +43,7 @@ function createAppWindow(file, width) {
   if (!isMac) win.setMenu(null);
   open.set(win, width);
   setTimeout(() => reveal(win), 2000);
-  win.on('closed', () => {
-    open.delete(win);
-    if (isMac && app.dock && open.size === 0) app.dock.hide();
-  });
+  win.on('closed', () => open.delete(win));
   win.loadFile(path.join(__dirname, '..', 'renderer', file));
   return win;
 }
