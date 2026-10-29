@@ -107,10 +107,16 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .lyr .head { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink2); font-weight: 600; padding-left: 2px; }
 .live[hidden] { display: none; }
 .live { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.1); color: var(--ink2); }
-.vp { position: relative; flex: 1; overflow: hidden;
-  -webkit-mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%);
-          mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%); }
-#lines { list-style: none; margin: 0; padding: 0; position: absolute; left: 0; right: 0; top: 0;
+/* The view reaches 48px past the text on both sides, so the blur of the lines fades out softly
+   there instead of being cut off at the edge of the text. */
+.vp { position: relative; flex: 1; overflow: hidden; margin: 0 -48px;
+  -webkit-mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%),
+                      linear-gradient(90deg, transparent 0, #000 48px, #000 calc(100% - 48px), transparent 100%);
+  -webkit-mask-composite: source-in;
+          mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%),
+                      linear-gradient(90deg, transparent 0, #000 48px, #000 calc(100% - 48px), transparent 100%);
+          mask-composite: intersect; }
+#lines { list-style: none; margin: 0; padding: 0; position: absolute; left: 48px; right: 48px; top: 0;
   transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .25s ease; }
 #lines li {
   font-size: 52px; line-height: 1.16; font-weight: 800; letter-spacing: -.012em; word-spacing: .08em;
