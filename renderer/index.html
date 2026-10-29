@@ -14,7 +14,7 @@
   <canvas id="snow" width="1280" height="800"></canvas>
   <div class="grain" id="grain"></div>
 
-  <div class="cols">
+  <div class="cols" id="cols">
     <div class="left">
       <div class="glass art">
         <img id="artA" alt="">
@@ -69,12 +69,11 @@
     <div class="lyr">
       <div class="head">
         <svg width="15" height="14" viewBox="0 0 24 20" fill="rgba(228,225,232,.62)"><path d="M3 1h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Z"/></svg>
-        <span data-i18n="ui.lyrics"></span> <span class="live">LIVE</span>
+        <span data-i18n="ui.lyrics"></span> <span class="live" id="live" hidden>LIVE</span>
       </div>
       <div class="vp"><ul id="lines"></ul></div>
     </div>
   </div>
-  <div class="src"><i>L</i><span data-i18n="ui.lyricsSource"></span></div>
 </div>
 
 <script src="common.js"></script>

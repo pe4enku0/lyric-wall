@@ -16,6 +16,7 @@ const adapter = require('../adapters');
 const settings = require('./settings');
 const i18n = require('./i18n');
 const player = require('./player');
+const lyrics = require('./lyrics');
 const wallpaper = require('./wallpaper');
 const actions = require('./actions');
 const control = require('./control');
@@ -32,6 +33,7 @@ ipcMain.handle('app:info', () => ({
 }));
 ipcMain.handle('player:get', () => player.get());
 ipcMain.on('player:control', (_e, cmd) => player.control(cmd));
+ipcMain.handle('lyrics:get', () => lyrics.get());
 
 // Started automatically at login: stay in the background without opening a window.
 function startedAtLogin() {

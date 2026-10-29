@@ -16,11 +16,27 @@
      and the width stretches to the screen (16:9, 16:10 and so on). */
   let W = 1280, H = 800;
   const sc = $('snow'), sx = sc.getContext('2d');
+  // Parts of the screen covered by the menu bar and Dock (Mac) or the taskbar (Windows), in screen points.
+  function insets() {
+    const s = window.screen, x = window.screenX, y = window.screenY;
+    return {
+      top: Math.max(0, s.availTop - y),
+      bottom: Math.max(0, y + innerHeight - (s.availTop + s.availHeight)),
+      left: Math.max(0, s.availLeft - x),
+      right: Math.max(0, x + innerWidth - (s.availLeft + s.availWidth))
+    };
+  }
   function fit() {
     const k = Math.min(innerWidth / 1280, innerHeight / 800);
     W = Math.round(innerWidth / k); H = Math.round(innerHeight / k);
     stage.style.width = W + 'px'; stage.style.height = H + 'px';
     stage.style.transform = `scale(${k})`;
+    // Keep the content clear of the menu bar, Dock and taskbar (the background still fills the whole screen).
+    const ins = insets(), cols = $('cols').style;
+    cols.top = Math.max(74, ins.top / k + 34) + 'px';
+    cols.bottom = Math.max(56, ins.bottom / k + 28) + 'px';
+    cols.left = Math.max(64, ins.left / k + 40) + 'px';
+    cols.right = Math.max(56, ins.right / k + 40) + 'px';
     sc.width = W; sc.height = H;
     for (const f of flakes) { if (f.x > W) f.x = Math.random() * W; if (f.y > H) f.y = Math.random() * H; }
   }
@@ -119,25 +135,90 @@
   const fmt = LW.fmt;
   const hms = s => { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
 
-  /* ---------- lyrics (real lyrics arrive in step 5) ---------- */
+  /* ---------- lyrics (main/lyrics.js loads them from LRCLIB) ---------- */
+  const LEAD = 0.25; // show a line a moment before it is sung
+  let lyr = { id: null, status: 'none' }; // what is shown now
+  let latestLyrics = { id: null };        // last result from the main process (may arrive before the track)
+  let synced = [];                        // [{ t, text }] for synced lyrics
   let li = 0;
+  let fadeTimer = null;
+
   function renderLines(lines) {
     const ul = $('lines'); ul.innerHTML = '';
-    lines.forEach(text => { const el = document.createElement('li'); el.textContent = text; ul.appendChild(el); });
+    lines.forEach(text => {
+      const el = document.createElement('li');
+      if (text) el.textContent = text; else el.className = 'gap';
+      ul.appendChild(el);
+    });
   }
   function focusLine(instant) {
     const ul = $('lines'), items = ul.children;
+    if (lyr.status === 'plain') return;
     for (let i = 0; i < items.length; i++) {
       const d = i - li, a = Math.abs(d), el = items[i];
       el.classList.toggle('on', d === 0);
       el.style.filter = d === 0 ? 'none' : d < 0 ? `blur(${1.6 + a * 1.2}px)` : `blur(${Math.min(2.4 + a * 1.6, 8)}px)`;
       el.style.opacity = d === 0 ? 1 : d < 0 ? Math.max(.2, .62 - a * .15) : Math.max(.22, .7 - a * .14);
       el.style.transform = d === 0 ? 'scale(1)' : 'scale(.97)';
+      el.style.visibility = a > 7 ? 'hidden' : ''; // far lines are out of view anyway
     }
     const target = items[li]; if (!target) return;
     if (instant) ul.style.transition = 'none';
     ul.style.transform = `translateY(${118 - target.offsetTop}px)`;
     if (instant) { ul.offsetHeight; ul.style.transition = ''; }
+  }
+  // Index of the line being sung at position pos (binary search).
+  function lineAt(pos) {
+    let lo = 0, hi = synced.length - 1, ans = 0;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (synced[mid].t <= pos + LEAD) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
+    return ans;
+  }
+
+  function showLyrics(r) {
+    lyr = r;
+    $('live').hidden = r.status !== 'synced';
+    const ul = $('lines');
+    ul.className = r.status === 'synced' ? '' : r.status === 'plain' ? 'plain' : 'msg';
+    if (r.status === 'synced') {
+      // A "♪" line for the intro and for instrumental breaks (empty lines in the LRC file).
+      synced = r.lines.map(l => ({ t: l.t, text: l.text || '♪' }));
+      if (!synced.length || synced[0].t > 2) synced.unshift({ t: 0, text: '♪' });
+      renderLines(synced.map(l => l.text));
+      li = lineAt(clock.now());
+    } else if (r.status === 'plain') {
+      synced = [];
+      renderLines(r.plain);
+      ul.style.transform = 'translateY(40px)';
+    } else {
+      synced = []; li = 0;
+      renderLines(r.status === 'none' ? [] : [t(`lyrics.${r.status}`)]);
+    }
+    focusLine(true);
+  }
+  // New lyrics fade out the old ones first.
+  function setLyrics(r) {
+    if (!r || r.id !== track.id) return;
+    const ul = $('lines');
+    clearTimeout(fadeTimer);
+    if (!lyr.id) { showLyrics(r); return; }
+    ul.style.opacity = 0;
+    fadeTimer = setTimeout(() => { showLyrics(r); ul.style.opacity = 1; }, 380);
+  }
+  function onLyrics(r) {
+    latestLyrics = r;
+    setLyrics(r);
+  }
+  // Called every frame with the current position.
+  function updateLyrics(pos, d) {
+    if (lyr.status === 'synced' && synced.length) {
+      const i = lineAt(pos);
+      if (i !== li) { li = i; focusLine(false); }
+    } else if (lyr.status === 'plain' && d) {
+      // Plain lyrics have no timing: scroll them evenly through the song.
+      const ul = $('lines'), vp = ul.parentElement;
+      const travel = Math.max(0, ul.scrollHeight - vp.clientHeight * .6);
+      ul.style.transform = `translateY(${40 - travel * Math.min(1, pos / d)}px)`;
+    }
   }
 
   /* ---------- queue (Spotify Web API, a later step) ---------- */
@@ -179,7 +260,7 @@
     $('capL').textContent = 'SPOTIFY';
     $('vol').textContent = '—'; $('volBox').style.visibility = 'hidden';
     $('mode').hidden = true;
-    renderLines([]);
+    showLyrics({ id: null, status: 'none' });
     setCover(NO_COVER); applyBg();
   }
 
@@ -190,7 +271,7 @@
       $('title').textContent = s.title || '';
       $('artist').textContent = s.artist || '';
       $('capL').textContent = [s.artist, s.album].filter(Boolean).join(' · ').toUpperCase();
-      renderLines([t('ui.lyricsSoon')]); li = 0; focusLine(true);
+      setLyrics(latestLyrics.id === s.id ? latestLyrics : { id: s.id, status: 'loading' });
       applyBg();
     } else if (s.art && s.art !== track.cover) {
       track.cover = s.art; applyBg();
@@ -258,6 +339,7 @@
     $('fill').style.width = (p * 100) + '%'; $('knob').style.left = (p * 100) + '%';
     $('cur').textContent = fmt(pos); $('rem').textContent = '-' + fmt(d - pos);
     $('capR').textContent = hms(pos);
+    updateLyrics(pos, d);
     drawSnow(dt); drawViz(now);
     requestAnimationFrame(loop);
   }
@@ -268,11 +350,13 @@
   $('bPrev').addEventListener('click', () => api.control('prev'));
 
   /* ---------- start ---------- */
-  addEventListener('resize', fit); fit();
+  addEventListener('resize', fit); api.onLayoutChanged(fit); fit();
   setCount(S.count);
   showMessage('starting');
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());
+  api.onLyrics(onLyrics);
+  onLyrics(await api.getLyrics());
   if (document.fonts) document.fonts.ready.then(() => focusLine(true));
   requestAnimationFrame(loop);
 })();

@@ -4,6 +4,7 @@ const path = require('path');
 const adapter = require('../adapters');
 const settings = require('./settings');
 const player = require('./player');
+const lyrics = require('./lyrics');
 const log = require('./log');
 
 // npm run window: show the wallpaper in a normal window to look at the design while developing.
@@ -63,7 +64,7 @@ function create() {
 
   win.webContents.on('render-process-gone', (_e, d) => log.error('Wallpaper UI crashed:', d.reason));
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
-  unsubscribe = player.subscribe(snap => send('player:state', snap));
+  unsubscribe = player.subscribe(snap => { send('player:state', snap); lyrics.onSnapshot(snap); });
   return win;
 }
 
@@ -83,7 +84,11 @@ function onDisplayChange() {
   const display = screen.getPrimaryDisplay();
   log.info('Screen changed, new bounds:', display.bounds, 'scale', display.scaleFactor);
   adapter.placeWallpaper(win, display);
+  // The menu bar, Dock or taskbar may have moved: let the UI recalculate its margins.
+  send('layout:changed');
 }
+
+lyrics.setSink(r => send('lyrics:state', r));
 
 function watchDisplays() {
   screen.on('display-metrics-changed', onDisplayChange);

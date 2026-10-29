@@ -103,6 +103,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 /* lyrics */
 .lyr { position: relative; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 .lyr .head { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink2); font-weight: 600; padding-left: 2px; }
+.live[hidden] { display: none; }
 .live { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.1); color: var(--ink2); }
 .vp { position: relative; flex: 1; overflow: hidden;
   -webkit-mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%);
@@ -115,8 +116,13 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
   transition: filter 1s ease, opacity 1s ease, transform 1s cubic-bezier(.2,.8,.2,1), color 1s ease;
 }
 #lines li.on { color: #e9e6ec; text-shadow: 0 2px 30px rgba(0,0,0,.25); }
-.src { position: absolute; z-index: 2; right: 56px; bottom: 30px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 14px 6px 6px; border-radius: 99px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); color: var(--ink); }
-.src i { width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,.85); color: #222; font-style: normal; font-size: 10px; font-weight: 800; display: grid; place-items: center; }
+#lines li.gap { padding: 0; height: 22px; }
+/* Messages instead of lyrics: "Looking for the lyrics…", "Lyrics not found"… */
+#lines.msg li { font-size: 40px; color: rgba(228,225,232,.72); }
+/* Plain lyrics (no timing): smaller, all lines clear, scrolled through the song. */
+#lines.plain { transition: opacity .7s ease; }
+#lines.plain li { font-size: 30px; line-height: 1.3; padding: 5px 0; font-weight: 700; color: #e4e1e8; opacity: .88; }
+#lines.plain li.gap { height: 18px; padding: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   #lines, #lines li, .art img, .stage { transition-duration: .01s !important; }
