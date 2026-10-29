@@ -46,23 +46,22 @@ const VERBS = { toggle: 'playpause', next: 'next track', prev: 'previous track',
 let lastVolume = null;  // from the last snapshot
 let savedVolume = 50;   // volume before "mute"
 
-// Window level just above the desktop icons (and below all normal windows) for the click layer.
-// Electron has no option for it, so it is set on the NSWindow directly (Objective-C runtime via koffi).
+// Window settings Electron has no options for are set on the NSWindow directly (Objective-C runtime via koffi).
 let objc = null;
 function objcApi() {
   if (objc) return objc;
   const koffi = require('koffi');
   const lib = koffi.load('/usr/lib/libobjc.A.dylib');
-  const cg = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics');
   objc = {
     sel: lib.func('uintptr_t sel_registerName(const char *name)'),
     sendId: lib.func('uintptr_t objc_msgSend(uintptr_t self, uintptr_t op)'),
     sendLong: lib.func('void objc_msgSend(uintptr_t self, uintptr_t op, long value)'),
-    levelForKey: cg.func('int32_t CGWindowLevelForKey(int32_t key)')
+    sendObj: lib.func('void objc_msgSend(uintptr_t self, uintptr_t op, uintptr_t arg)')
   };
   return objc;
 }
-const kCGDesktopIconWindowLevelKey = 18;
+// NSWindowCollectionBehavior: on all Spaces, stays in place when macOS shows the desktop, not in Cmd+` cycling
+const CAN_JOIN_ALL_SPACES = 1 << 0, STATIONARY = 1 << 4, IGNORES_CYCLE = 1 << 6;
 
 let proc = null;
 let onUpdate = null;
@@ -168,14 +167,20 @@ module.exports = {
 
   detachWallpaper() {},
 
+  // Click layer. macOS gives clicks only to windows at the normal level or higher (anything lower counts as
+  // the desktop and the click goes to Finder), so the layer is a normal window kept behind all other windows,
+  // like a desktop widget: windows cover it; on the free desktop it takes the clicks on the wallpaper buttons.
   placeHitLayer(win) {
     try {
       const o = objcApi();
-      win.setVisibleOnAllWorkspaces(true);
       const nsWindow = o.sendId(win.getNativeWindowHandle().readBigUInt64LE(0), o.sel('window'));
-      o.sendLong(nsWindow, o.sel('setLevel:'), o.levelForKey(kCGDesktopIconWindowLevelKey) + 1);
+      o.sendLong(nsWindow, o.sel('setCollectionBehavior:'), CAN_JOIN_ALL_SPACES | STATIONARY | IGNORES_CYCLE);
+      // Showing or clicking the window brings it forward a moment later, so it is sent back again shortly after.
+      const back = () => { if (!win.isDestroyed()) o.sendObj(nsWindow, o.sel('orderBack:'), 0); };
+      back();
+      setTimeout(back, 300);
     } catch (e) {
-      log.error('Click layer: could not place it above the desktop icons:', e.message);
+      log.error('Click layer: could not place it behind the windows:', e.message);
     }
   },
 

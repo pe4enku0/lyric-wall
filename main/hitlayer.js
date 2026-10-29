@@ -1,5 +1,6 @@
-// Click layer: an invisible window above the desktop icons and below all normal windows that makes the
-// wallpaper's buttons clickable. The wallpaper itself never gets clicks (it lies under the icons).
+// Click layer: an invisible window over the wallpaper's buttons and below all normal windows that makes
+// the buttons clickable. The wallpaper itself never gets clicks (it lies under the desktop icons).
+// How it is kept below the windows depends on the system (adapters: placeHitLayer).
 // The layer catches the mouse only while the pointer is over a button; everywhere else clicks go to the
 // desktop as usual. Where the pointer is comes from polling the cursor position (20 times a second) — mouse
 // events cannot be used for that, because a window that lets clicks through gets no mouse events at all.
@@ -114,6 +115,8 @@ ipcMain.on('hit:event', (e, ev) => {
   if (!win || e.sender !== win.webContents || !ev || ev.type !== 'click') return;
   log.info('Wallpaper button pressed:', ev.id);
   if (wallpaper && !wallpaper.isDestroyed()) wallpaper.send('hit:event', ev);
+  // A click may bring the layer in front of other windows: put it back.
+  if (win) adapter.placeHitLayer(win);
 });
 
 module.exports = { create, destroy };
