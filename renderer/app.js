@@ -257,12 +257,45 @@
     }
   }
 
-  /* ---------- queue (Spotify Web API, a later step) ---------- */
-  (() => {
-    const note = document.createElement('div');
-    note.className = 'qe'; note.textContent = t('ui.queueLater');
-    $('queue').appendChild(note);
-  })();
+  /* ---------- "Up next" and likes (Spotify Web API, after signing in in the settings) ---------- */
+  let web = { loggedIn: false, uri: null, queue: [], liked: false };
+  const STAR = fill => `<svg width="15" height="15" viewBox="0 0 24 24" fill="${fill}" stroke="#fff" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/></svg>`;
+  const PLAY_SMALL = '<svg width="11" height="11" viewBox="0 0 24 24" fill="#3d3a42"><path d="M7 4v16l13-8Z"/></svg>';
+  const tracksWord = n => t(n === 1 ? 'ui.tracks.one' : n < 5 ? 'ui.tracks.few' : 'ui.tracks.many');
+  function renderStar() {
+    const el = $('like');
+    const mark = web.liked ? 'on' : 'off';
+    if (el.dataset.mark !== mark) { el.dataset.mark = mark; el.innerHTML = STAR(web.liked ? '#fff' : 'none'); }
+  }
+  function renderQueue() {
+    const q = $('queue'); q.innerHTML = '';
+    if (web.loggedIn && web.queue.length) {
+      web.queue.forEach((it, k) => {
+        const row = document.createElement('div');
+        row.className = 'qi';
+        row.innerHTML = `<img alt=""><div style="min-width:0"><div class="t"></div><div class="a"></div></div><span class="c${k === 0 ? ' on' : ''}">${k === 0 ? PLAY_SMALL : ''}</span>`;
+        // no cover: an empty circle instead of a broken image
+        row.querySelector('img').src = it.art || 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+        row.querySelector('.t').textContent = it.title; row.querySelector('.a').textContent = it.artist;
+        q.appendChild(row);
+      });
+      $('qn').textContent = `${web.queue.length} ${tracksWord(web.queue.length)}`;
+    } else {
+      const note = document.createElement('div');
+      note.className = 'qe';
+      note.textContent = t(web.loggedIn ? 'ui.queueEmpty' : 'ui.queueLogin');
+      if (!web.loggedIn) { note.dataset.act = 'login'; note.classList.add('link'); }
+      q.appendChild(note);
+      $('qn').textContent = '';
+    }
+    renderStar();
+    reportHits();
+    wake();
+  }
+  function onWeb(n) {
+    web = { ...web, ...n };
+    renderQueue();
+  }
 
   /* ---------- cover with crossfade ---------- */
   let front = $('artA'), back = $('artB');
@@ -321,6 +354,7 @@
       $('artist').textContent = s.artist || '';
       $('capL').textContent = [s.artist, s.album].filter(Boolean).join(' · ').toUpperCase();
       setLyrics(latestLyrics.id === s.id ? latestLyrics : { id: s.id, status: 'loading' });
+      if (web.liked) { web.liked = false; renderStar(); }
       applyBg(); updateTone();
     } else if (s.art && s.art !== track.cover) {
       track.cover = s.art; applyBg(); updateTone();
@@ -524,13 +558,21 @@
       case 'lyrics': api.setLook('showLyrics', !S.showLyrics); break;
       case 'device': api.openSoundSettings(); break;
       case 'more': api.openControl(); break;
-      case 'like': toast(t('ui.likeLater')); break;
+      case 'like':
+        if (!web.loggedIn) { toast(t('ui.likeLogin')); api.openSettings(); break; }
+        if (!web.uri) break;
+        web.liked = !web.liked; renderStar();
+        api.webLike(web.liked).then(onWeb);
+        break;
+      case 'login': api.openSettings(); break;
     }
   }
-  document.querySelectorAll('[data-act]').forEach(el => el.addEventListener('click', e => {
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
     const r = el.getBoundingClientRect();
     act(el.dataset.act, (e.clientX - r.left) / r.width);
-  }));
+  });
   api.onHit(e => {
     if (e.type === 'hover') hover(e.id);
     else if (e.type === 'click') act(e.id, e.fx);
@@ -577,6 +619,9 @@
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());
   api.onLyrics(onLyrics);
+  api.onWebNow(onWeb);
+  api.onWebState(st => onWeb({ loggedIn: st.loggedIn }));
+  onWeb(await api.getWebNow());
   onLyrics(await api.getLyrics());
   if (document.fonts) document.fonts.ready.then(() => { focusLine(true); reportHits(); });
   reportHits();

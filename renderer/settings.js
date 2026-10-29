@@ -77,10 +77,38 @@
     im.src = url;
   });
 
+  /* ---------- Spotify sign-in ---------- */
+  function renderWeb(st) {
+    $('webRedirect').textContent = st.redirectUri;
+    $('webOut').hidden = st.loggedIn;
+    $('webIn').hidden = !st.loggedIn;
+    if (document.activeElement !== $('webId')) $('webId').value = st.clientId;
+    $('webUser').textContent = st.user ? `${t('web.signedInAs')} ${st.user}` : t('web.signedIn');
+    fit();
+  }
+  function webError(text) {
+    $('webErr').textContent = text; $('webErr').hidden = !text;
+    fit();
+  }
+  $('webDash').onclick = () => api.openSpotifyDashboard();
+  $('webLogin').onclick = async () => {
+    webError('');
+    const set = await api.webSetClientId($('webId').value);
+    if (set.error) { webError(t('web.badId')); return; }
+    $('webLogin').disabled = true; $('webLogin').textContent = t('web.waiting');
+    const res = await api.webLogin();
+    $('webLogin').disabled = false; $('webLogin').textContent = t('web.login');
+    if (res.error) webError(res.error === 'no-client-id' ? t('web.badId') : `${t('web.failed')} ${res.message || ''}`);
+    renderWeb(res);
+  };
+  $('webLogout').onclick = async () => renderWeb(await api.webLogout());
+  api.onWebChanged(renderWeb);
+  renderWeb(await api.webState());
+
   render();
 
   // Make the window exactly as tall as its content.
-  const fit = () => api.fitWindow(Math.ceil(document.querySelector('main').getBoundingClientRect().height));
+  function fit() { api.fitWindow(Math.ceil(document.querySelector('main').getBoundingClientRect().height)); }
   if (document.fonts) await document.fonts.ready;
   fit();
 })();

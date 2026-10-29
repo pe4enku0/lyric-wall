@@ -8,6 +8,7 @@ const lyrics = require('./lyrics');
 const appearance = require('./appearance');
 const power = require('./power');
 const hitlayer = require('./hitlayer');
+const spotifyWeb = require('./spotify-web');
 const log = require('./log');
 
 // npm run window: show the wallpaper in a normal window to look at the design while developing.
@@ -74,7 +75,7 @@ function create() {
 
 // Spotify is read only while the wallpaper is drawn (a paused wallpaper needs nothing).
 function listen(on) {
-  if (on && !unsubscribe) unsubscribe = player.subscribe(snap => { send('player:state', snap); lyrics.onSnapshot(snap); });
+  if (on && !unsubscribe) unsubscribe = player.subscribe(snap => { send('player:state', snap); lyrics.onSnapshot(snap); spotifyWeb.onSnapshot(snap); });
   if (!on && unsubscribe) { unsubscribe(); unsubscribe = null; }
 }
 
@@ -111,6 +112,8 @@ function onDisplayChange() {
 
 lyrics.setSink(r => send('lyrics:state', r));
 appearance.onChange(() => send('look:changed', appearance.get()));
+spotifyWeb.onNow(now => send('web:now', now));
+spotifyWeb.onChange(() => send('web:state', spotifyWeb.state()));
 
 function watchDisplays() {
   screen.on('display-metrics-changed', onDisplayChange);

@@ -23,6 +23,18 @@ contextBridge.exposeInMainWorld('lyricWall', {
   openSoundSettings: () => ipcRenderer.send('app:openSoundSettings'),
   openControl: () => ipcRenderer.send('app:openControl'),
 
+  // Spotify Web API: queue and likes (wallpaper), sign-in (settings window)
+  getWebNow: () => ipcRenderer.invoke('web:getNow'),
+  onWebNow: cb => ipcRenderer.on('web:now', (_e, now) => cb(now)),
+  onWebState: cb => ipcRenderer.on('web:state', (_e, st) => cb(st)),
+  webLike: on => ipcRenderer.invoke('web:like', on),
+  webState: () => ipcRenderer.invoke('web:state'),
+  webSetClientId: id => ipcRenderer.invoke('web:setClientId', id),
+  webLogin: () => ipcRenderer.invoke('web:login'),
+  webLogout: () => ipcRenderer.invoke('web:logout'),
+  onWebChanged: cb => ipcRenderer.on('web:changed', (_e, st) => cb(st)),
+  openSpotifyDashboard: () => ipcRenderer.send('web:openDashboard'),
+
   // Buttons on the desktop: the wallpaper reports where they are, the click layer reports hovers and clicks
   reportHits: items => ipcRenderer.send('hit:rects', items),
   onHit: cb => ipcRenderer.on('hit:event', (_e, ev) => cb(ev)),

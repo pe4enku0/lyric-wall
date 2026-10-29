@@ -43,6 +43,19 @@
       <p class="note" id="audioNote"></p>
     </section>
     <section class="wide">
+      <h3 data-i18n="web.title"></h3>
+      <p class="note" data-i18n="web.intro"></p>
+      <ol class="steps">
+        <li><span data-i18n="web.step1"></span> <button type="button" class="link" id="webDash">developer.spotify.com</button></li>
+        <li><span data-i18n="web.step2"></span> <code id="webRedirect"></code></li>
+        <li data-i18n="web.step3"></li>
+        <li data-i18n="web.step4"></li>
+      </ol>
+      <div class="webrow" id="webOut"><input id="webId" placeholder="Client ID" spellcheck="false" autocomplete="off"><button type="button" class="pick" id="webLogin" data-i18n="web.login"></button></div>
+      <div class="webrow" id="webIn" hidden><span id="webUser"></span><button type="button" class="pick" id="webLogout" data-i18n="web.logout"></button></div>
+      <p class="err" id="webErr" hidden></p>
+    </section>
+    <section class="wide">
       <h3 data-i18n="look.power"></h3>
       <div class="fps"><span data-i18n="look.fps"></span><div class="seg" id="fps"><button type="button" data-v="30">30</button><button type="button" data-v="20">20</button><button type="button" data-v="15">15</button></div></div>
       <label class="chk"><input type="checkbox" id="battery"><span data-i18n="look.pauseOnBattery"></span></label>

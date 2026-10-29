@@ -1,5 +1,5 @@
 // Shared look and behaviour of the app's normal windows (control window, settings window).
-const { BrowserWindow, ipcMain, nativeTheme } = require('electron');
+const { BrowserWindow, ipcMain, nativeTheme, screen } = require('electron');
 const path = require('path');
 
 const isMac = process.platform === 'darwin';
@@ -52,7 +52,9 @@ function createAppWindow(file, width) {
 ipcMain.on('window:fit', (e, height) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   if (!win || !open.has(win)) return;
-  win.setContentSize(open.get(win), Math.max(300, Math.min(1000, Math.round(height))));
+  // Not taller than the screen; the page scrolls if its content is longer.
+  const max = screen.getPrimaryDisplay().workAreaSize.height - 60;
+  win.setContentSize(open.get(win), Math.max(300, Math.min(max, Math.round(height))));
   reveal(win);
 });
 

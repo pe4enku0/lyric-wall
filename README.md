@@ -45,7 +45,7 @@ The builds are not signed with a paid certificate:
 | white lyrics button | hide / show the lyrics |
 | device ("MacBook" / "PC") | open the system sound settings |
 | "…" | open the control window |
-| ★ | likes need the Spotify login (step 9); for now it says so |
+| ★ | like / unlike the track (after signing in to Spotify; filled when the track is in Liked Songs) |
 
 The wallpaper lies under the desktop icons and gets no clicks itself. Invisible click areas sit over the buttons,
 **behind all other windows**, like desktop widgets: when windows cover the wallpaper they get the clicks as
@@ -57,6 +57,19 @@ usual; on the free desktop the buttons work. Clicks next to the buttons still go
   anything, stay in place when the desktop is shown and are left out of window cycling.
 - **Windows:** an invisible window above the desktop icons takes clicks only while the pointer is over a button
   (the app checks the pointer position 20 times a second). It is removed while a game or another app is full screen.
+
+## Spotify account (optional): "Up next" and likes
+
+Signing in to Spotify (Settings → Spotify account) shows the next 3 tracks on the wallpaper and makes ★ like the
+current track. It uses the Spotify Web API with your own free app on developer.spotify.com:
+
+1. Open [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and sign in.
+2. **Create app** → any name and description; **Redirect URIs**: `http://127.0.0.1:43821/callback`; tick **Web API**; save.
+3. Open the app's **Settings**, copy the **Client ID** into Lyric Wall → **Sign in to Spotify** → allow in the browser.
+
+Spotify's rules since February 2026: such apps work only while the **app owner has Spotify Premium**, and for at most
+**5 users** — friends are added under **User Management** by their Spotify email. The sign-in uses PKCE (no secret key);
+the login is stored encrypted (macOS Keychain / Windows data protection) and never written to the log.
 
 ## Spotify
 
@@ -114,7 +127,7 @@ Xcode Command Line Tools (`xcode-select --install`). Without them the buttons us
 
 | Folder | Contents |
 |---|---|
-| `main/` | main process: windows, tray, player, lyrics, settings, log, languages, click layer |
+| `main/` | main process: windows, tray, player, lyrics, Spotify Web API, settings, log, languages, click layer |
 | `renderer/` | the wallpaper UI (look taken from `mockup.html`), the control and settings windows |
 | `adapters/` | `mac.js` and `win.js` (+ `win-media.ps1`); each system loads only its own file |
 | `mac-helper/` | native macOS helper that makes the wallpaper buttons clickable |

@@ -22,7 +22,8 @@ const defaults = {
   fps: 30, // wallpaper frames per second: 30, 20 or 15
   welcomeShown: false, // the first-start notification was shown
   // Sound card bars follow the computer's sound. macOS asks for the screen recording permission, so off there.
-  audioReactive: process.platform === 'win32'
+  audioReactive: process.platform === 'win32',
+  spotifyClientId: '' // Client ID of the user's app on developer.spotify.com (main/spotify-web.js)
 };
 
 let data = { ...defaults };

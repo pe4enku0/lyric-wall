@@ -20,6 +20,7 @@ const settings = require('./settings');
 const i18n = require('./i18n');
 const player = require('./player');
 const lyrics = require('./lyrics');
+const spotifyWeb = require('./spotify-web');
 const power = require('./power');
 const appearance = require('./appearance');
 const { cpuPercent } = require('./metrics');
@@ -44,6 +45,8 @@ ipcMain.on('app:log', (_e, level, text) => (log[level] || log.info)('UI:', text)
 ipcMain.on('app:openSoundSettings', () => shell.openExternal(adapter.soundSettingsUrl));
 ipcMain.on('app:openControl', () => control.show());
 ipcMain.handle('lyrics:get', () => lyrics.get());
+ipcMain.handle('web:getNow', () => ({ ...spotifyWeb.getNow(), loggedIn: spotifyWeb.state().loggedIn }));
+ipcMain.handle('web:like', (_e, on) => spotifyWeb.setLiked(!!on));
 ipcMain.handle('render:get', () => power.state());
 
 // First start: tell where the app went, since it opens no window.
@@ -79,6 +82,7 @@ app.whenReady().then(() => {
       .catch(e => { log.warn('Sound card: no access to the computer sound:', e.message); callback({}); });
   });
   power.start();
+  spotifyWeb.start();
   appearance.onChange(power.checkBattery);
   wallpaper.watchDisplays();
   if (settings.get('wallpaperEnabled')) wallpaper.create();
@@ -97,4 +101,4 @@ app.whenReady().then(() => {
 
 // The app lives in the tray even when the wallpaper is off and there are no windows.
 app.on('window-all-closed', () => {});
-app.on('before-quit', () => wallpaper.destroy());
+app.on('before-quit', () => { wallpaper.destroy(); spotifyWeb.stop(); });
