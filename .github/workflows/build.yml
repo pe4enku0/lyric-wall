@@ -1,6 +1,6 @@
-# Сборка установщиков на серверах GitHub.
-# Каждый push: .exe (Windows) и .zip с .app (Mac) появляются во вкладке Actions как «артефакты».
-# Тег вида v0.1.0: те же файлы ещё и публикуются в Releases.
+# Builds the installers on GitHub's servers.
+# Every push: the .exe (Windows) and the zipped .app (Mac) appear in the Actions tab as artifacts.
+# A tag like v0.1.0: the same files are also published in Releases.
 name: Build
 
 on:
@@ -38,7 +38,12 @@ jobs:
           path: ${{ matrix.files }}
           if-no-files-found: error
           retention-days: 30
-      # Проверка: запустить собранное приложение на 10 секунд и показать его лог.
+      # Smoke tests: run the media helper once, then run the built app for 10 seconds and print its log.
+      - name: Media helper test (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: pwsh
+        run: '"" | powershell.exe -NoProfile -ExecutionPolicy Bypass -File adapters/win-media.ps1'
       - name: Smoke test (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 3

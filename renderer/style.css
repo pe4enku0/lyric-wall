@@ -1,5 +1,5 @@
-/* Внешний вид взят из mockup.html один в один: пыльное стекло, шрифты, блюр строк.
-   Макет рассчитан на экран 1280×800; app.js масштабирует его под настоящий экран. */
+/* The look is taken 1:1 from mockup.html: dusty glass, fonts, blurred lyric lines.
+   The mockup is drawn for a 1280×800 screen; app.js scales it to the real screen. */
 @property --hue { syntax: '<number>'; inherits: true; initial-value: 225; }
 @property --sat { syntax: '<number>'; inherits: true; initial-value: 1; }
 :root {
@@ -46,7 +46,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .art::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 -60px 60px -30px rgba(0,0,0,.55); pointer-events: none; }
 .chip { position: absolute; z-index: 1; top: 16px; left: 18px; display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 99px; background: rgba(20,20,24,.55); backdrop-filter: blur(10px); }
 .dot { position: absolute; z-index: 1; top: 20px; right: 22px; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; }
-.art .cap { position: absolute; z-index: 1; left: 20px; right: 20px; bottom: 16px; display: flex; justify-content: space-between; font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.82); font-variant-numeric: tabular-nums; }
+.art .cap { position: absolute; z-index: 1; left: 20px; right: 20px; bottom: 16px; display: flex; justify-content: space-between; gap: 16px; font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.82); font-variant-numeric: tabular-nums; }
 
 /* player */
 .info { padding: 18px 22px 14px 24px; display: flex; flex-direction: column; gap: 10px; }
@@ -54,7 +54,12 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .ttl h2 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 6px; line-height: 1.1; }
 .ttl h2 i { font-style: normal; font-size: 10px; font-weight: 800; width: 15px; height: 15px; border-radius: 3px; background: rgba(255,255,255,.55); color: #3d3a42; display: grid; place-items: center; }
 .ttl h2 i[hidden] { display: none; }
-.ttl .ar { font-size: 18px; color: var(--ink2); margin-top: 4px; font-weight: 500; }
+/* Long titles: one line with "…"; the artist line (or a message) takes up to two lines. */
+.ttl > div:first-child { min-width: 0; }
+.ttl h2 { min-width: 0; }
+#title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#capL { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ttl .ar { font-size: 18px; color: var(--ink2); margin-top: 4px; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dots { display: flex; gap: 10px; }
 .dots span { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; }
 .prog { display: flex; align-items: center; gap: 14px; font-family: var(--mono); font-size: 10.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
@@ -91,6 +96,8 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .qi .a { font-size: 11px; color: var(--ink2); }
 .qi .c { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.14); display: grid; place-items: center; }
 .qi .c.on { background: #fff; }
+.qe { font-size: 13px; line-height: 1.4; color: var(--ink2); }
+.pill[hidden] { display: none; }
 .pill { text-align: center; font-size: 13px; font-weight: 600; padding: 9px 10px; border-radius: 14px; background: rgba(255,255,255,.1); }
 
 /* lyrics */

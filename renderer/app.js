@@ -1,15 +1,22 @@
-/* Интерфейс обоев. Логика взята из mockup.html; демо-данные лежат в demo.js. */
-(() => {
+/* Wallpaper UI. The look and animations come from mockup.html; the data comes from the main process. */
+(async () => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
   const stage = $('stage');
-  const T = window.DEMO_TRACKS;
+  const api = window.lyricWall;
 
-  /* Настройки фона и снега. Пока значения по умолчанию из макета; окно настроек появится на шаге 6. */
+  /* ---------- language ---------- */
+  const info = await api.info();
+  const t = key => (key in info.strings ? info.strings[key] : key);
+  document.documentElement.lang = info.lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $('device').textContent = info.deviceLabel;
+
+  /* Background and snow settings. Defaults from the mockup for now; the settings window comes in step 6. */
   const S = { bg: 'dusk', blur: 0, dim: 30, speed: reduce ? 0 : 1, count: 90, userImg: null };
 
-  /* Макет нарисован под 1280×800. Масштабируем так, чтобы высота была ~800 «макетных» точек,
-     а ширина растягивалась под экран (16:9, 16:10 и т.д.). */
+  /* The mockup is drawn for 1280×800. Scale so the height is ~800 mockup points
+     and the width stretches to the screen (16:9, 16:10 and so on). */
   let W = 1280, H = 800;
   const sc = $('snow'), sx = sc.getContext('2d');
   function fit() {
@@ -21,14 +28,25 @@
     for (const f of flakes) { if (f.x > W) f.x = Math.random() * W; if (f.y > H) f.y = Math.random() * H; }
   }
 
-  window.lyricWall.info().then(i => { $('device').textContent = i.deviceLabel; });
-
   /* film grain */
   (() => {
     const c = document.createElement('canvas'); c.width = c.height = 256;
     const g = c.getContext('2d'), d = g.createImageData(256, 256);
     for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
     g.putImageData(d, 0, 0); $('grain').style.backgroundImage = `url(${c.toDataURL()})`;
+  })();
+
+  /* Cover shown when there is no track (or no cover). */
+  const NO_COVER = (() => {
+    const c = document.createElement('canvas'); c.width = 960; c.height = 472;
+    const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 960, 472);
+    gr.addColorStop(0, '#2a2a2e'); gr.addColorStop(1, '#0c0c0e');
+    g.fillStyle = gr; g.fillRect(0, 0, 960, 472);
+    const m = g.createRadialGradient(330, 200, 10, 330, 200, 300);
+    m.addColorStop(0, 'rgba(240,240,245,.35)'); m.addColorStop(1, 'rgba(200,200,210,0)');
+    g.fillStyle = m; g.fillRect(0, 0, 960, 472);
+    return c.toDataURL('image/jpeg', .9);
   })();
 
   /* ---------- background presets ---------- */
@@ -66,25 +84,36 @@
   const DUSK = dusk();
 
   const BG = [
-    { id: 'dusk', name: 'Картинка: сумерки', img: 'dusk', hue: 330, sat: 1 },
-    { id: 'photo', name: 'Своя картинка', img: 'photo', hue: 225, sat: 1 },
-    { id: 'cover', name: 'Обложка трека', img: 'cover', hue: null, sat: 1 },
-    { id: 'auto', name: 'Из обложки', hue: null, sat: 1 },
-    { id: 'lilac', name: 'Сирень', hue: 225, sat: 1 },
-    { id: 'graphite', name: 'Графит', hue: 225, sat: .12 },
-    { id: 'night', name: 'Ночь', hue: 95, sat: 1.4 },
-    { id: 'pine', name: 'Хвоя', hue: 30, sat: 1.2 },
-    { id: 'sunset', name: 'Закат', hue: 265, sat: 1.5 }
+    { id: 'dusk', img: 'dusk', hue: 330, sat: 1 },
+    { id: 'photo', img: 'photo', hue: 225, sat: 1 },
+    { id: 'cover', img: 'cover', hue: null, sat: 1 },
+    { id: 'auto', hue: null, sat: 1 },
+    { id: 'lilac', hue: 225, sat: 1 },
+    { id: 'graphite', hue: 225, sat: .12 },
+    { id: 'night', hue: 95, sat: 1.4 },
+    { id: 'pine', hue: 30, sat: 1.2 },
+    { id: 'sunset', hue: 265, sat: 1.5 }
   ];
+
+  /* ---------- current track ---------- */
+  let track = { id: null, hue: 225, cover: NO_COVER, duration: 0 };
+  let playing = false;
+  // Smooth position between updates: base position + time passed since it was taken.
+  let basePos = 0, baseAt = Date.now();
+  const posNow = () => Math.max(0, basePos + (playing ? (Date.now() - baseAt) / 1000 : 0));
+
+  // A stable colour per track until "colour from cover" arrives in step 6.
+  const hueOf = id => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; };
+
   function applyBg() {
     const b = BG.find(x => x.id === S.bg) || BG[0];
-    stage.style.setProperty('--hue', b.hue == null ? T[ti].hue : b.hue);
+    stage.style.setProperty('--hue', b.hue == null ? track.hue : b.hue);
     stage.style.setProperty('--sat', b.sat);
     const el = $('bgimg'), dm = $('dim');
     let src = null;
     if (b.img === 'dusk') src = DUSK;
     else if (b.img === 'photo') src = S.userImg || DUSK;
-    else if (b.img === 'cover') src = T[ti].img;
+    else if (b.img === 'cover') src = track.cover;
     const bl = b.img === 'cover' ? Math.max(30, S.blur) : S.blur;
     const dv = b.img === 'cover' ? Math.max(45, S.dim) : S.dim;
     el.style.filter = bl ? `blur(${bl}px)` : 'none';
@@ -94,19 +123,18 @@
     el.dataset.src = src;
     if (el.style.opacity === '1') {
       el.style.opacity = 0;
-      setTimeout(() => { if (el.dataset.src === src) { el.style.backgroundImage = `url(${src})`; el.style.opacity = 1; } }, 450);
-    } else { el.style.backgroundImage = `url(${src})`; requestAnimationFrame(() => { el.style.opacity = 1; }); }
+      setTimeout(() => { if (el.dataset.src === src) { el.style.backgroundImage = `url("${src}")`; el.style.opacity = 1; } }, 450);
+    } else { el.style.backgroundImage = `url("${src}")`; requestAnimationFrame(() => { el.style.opacity = 1; }); }
   }
 
-  const LINE = 2900;
-  let ti = 0, li = 0, lineT = 0, playing = true, pos = T[0].start, last = performance.now();
-  let front = $('artA'), back = $('artB');
   const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const hms = s => { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
 
-  function renderLines() {
+  /* ---------- lyrics (real lyrics arrive in step 5) ---------- */
+  let li = 0;
+  function renderLines(lines) {
     const ul = $('lines'); ul.innerHTML = '';
-    T[ti].lines.forEach(t => { const el = document.createElement('li'); el.textContent = t; ul.appendChild(el); });
+    lines.forEach(text => { const el = document.createElement('li'); el.textContent = text; ul.appendChild(el); });
   }
   function focusLine(instant) {
     const ul = $('lines'), items = ul.children;
@@ -122,32 +150,81 @@
     ul.style.transform = `translateY(${118 - target.offsetTop}px)`;
     if (instant) { ul.offsetHeight; ul.style.transition = ''; }
   }
-  function renderQueue() {
-    const q = $('queue'); q.innerHTML = '';
-    for (let k = 1; k <= 3; k++) {
-      const t = T[(ti + k) % T.length], row = document.createElement('div');
-      row.className = 'qi';
-      row.innerHTML = `<img alt="" src="${t.img}"><div style="min-width:0"><div class="t"></div><div class="a"></div></div><span class="c${k === 1 ? ' on' : ''}">${k === 1 ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="#3d3a42"><path d="M7 4v16l13-8Z"/></svg>' : ''}</span>`;
-      row.querySelector('.t').textContent = t.title; row.querySelector('.a').textContent = t.artist;
-      q.appendChild(row);
-    }
+
+  /* ---------- queue (Spotify Web API, a later step) ---------- */
+  (() => {
+    const note = document.createElement('div');
+    note.className = 'qe'; note.textContent = t('ui.queueLater');
+    $('queue').appendChild(note);
+  })();
+
+  /* ---------- cover with crossfade ---------- */
+  let front = $('artA'), back = $('artB');
+  function setCover(src) {
+    src = src || NO_COVER;
+    if (front.dataset.src === src) return;
+    const img = back;
+    img.onload = () => {
+      img.classList.remove('out'); front.classList.add('out');
+      [front, back] = [img, front];
+    };
+    img.onerror = () => { if (src !== NO_COVER) setCover(NO_COVER); };
+    img.dataset.src = src;
+    img.src = src;
   }
 
-  function setTrack(i, first) {
-    ti = i; const t = T[ti];
-    applyBg();
-    $('title').textContent = t.title; $('artist').textContent = t.artist;
-    $('explicit').hidden = !t.explicit;
-    $('capL').textContent = t.artist.replace(',', ' ·').toUpperCase();
-    $('vol').textContent = t.vol; $('volBar').style.width = t.vol + '%';
-    $('mode').textContent = 'Перемешивание: ' + (t.shuffle ? 'вкл' : 'выкл');
-    renderQueue();
-    if (first) front.src = t.img;
-    else { back.src = t.img; back.classList.remove('out'); front.classList.add('out'); [front, back] = [back, front]; }
-    pos = t.start; li = 0; lineT = 0;
-    const ul = $('lines');
-    if (first) { renderLines(); focusLine(true); }
-    else { ul.style.opacity = 0; setTimeout(() => { renderLines(); focusLine(true); ul.style.opacity = 1; }, 650); }
+  /* ---------- applying player updates ---------- */
+  const PAUSE_ICON = '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>';
+  const PLAY_ICON = '<path d="M2 1 17 12 2 23Z"/>';
+  function setPlaying(on) {
+    playing = on;
+    $('pp').innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  }
+
+  function showMessage(state) {
+    if (track.id === state) return;
+    track = { id: state, hue: 225, cover: NO_COVER, duration: 0 };
+    setPlaying(false); basePos = 0;
+    $('title').textContent = t(`state.${state}.title`);
+    $('artist').textContent = t(`state.${state}.detail`);
+    $('capL').textContent = 'SPOTIFY';
+    $('vol').textContent = '—'; $('volBox').style.visibility = 'hidden';
+    $('mode').hidden = true;
+    renderLines([]);
+    setCover(NO_COVER); applyBg();
+  }
+
+  function showTrack(s) {
+    const changed = s.id !== track.id;
+    if (changed) {
+      track = { id: s.id, hue: hueOf(s.id), cover: s.art || NO_COVER, duration: s.duration || 0 };
+      $('title').textContent = s.title || '';
+      $('artist').textContent = s.artist || '';
+      $('capL').textContent = [s.artist, s.album].filter(Boolean).join(' · ').toUpperCase();
+      renderLines([t('ui.lyricsSoon')]); li = 0; focusLine(true);
+      applyBg();
+    } else if (s.art && s.art !== track.cover) {
+      track.cover = s.art; applyBg();
+    }
+    track.duration = s.duration || track.duration;
+    setCover(track.cover);
+
+    if (s.volume == null) { $('vol').textContent = '—'; $('volBox').style.visibility = 'hidden'; }
+    else { $('vol').textContent = Math.round(s.volume); $('volBar').style.width = s.volume + '%'; $('volBox').style.visibility = ''; }
+    $('mode').hidden = s.shuffle == null;
+    if (s.shuffle != null) $('mode').textContent = t(s.shuffle ? 'ui.shuffleOn' : 'ui.shuffleOff');
+
+    // Position: jump on a new track, pause or a big difference (seek); otherwise correct gently so nothing twitches.
+    const target = (s.position || 0) + (s.playing ? (Date.now() - (s.at || Date.now())) / 1000 : 0);
+    const cur = posNow();
+    basePos = changed || !s.playing || !playing || Math.abs(target - cur) > 1.5 ? target : cur + (target - cur) * 0.25;
+    baseAt = Date.now();
+    setPlaying(!!s.playing);
+  }
+
+  function onPlayer(s) {
+    if (s && (s.state === 'playing' || s.state === 'paused') && s.id) showTrack(s);
+    else showMessage(s && s.state ? s.state : 'error');
   }
 
   /* ---------- snow ---------- */
@@ -189,42 +266,28 @@
   }
 
   /* ---------- main loop ---------- */
+  let last = performance.now();
   function loop(now) {
     const dt = Math.min(.1, (now - last) / 1000); last = now;
-    if (playing) {
-      pos += dt; lineT += dt * 1000;
-      if (lineT >= LINE) {
-        lineT = 0; li++;
-        if (li >= T[ti].lines.length) setTrack((ti + 1) % T.length); else focusLine();
-      }
-    }
-    const t = T[ti], p = Math.min(1, pos / t.dur);
+    const d = track.duration, pos = d ? Math.min(d, posNow()) : 0, p = d ? pos / d : 0;
     $('fill').style.width = (p * 100) + '%'; $('knob').style.left = (p * 100) + '%';
-    $('cur').textContent = fmt(pos); $('rem').textContent = '-' + fmt(t.dur - pos);
+    $('cur').textContent = fmt(pos); $('rem').textContent = '-' + fmt(d - pos);
     $('capR').textContent = hms(pos);
     drawSnow(dt); drawViz(now);
     requestAnimationFrame(loop);
   }
 
-  /* ---------- controls ---------- */
-  const pp = $('pp');
-  const commands = {
-    toggle() {
-      playing = !playing;
-      pp.innerHTML = playing ? '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>' : '<path d="M2 1 17 12 2 23Z"/>';
-    },
-    next: () => setTrack((ti + 1) % T.length),
-    prev: () => setTrack((ti + T.length - 1) % T.length)
-  };
-  pp.addEventListener('click', commands.toggle);
-  $('bNext').addEventListener('click', commands.next);
-  $('bPrev').addEventListener('click', commands.prev);
-  window.lyricWall.onCommand(cmd => commands[cmd] && commands[cmd]());
+  /* ---------- controls (work in "npm run window"; on the desktop use the tray menu) ---------- */
+  $('pp').addEventListener('click', () => { basePos = posNow(); baseAt = Date.now(); setPlaying(!playing); api.control('toggle'); });
+  $('bNext').addEventListener('click', () => api.control('next'));
+  $('bPrev').addEventListener('click', () => api.control('prev'));
 
   /* ---------- start ---------- */
   addEventListener('resize', fit); fit();
   setCount(S.count);
-  setTrack(0, true);
+  showMessage('starting');
+  api.onPlayer(onPlayer);
+  onPlayer(await api.getPlayer());
   if (document.fonts) document.fonts.ready.then(() => focusLine(true));
   requestAnimationFrame(loop);
 })();

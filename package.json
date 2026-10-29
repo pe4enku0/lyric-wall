@@ -2,7 +2,7 @@
   "name": "lyric-wall",
   "productName": "Lyric Wall",
   "version": "0.1.0",
-  "description": "Музыкальные обои: что играет в Spotify и текст песни прямо на рабочем столе",
+  "description": "Music wallpaper: the current Spotify track and synced lyrics right on your desktop",
   "main": "main/main.js",
   "author": "pe4enku0",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "files": [
       "**/*",
       "!mockup.html",
-      "!README.md",
+      "!README*.md",
       "!.git/**",
       "!.github/**",
       "!dist/**"
@@ -50,7 +50,8 @@
       "hardenedRuntime": false,
       "artifactName": "Lyric-Wall-${version}-mac-${arch}.${ext}",
       "extendInfo": {
-        "LSUIElement": true
+        "LSUIElement": true,
+        "NSAppleEventsUsageDescription": "Lyric Wall reads the current Spotify track and controls playback."
       }
     },
     "win": {
@@ -67,7 +68,10 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false
-    }
+    },
+    "asarUnpack": [
+      "adapters/win-media.ps1"
+    ]
   },
   "allowScripts": {
     "koffi": false,

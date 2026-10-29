@@ -1,4 +1,4 @@
-// Лог-файл в папке данных приложения. Хранится только на этом компьютере.
+// Log file in the app data folder. It stays on this computer only.
 const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -8,7 +8,7 @@ const file = path.join(app.getPath('userData'), 'lyric-wall.log');
 const MAX_SIZE = 1024 * 1024;
 
 fs.mkdirSync(path.dirname(file), { recursive: true });
-// Старый лог больше 1 МБ переименовываем, чтобы файл не рос бесконечно.
+// Keep the log small: a log over 1 MB is moved aside on start.
 try {
   if (fs.statSync(file).size > MAX_SIZE) fs.renameSync(file, file + '.old');
 } catch (_) {}

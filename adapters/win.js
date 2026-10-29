@@ -1,7 +1,8 @@
-// Всё, что относится только к Windows. На Mac этот файл не загружается.
-// Окно-обои встраивается за иконки рабочего стола (приём WorkerW, как у Wallpaper Engine / Lively).
-// Шаг 4: Windows.Media.Control.
+// Windows-only code. This file is never loaded on macOS.
+// The wallpaper window is embedded behind the desktop icons (the WorkerW trick used by
+// Wallpaper Engine / Lively). Spotify is read through the win-media.ps1 helper.
 const { screen } = require('electron');
+const { spawn } = require('child_process');
 const path = require('path');
 const log = require('../main/log');
 
@@ -12,7 +13,7 @@ const SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0
 const HWND_BOTTOM = 1, GW_HWNDLAST = 1, GW_HWNDPREV = 3, GW_CHILD = 5, GA_PARENT = 1;
 const SW_HIDE = 0, SW_SHOWNA = 8, LWA_ALPHA = 0x2, SMTO_NORMAL = 0;
 
-// Функции Windows (user32.dll) через koffi. Загружаются при первом обращении.
+// Windows functions from user32.dll via koffi, loaded on first use.
 let u = null;
 function user32() {
   if (u) return u;
@@ -42,18 +43,18 @@ const hex = h => '0x' + Number(h).toString(16);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const hwndOf = win => Number(win.getNativeWindowHandle().readBigUInt64LE(0));
 
-// Текущее состояние встраивания: режим и окна Проводника, к которым прикреплены.
+// Current embedding: the mode and the Explorer windows we are attached to.
 let state = { mode: null, parent: 0, workerw: 0 };
 
-// Ищет окна рабочего стола. Progman — сам рабочий стол, SHELLDLL_DefView — слой с иконками,
-// WorkerW — слой, в котором Windows рисует обои. Наше окно должно оказаться между ними.
+// Finds the desktop windows. Progman is the desktop itself, SHELLDLL_DefView holds the icons,
+// WorkerW is where Windows draws the wallpaper. Our window goes between the icons and WorkerW.
 function findDesktop() {
   const w = user32();
   const progman = w.FindWindowW('Progman', null);
-  if (!progman) throw new Error('окно Progman не найдено (Проводник не запущен?)');
-  // Windows 11 24H2 и новее: «поднятый» рабочий стол, все слои внутри Progman.
+  if (!progman) throw new Error('Progman window not found (is Explorer running?)');
+  // Windows 11 24H2+: "raised desktop", all layers live inside Progman.
   const raised = (Number(w.GetWindowLongPtrW(progman, GWL_EXSTYLE)) & WS_EX_NOREDIRECTIONBITMAP) !== 0;
-  // Сообщение 0x052C просит Проводник создать WorkerW за иконками (если его ещё нет).
+  // Message 0x052C asks Explorer to create a WorkerW behind the icons (if it is not there yet).
   w.SendMessageTimeoutW(progman, 0x052C, 0xD, 0x1, SMTO_NORMAL, 1000, null);
 
   let host = 0;
@@ -76,7 +77,7 @@ function physBounds(display) {
   return screen.dipToScreenRect(null, display.bounds);
 }
 
-// Ставит окно на место экрана внутри родителя (координаты родителя считаются от его угла).
+// Moves the window over its screen inside the parent (child coordinates start at the parent's corner).
 function placeInParent(hwnd, parent, display) {
   const w = user32(), r = {}, b = physBounds(display);
   w.GetWindowRect(parent, r);
@@ -87,7 +88,7 @@ function embed(win, hwnd, d, display) {
   const w = user32();
   let parent;
   if (d.raised) {
-    // Windows 11 24H2: своё дочернее окно Progman под иконками и над WorkerW с системными обоями.
+    // Windows 11 24H2: our own child of Progman, below the icons and above the system WorkerW.
     parent = d.progman;
     win.setIgnoreMouseEvents(true);
     w.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
@@ -97,23 +98,23 @@ function embed(win, hwnd, d, display) {
     w.SetWindowPos(hwnd, d.defview, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     const last = w.GetWindow(w.GetWindow(d.progman, GW_CHILD), GW_HWNDLAST);
     if (Number(last) !== Number(d.workerw)) {
-      log.info('Обои: поправляю порядок WorkerW');
+      log.info('Wallpaper: fixing WorkerW z-order');
       w.SetWindowPos(d.workerw, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
   } else {
-    // Классический способ: окно становится дочерним для WorkerW за иконками.
+    // Classic way: the window becomes a child of the WorkerW behind the icons.
     parent = d.workerw;
     w.ShowWindow(d.workerw, SW_SHOWNA);
     w.SetParent(hwnd, parent);
   }
-  if (Number(w.GetAncestor(hwnd, GA_PARENT)) !== Number(parent)) throw new Error('SetParent не сработал');
+  if (Number(w.GetAncestor(hwnd, GA_PARENT)) !== Number(parent)) throw new Error('SetParent did not work');
   placeInParent(hwnd, parent, display);
   win.showInactive();
   state = { mode: d.raised ? 'workerw-24h2' : 'workerw', parent, workerw: d.workerw };
 }
 
-// Запасной режим: обычное окно, которое стоит прямо над рабочим столом и под всеми окнами.
-// Иконки рабочего стола в этом режиме закрыты.
+// Fallback: a normal window placed right above the desktop and below all other windows.
+// Desktop icons are covered in this mode.
 function bottom(win, hwnd, display) {
   const w = user32();
   win.setIgnoreMouseEvents(true);
@@ -130,15 +131,58 @@ function placeBottom(hwnd, display) {
   while ((cur = w.FindWindowExW(0, cur, 'WorkerW', null))) {
     if (w.FindWindowExW(cur, 0, 'SHELLDLL_DefView', null)) { desk = cur; break; }
   }
-  // SetWindowPos ставит окно сразу ПОД указанным; берём окно, которое лежит прямо над рабочим столом.
+  // SetWindowPos puts the window right BELOW the given one, so use the window right above the desktop.
   const above = desk ? Number(w.GetWindow(desk, GW_HWNDPREV)) : 0;
   const after = above && above !== hwnd ? above : HWND_BOTTOM;
   w.SetWindowPos(hwnd, after, b.x, b.y, b.width, b.height, SWP_NOACTIVATE);
 }
 
+// ---------- Spotify through the PowerShell helper ----------
+
+// PowerShell cannot read files inside app.asar, so the helper is unpacked next to it.
+const HELPER = path.join(__dirname, 'win-media.ps1').replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
+
+let helper = null;
+let onUpdate = null;
+let retryTimer = null;
+let running = false;
+
+function startHelper() {
+  clearTimeout(retryTimer);
+  let pending = '';
+  helper = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', HELPER], { windowsHide: true });
+  helper.stdout.setEncoding('utf8');
+  helper.stdout.on('data', chunk => {
+    pending += chunk;
+    let i;
+    while ((i = pending.indexOf('\n')) >= 0) {
+      const line = pending.slice(0, i).trim().replace(/^﻿/, '');
+      pending = pending.slice(i + 1);
+      if (!line) continue;
+      try {
+        const snap = JSON.parse(line);
+        if (snap.position != null) snap.at = Date.now();
+        onUpdate(snap);
+      } catch (e) {
+        log.warn('Spotify (win): bad helper output:', line.slice(0, 200));
+      }
+    }
+  });
+  helper.stderr.setEncoding('utf8');
+  helper.stderr.on('data', d => log.warn('Spotify (win) helper:', d.trim().slice(0, 500)));
+  helper.on('error', e => log.error('Spotify (win): could not start PowerShell:', e.message));
+  helper.on('exit', code => {
+    helper = null;
+    if (!running) return;
+    log.warn('Spotify (win): helper exited with code', code, '- restarting in 10 s');
+    retryTimer = setTimeout(startHelper, 10000);
+  });
+  log.info('Spotify (win): helper started');
+}
+
 module.exports = {
   name: 'win',
-  deviceLabel: () => 'Компьютер',
+  deviceKey: 'device.win',
   trayIcon: path.join(__dirname, '..', 'assets', 'tray.ico'),
 
   init() {},
@@ -156,33 +200,33 @@ module.exports = {
       user32();
       hwnd = hwndOf(win);
     } catch (e) {
-      // Без koffi нельзя ни встроить окно, ни опустить его вниз. Не показываем, чтобы не закрыть экран.
-      log.error('Обои: не загрузились функции Windows (koffi):', e.message);
+      // Without koffi we can neither embed nor lower the window, so keep it hidden instead of covering the screen.
+      log.error('Wallpaper: could not load Windows functions (koffi):', e.message);
       return 'none';
     }
     if (settings.get('winMode') !== 'bottom') {
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const d = findDesktop();
-          log.info(`Обои: попытка ${attempt}: Progman=${hex(d.progman)} 24H2=${d.raised} иконки=${hex(d.defview)} WorkerW=${hex(d.workerw)}`);
+          log.info(`Wallpaper: attempt ${attempt}: Progman=${hex(d.progman)} 24H2=${d.raised} icons=${hex(d.defview)} WorkerW=${hex(d.workerw)}`);
           if (d.defview && d.workerw) {
             embed(win, hwnd, d, display);
-            log.info(`Обои: встроено за иконки (${state.mode}), родитель ${hex(state.parent)}`);
+            log.info(`Wallpaper: embedded behind icons (${state.mode}), parent ${hex(state.parent)}`);
             return state.mode;
           }
         } catch (e) {
-          log.error('Обои: ошибка встраивания:', e.message);
+          log.error('Wallpaper: embedding error:', e.message);
         }
         await sleep(700);
       }
-      log.warn('Обои: встроить за иконки не вышло, включаю запасной режим «под всеми окнами»');
+      log.warn('Wallpaper: could not embed behind icons, using the "below all windows" fallback');
     }
     try {
       bottom(win, hwnd, display);
-      log.info('Обои: режим «под всеми окнами»');
+      log.info('Wallpaper: "below all windows" mode');
       return 'bottom';
     } catch (e) {
-      log.error('Обои: запасной режим тоже не сработал:', e.message);
+      log.error('Wallpaper: fallback mode failed too:', e.message);
       return 'none';
     }
   },
@@ -193,21 +237,39 @@ module.exports = {
       if (state.mode === 'bottom') placeBottom(hwnd, display);
       else if (state.parent) placeInParent(hwnd, state.parent, display);
     } catch (e) {
-      log.error('Обои: не удалось подвинуть окно под новый размер экрана:', e.message);
+      log.error('Wallpaper: could not move the window to the new screen size:', e.message);
     }
   },
 
   detachWallpaper(win) {
     try {
       if (win && !win.isDestroyed()) win.hide();
-      // Прячем WorkerW, чтобы Windows снова показала обычные обои, а не последний кадр нашего окна.
+      // Hide WorkerW so Windows shows the normal wallpaper again instead of our last frame.
       if (state.mode === 'workerw' && state.workerw && user32().IsWindow(state.workerw)) {
         user32().ShowWindow(state.workerw, SW_HIDE);
-        log.info('Обои: WorkerW спрятан, системные обои снова видны');
+        log.info('Wallpaper: WorkerW hidden, system wallpaper visible again');
       }
     } catch (e) {
-      log.error('Обои: ошибка при отключении:', e.message);
+      log.error('Wallpaper: error while turning off:', e.message);
     }
     state = { mode: null, parent: 0, workerw: 0 };
+  },
+
+  startNowPlaying(cb) {
+    onUpdate = cb;
+    running = true;
+    if (!helper) startHelper();
+  },
+
+  stopNowPlaying() {
+    running = false;
+    clearTimeout(retryTimer);
+    if (helper) helper.kill();
+    helper = null;
+  },
+
+  control(cmd) {
+    if (helper && ['toggle', 'next', 'prev'].includes(cmd)) helper.stdin.write(cmd + '\n');
+    return Promise.resolve();
   }
 };

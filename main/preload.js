@@ -1,8 +1,10 @@
-// Мостик между интерфейсом и главным процессом. Интерфейс видит только window.lyricWall.
+// Bridge between the UI and the main process. The UI only sees window.lyricWall.
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('lyricWall', {
   info: () => ipcRenderer.invoke('app:info'),
-  // Команды из трея: 'toggle', 'next', 'prev'
-  onCommand: cb => ipcRenderer.on('player:command', (_e, cmd) => cb(cmd))
+  getPlayer: () => ipcRenderer.invoke('player:get'),
+  onPlayer: cb => ipcRenderer.on('player:state', (_e, snap) => cb(snap)),
+  // 'toggle' | 'next' | 'prev'
+  control: cmd => ipcRenderer.send('player:control', cmd)
 });

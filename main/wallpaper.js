@@ -1,16 +1,21 @@
-// Окно-обои: создание, встраивание через адаптер системы, восстановление.
+// Wallpaper window: creating it, embedding it through the OS adapter, recovering it.
 const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const adapter = require('../adapters');
 const settings = require('./settings');
+const player = require('./player');
 const log = require('./log');
 
-// npm run window — обои в обычном окне, чтобы смотреть на дизайн во время разработки.
+// npm run window: show the wallpaper in a normal window to look at the design while developing.
 const windowed = process.argv.includes('--window');
 
 let win = null;
 let closingOnPurpose = false;
 let restartTimer = null;
+
+function send(channel, ...args) {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
+}
 
 function create() {
   if (win) return win;
@@ -39,40 +44,42 @@ function create() {
   });
 
   win.once('ready-to-show', async () => {
-    if (windowed) { win.show(); log.info('Обои в обычном окне (--window)'); return; }
+    if (windowed) { win.show(); log.info('Wallpaper in a normal window (--window)'); return; }
     const mode = await adapter.attachWallpaper(win, screen.getPrimaryDisplay(), settings);
-    log.info('Обои включены, режим:', mode);
+    log.info('Wallpaper on, mode:', mode);
   });
 
-  // Если окно пропало само (например, перезапустился Проводник Windows), создаём заново.
+  // If the window disappears by itself (for example Windows Explorer restarted), create it again.
   win.on('closed', () => {
     win = null;
     if (closingOnPurpose) return;
     if (windowed) { app.quit(); return; }
-    log.warn('Окно-обои закрылось само, пересоздаю через 3 секунды');
+    log.warn('Wallpaper window closed by itself, recreating in 3 seconds');
     clearTimeout(restartTimer);
     restartTimer = setTimeout(() => { if (settings.get('wallpaperEnabled')) create(); }, 3000);
   });
 
-  win.webContents.on('render-process-gone', (_e, d) => log.error('Интерфейс обоев упал:', d.reason));
+  win.webContents.on('render-process-gone', (_e, d) => log.error('Wallpaper UI crashed:', d.reason));
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  player.start(snap => send('player:state', snap));
   return win;
 }
 
 function destroy() {
   clearTimeout(restartTimer);
+  player.stop();
   if (!win) return;
   closingOnPurpose = true;
   adapter.detachWallpaper(win);
   win.destroy();
   win = null;
-  log.info('Обои выключены');
+  log.info('Wallpaper off');
 }
 
 function onDisplayChange() {
   if (!win || windowed) return;
   const display = screen.getPrimaryDisplay();
-  log.info('Экран изменился, новые размеры:', display.bounds, 'масштаб', display.scaleFactor);
+  log.info('Screen changed, new bounds:', display.bounds, 'scale', display.scaleFactor);
   adapter.placeWallpaper(win, display);
 }
 
@@ -82,9 +89,9 @@ function watchDisplays() {
   screen.on('display-removed', onDisplayChange);
 }
 
-// Команды интерфейсу: пауза, следующий трек и т.д.
-function send(channel, ...args) {
-  if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
+// Reload the UI, for example after the language changed.
+function reload() {
+  if (win && !win.isDestroyed()) win.webContents.reload();
 }
 
-module.exports = { create, destroy, watchDisplays, send, isOn: () => !!win };
+module.exports = { create, destroy, watchDisplays, reload, isOn: () => !!win };
