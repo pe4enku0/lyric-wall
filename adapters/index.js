@@ -7,7 +7,17 @@ if (process.platform === 'darwin') {
 } else if (process.platform === 'win32') {
   adapter = require('./win');
 } else {
-  adapter = { name: 'other', deviceLabel: () => 'Компьютер' };
+  // Другие системы не поддерживаются: показываем обычное окно.
+  adapter = {
+    name: 'other',
+    deviceLabel: () => 'Компьютер',
+    trayIcon: require('path').join(__dirname, '..', 'assets', 'trayTemplate@2x.png'),
+    init() {},
+    wallpaperWindowOptions: display => ({ ...display.bounds }),
+    attachWallpaper(win) { win.show(); return 'window'; },
+    placeWallpaper(win, display) { win.setBounds(display.bounds); },
+    detachWallpaper() {}
+  };
 }
 
 module.exports = adapter;

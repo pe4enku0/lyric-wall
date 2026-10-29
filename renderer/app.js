@@ -208,12 +208,18 @@
 
   /* ---------- controls ---------- */
   const pp = $('pp');
-  pp.addEventListener('click', () => {
-    playing = !playing;
-    pp.innerHTML = playing ? '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>' : '<path d="M2 1 17 12 2 23Z"/>';
-  });
-  $('bNext').addEventListener('click', () => setTrack((ti + 1) % T.length));
-  $('bPrev').addEventListener('click', () => setTrack((ti + T.length - 1) % T.length));
+  const commands = {
+    toggle() {
+      playing = !playing;
+      pp.innerHTML = playing ? '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>' : '<path d="M2 1 17 12 2 23Z"/>';
+    },
+    next: () => setTrack((ti + 1) % T.length),
+    prev: () => setTrack((ti + T.length - 1) % T.length)
+  };
+  pp.addEventListener('click', commands.toggle);
+  $('bNext').addEventListener('click', commands.next);
+  $('bPrev').addEventListener('click', commands.prev);
+  window.lyricWall.onCommand(cmd => commands[cmd] && commands[cmd]());
 
   /* ---------- start ---------- */
   addEventListener('resize', fit); fit();

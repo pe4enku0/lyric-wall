@@ -2,5 +2,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('lyricWall', {
-  info: () => ipcRenderer.invoke('app:info')
+  info: () => ipcRenderer.invoke('app:info'),
+  // Команды из трея: 'toggle', 'next', 'prev'
+  onCommand: cb => ipcRenderer.on('player:command', (_e, cmd) => cb(cmd))
 });

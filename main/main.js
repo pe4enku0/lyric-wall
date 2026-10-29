@@ -1,36 +1,21 @@
 // Главный процесс: окна, трей, системные вещи.
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
-const adapter = require('../adapters');
+const { app, ipcMain } = require('electron');
+const os = require('os');
+const log = require('./log');
 
-// Только одна копия приложения: повторный запуск просто показывает уже открытое окно.
+process.on('uncaughtException', e => log.error('Необработанная ошибка:', e && e.stack || e));
+process.on('unhandledRejection', e => log.error('Необработанная ошибка (promise):', e && e.stack || e));
+
+// Только одна копия приложения.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   return;
 }
 
-let win = null;
-
-function createWindow() {
-  win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 800,
-    minHeight: 500,
-    title: 'Lyric Wall',
-    backgroundColor: '#19171c',
-    show: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  });
-  win.once('ready-to-show', () => win.show());
-  win.on('closed', () => { win = null; });
-  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
-}
+const adapter = require('../adapters');
+const settings = require('./settings');
+const wallpaper = require('./wallpaper');
+const tray = require('./tray');
 
 ipcMain.handle('app:info', () => ({
   version: app.getVersion(),
@@ -39,17 +24,21 @@ ipcMain.handle('app:info', () => ({
   deviceLabel: adapter.deviceLabel()
 }));
 
-app.on('second-instance', () => {
-  if (!win) return;
-  if (win.isMinimized()) win.restore();
-  win.show();
-  win.focus();
-});
+app.on('second-instance', () => log.info('Попытка второго запуска: приложение уже работает (иконка в трее)'));
 
 app.whenReady().then(() => {
-  console.log(`Lyric Wall ${app.getVersion()} запущен, адаптер: ${adapter.name}`);
-  createWindow();
-  app.on('activate', () => { if (!win) createWindow(); });
+  log.info(`Запуск Lyric Wall ${app.getVersion()}: ${process.platform} ${os.release()}, Electron ${process.versions.electron}, адаптер ${adapter.name}`);
+  adapter.init();
+  wallpaper.watchDisplays();
+  if (settings.get('wallpaperEnabled')) wallpaper.create();
+  tray.create();
+
+  // Для автоматической проверки в GitHub Actions: запуститься, поработать 10 секунд и выйти.
+  if (process.argv.includes('--smoke-test')) {
+    setTimeout(() => { log.info('Проверка запуска: приложение проработало 10 секунд'); app.quit(); }, 10000);
+  }
 });
 
-app.on('window-all-closed', () => app.quit());
+// Приложение живёт в трее, даже когда обои выключены и окон нет.
+app.on('window-all-closed', () => {});
+app.on('before-quit', () => wallpaper.destroy());
