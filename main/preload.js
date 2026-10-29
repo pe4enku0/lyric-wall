@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('lyricWall', {
   onHit: cb => ipcRenderer.on('hit:event', (_e, ev) => cb(ev)),
   // used by the click layer itself (renderer/hit.html)
   onHitRects: cb => ipcRenderer.on('hit:rects', (_e, items) => cb(items)),
+  onHitCursor: cb => ipcRenderer.on('hit:cursor', (_e, id) => cb(id)),
   hitEvent: ev => ipcRenderer.send('hit:event', ev),
 
   // Lyrics for the current track (see main/lyrics.js)
