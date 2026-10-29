@@ -1,6 +1,7 @@
 // macOS-only code: desktop-level wallpaper window and Spotify via AppleScript.
 const { app } = require('electron');
 const { spawn, execFile } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const log = require('../main/log');
 
@@ -60,6 +61,11 @@ function objcApi() {
   };
   return objc;
 }
+// Native click helper (mac-helper/ClickLayer.swift): inside the app in the packaged app, built by npm in development.
+const CLICK_HELPER = app.isPackaged
+  ? path.join(process.resourcesPath, 'lyric-wall-clicks')
+  : path.join(__dirname, '..', 'native', 'mac', 'lyric-wall-clicks');
+
 // NSWindowCollectionBehavior: on all Spaces, stays in place when macOS shows the desktop, not in Cmd+` cycling
 const CAN_JOIN_ALL_SPACES = 1 << 0, STATIONARY = 1 << 4, IGNORES_CYCLE = 1 << 6;
 
@@ -167,7 +173,36 @@ module.exports = {
 
   detachWallpaper() {},
 
-  // Click layer. macOS gives clicks only to windows at the normal level or higher (anything lower counts as
+  // Click layer through the native helper. Returns null when the helper is missing (the Electron layer is used).
+  createNativeHitLayer(onClick) {
+    if (!fs.existsSync(CLICK_HELPER)) {
+      log.warn('Click helper not found, using the simpler click layer:', path.basename(CLICK_HELPER));
+      return null;
+    }
+    let stopped = false, pending = '';
+    const p = spawn(CLICK_HELPER, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+    p.stdout.setEncoding('utf8');
+    p.stdout.on('data', chunk => {
+      pending += chunk;
+      let i;
+      while ((i = pending.indexOf('\n')) >= 0) {
+        const line = pending.slice(0, i).trim();
+        pending = pending.slice(i + 1);
+        try { if (line) onClick(JSON.parse(line)); } catch (_) { log.warn('Click helper: bad output:', line.slice(0, 200)); }
+      }
+    });
+    p.stderr.setEncoding('utf8');
+    p.stderr.on('data', d => log.warn('Click helper:', d.trim().slice(0, 300)));
+    p.on('error', e => log.error('Click helper could not start:', e.message));
+    p.on('exit', code => { if (!stopped) log.warn('Click helper exited with code', code); });
+    p.stdin.on('error', () => {});
+    return {
+      setRects: rects => { if (!stopped && p.stdin.writable) p.stdin.write(JSON.stringify(rects) + '\n'); },
+      destroy: () => { stopped = true; p.stdin.end(); setTimeout(() => p.kill(), 500); }
+    };
+  },
+
+  // Fallback click layer (Electron window). macOS gives clicks only to windows at the normal level or higher (anything lower counts as
   // the desktop and the click goes to Finder), so the layer is a normal window kept behind all other windows,
   // like a desktop widget: windows cover it; on the free desktop it takes the clicks on the wallpaper buttons.
   placeHitLayer(win) {

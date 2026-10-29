@@ -47,6 +47,9 @@ npm start        # start the wallpaper (an icon appears in the menu bar)
 npm run window   # show the wallpaper in a normal window to look at the design
 ```
 
+On macOS `npm start` also builds the small click helper (`mac-helper/ClickLayer.swift`) that makes the
+wallpaper buttons clickable; it needs the Xcode Command Line Tools (`xcode-select --install`).
+
 Opening the app (or clicking its icon again while it runs) shows the **control window**:
 what is playing, playback buttons, wallpaper on/off, language, start at login, log, quit.
 **Background and snow…** (or **Settings…** in the tray) opens the settings: background preset,
@@ -65,6 +68,8 @@ Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`
 | `renderer/` | the wallpaper UI (look taken from `mockup.html`), the control and settings windows |
 | `adapters/` | `mac.js` and `win.js` (+ `win-media.ps1`); each system loads only its own file |
 | `locales/` | UI text in English (`en.json`) and Russian (`ru.json`) |
+| `mac-helper/` | native macOS helper that makes the wallpaper buttons clickable |
+| `scripts/` | build script for the helper |
 | `assets/` | app icon (`icon-mac.png`, `icon-win.png`), menu bar and tray icons |
 | `mockup.html` | the original design mockup |
 

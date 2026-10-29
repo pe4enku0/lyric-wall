@@ -8,8 +8,11 @@
   "license": "MIT",
   "private": true,
   "scripts": {
+    "prestart": "node scripts/build-mac-helper.js",
     "start": "electron .",
+    "prewindow": "node scripts/build-mac-helper.js",
     "window": "electron . --window",
+    "predist": "node scripts/build-mac-helper.js",
     "dist": "electron-builder --publish never"
   },
   "dependencies": {
@@ -34,7 +37,10 @@
       "!README*.md",
       "!.git/**",
       "!.github/**",
-      "!dist/**"
+      "!dist/**",
+      "!native/**",
+      "!mac-helper/**",
+      "!scripts/**"
     ],
     "mac": {
       "target": [
@@ -53,7 +59,13 @@
         "LSUIElement": true,
         "NSAppleEventsUsageDescription": "Lyric Wall reads the current Spotify track and controls playback."
       },
-      "icon": "assets/icon-mac.png"
+      "icon": "assets/icon-mac.png",
+      "extraResources": [
+        {
+          "from": "native/mac/lyric-wall-clicks",
+          "to": "lyric-wall-clicks"
+        }
+      ]
     },
     "win": {
       "target": [
