@@ -43,7 +43,11 @@ jobs:
         if: runner.os == 'Windows'
         timeout-minutes: 2
         shell: pwsh
-        run: '"" | powershell.exe -NoProfile -ExecutionPolicy Bypass -File adapters/win-media.ps1'
+        # Fails when the Spotify volume code (C# inside the script) does not compile.
+        run: |
+          $out = "" | powershell.exe -NoProfile -ExecutionPolicy Bypass -File adapters/win-media.ps1 2>&1 | Out-String
+          Write-Host $out
+          if ($out -match 'volume is not available') { throw 'Spotify volume code did not compile' }
       - name: Smoke test (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 3

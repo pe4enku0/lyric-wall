@@ -34,7 +34,6 @@ function get() {
     imageVersion: settings.get('imageVersion'),
     pauseOnBattery: settings.get('pauseOnBattery'),
     showLyrics: settings.get('showLyrics'),
-    audioReactive: settings.get('audioReactive'),
     fps: settings.get('fps')
   };
 }
@@ -49,7 +48,7 @@ function set(key, value) {
   } else if (key === 'bg') {
     if (!BACKGROUNDS.includes(value) || (value === 'photo' && !hasImage())) return get();
     if (settings.get('theme') !== 'dusty' && DUSTY_ONLY.includes(value)) return get();
-  } else if (['pauseOnBattery', 'showLyrics', 'audioReactive'].includes(key)) {
+  } else if (['pauseOnBattery', 'showLyrics'].includes(key)) {
     value = !!value;
   } else if (key === 'fps') {
     if (![15, 20, 30].includes(Number(value))) return get();

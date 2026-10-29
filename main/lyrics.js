@@ -181,6 +181,8 @@ function onSnapshot(s) {
 
 module.exports = {
   onSnapshot,
+  simplifyTitle,
+  mainArtist,
   get: () => current,
   setSink: fn => { sink = fn; }
 };

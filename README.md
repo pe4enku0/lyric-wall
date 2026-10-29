@@ -34,7 +34,7 @@ The builds are not signed with a paid certificate:
   work with every theme; the colour backgrounds belong to Dusty glass.
 - **Settings** (tray → Settings…, or "Background and snow…" in the control window): theme, background preset,
   colour from the cover, blurred cover, your own picture (copied into the app data folder), picture blur and dim,
-  snow speed and amount, the sound card, smoothness (30 / 20 / 15 frames per second), pausing on battery.
+  snow speed and amount, smoothness (30 / 20 / 15 frames per second), pausing on battery.
   Changes show right away and are saved.
 
 ### Buttons on the wallpaper
@@ -43,7 +43,7 @@ The builds are not signed with a paid certificate:
 |---|---|
 | ⏮ ⏯ ⏭ | previous track, play / pause, next track |
 | progress bar | jump to that place in the song |
-| volume bar · speaker | set the volume · mute / unmute (Spotify volume on Mac, system volume on Windows) |
+| volume bar · speaker | Spotify's volume · mute / unmute Spotify (other sounds and the system volume are not touched) |
 | "Shuffle" | shuffle on / off |
 | cover | open Spotify |
 | white lyrics button | hide / show the lyrics |
@@ -81,7 +81,8 @@ the login is stored encrypted (macOS Keychain / Windows data protection) and nev
   Lyric Wall may control Spotify. If you said no: System Settings → Privacy & Security → Automation →
   Lyric Wall → turn on Spotify.
 - **Windows:** Spotify is read through Windows media controls (the same as the volume flyout).
-  No Spotify login is needed. Spotify's own volume is not available there, so the system volume is shown.
+  No Spotify login is needed. The volume bar is Spotify's slider in the Windows volume mixer; it appears once
+  Spotify has played some sound.
   If Windows gives no cover, it is looked up in the public iTunes catalog by artist and title.
 
 ## Lyrics and performance
@@ -89,6 +90,10 @@ the login is stored encrypted (macOS Keychain / Windows data protection) and nev
 - Synced lyrics from [LRCLIB](https://lrclib.net) follow the song with a blur/focus effect. The search and
   LRCLIB's own database are asked at the same time, so lyrics usually appear in 0.1–0.3 s. Found lyrics are
   cached in the app data folder; without synced lyrics plain lyrics scroll with the song.
+- The **Sound** card only shows, it has no buttons: its bars jump to the beat of the song. The tempo (BPM) is
+  looked up in the public [Deezer](https://developers.deezer.com/api) catalog by artist and title (no login,
+  nothing listens to the computer's sound) and cached in the app data folder. If the catalog does not know the
+  tempo, the bars move in a calm wave; while the music is paused they rest.
 - The wallpaper draws at most 30 frames per second (20 or 15 in the settings), sleeps when nothing moves
   (music paused) and stops completely when the screen is locked, the computer sleeps, a game or another app
   is full screen (Windows) or, if turned on in the settings, while running on battery.
@@ -110,7 +115,7 @@ App data folder: Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPD
 2. Start it: no window opens, a notification says Lyric Wall is running, the icon is in the tray (maybe under **^**).
 3. The wallpaper is **behind the desktop icons**, the icons and desktop clicks work as before.
 4. Play music in Spotify: track, cover, moving progress bar and synced lyrics appear.
-5. The volume number matches the Windows volume; the bars move with the music.
+5. The volume bar moves Spotify's slider in the volume mixer (Win+Ctrl+V), not the system volume; the Sound bars jump to the beat.
 6. Wallpaper buttons: ⏯, ⏭, progress bar, volume, "Shuffle" work; the cursor turns into a hand over them.
 7. Start a game full screen: the log shows `Render paused (+fullscreen)`; FPS is not lower than without the app.
 8. Tray → Wallpaper off: the normal Windows wallpaper comes back.
@@ -132,7 +137,7 @@ Xcode Command Line Tools (`xcode-select --install`). Without them the buttons us
 
 | Folder | Contents |
 |---|---|
-| `main/` | main process: windows, tray, player, lyrics, Spotify Web API, settings, log, languages, click layer |
+| `main/` | main process: windows, tray, player, lyrics, tempo, Spotify Web API, settings, log, languages, click layer |
 | `renderer/` | the wallpaper UI (look taken from `mockup.html`), the control and settings windows |
 | `adapters/` | `mac.js` and `win.js` (+ `win-media.ps1`); each system loads only its own file |
 | `mac-helper/` | native macOS helper that makes the wallpaper buttons clickable |

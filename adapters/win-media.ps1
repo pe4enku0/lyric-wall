@@ -2,7 +2,7 @@
 # Reads the Spotify session from Windows.Media.Control (the media controls in the volume flyout),
 # prints one JSON line per second while music plays (every 2 s otherwise)
 # and accepts commands on stdin: toggle, next, prev, seek <seconds>, shuffle, volume <0-100>, mute.
-# No Spotify login is needed. Spotify's own volume is not available here, so "volume" is the system volume.
+# No Spotify login is needed. "volume" and "mute" change only Spotify (its slider in the volume mixer).
 $ErrorActionPreference = 'Stop'
 $utf8 = New-Object System.Text.UTF8Encoding $false
 $stdout = New-Object System.IO.StreamWriter([Console]::OpenStandardOutput(), $utf8)
@@ -21,25 +21,42 @@ try {
   exit 1
 }
 
-# System volume (Core Audio). If this part fails, the volume is just not shown.
+# Spotify's own volume: its audio session, the "Spotify" slider in the Windows volume mixer (Core Audio).
+# Only Spotify gets louder or quieter, the system volume is not touched. The session appears once Spotify
+# has played some sound; until then (or if this part fails) the volume is just not shown.
 $audioOk = $false
 try {
   Add-Type -TypeDefinition @'
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IAudioEndpointVolume {
-  int f(); int g(); int h(); int i();
-  int SetMasterVolumeLevelScalar(float level, Guid context);
-  int j();
-  int GetMasterVolumeLevelScalar(out float level);
-  int k(); int l(); int m(); int n();
-  int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, Guid context);
-  int GetMute(out bool mute);
+[Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface ISimpleAudioVolume {
+  int SetMasterVolume(float level, ref Guid context);
+  int GetMasterVolume(out float level);
+  int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid context);
+  int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
+}
+[Guid("BFB7FF88-7239-4FC9-8FA2-07C950BE9C6D"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioSessionControl2 {
+  int a(); int b(); int c(); int d(); int e(); int f(); int g(); int h(); int i(); // IAudioSessionControl
+  int j(); int k();
+  int GetProcessId(out uint pid);
+}
+[Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioSessionEnumerator {
+  int GetCount(out int count);
+  int GetSession(int index, out IAudioSessionControl2 session);
+}
+[Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioSessionManager2 {
+  int a(); int b(); // IAudioSessionManager
+  int GetSessionEnumerator(out IAudioSessionEnumerator sessions);
 }
 [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IMMDevice {
-  int Activate(ref Guid id, int clsCtx, int activationParams, out IAudioEndpointVolume endpoint);
+  int Activate(ref Guid id, int clsCtx, IntPtr activationParams, out IAudioSessionManager2 manager);
 }
 [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IMMDeviceEnumerator {
@@ -48,41 +65,70 @@ interface IMMDeviceEnumerator {
 }
 [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
 public static class LyricWallAudio {
-  static IAudioEndpointVolume Endpoint() {
+  // The sessions of Spotify.exe on the default speakers (usually one).
+  static List<ISimpleAudioVolume> Spotify() {
+    var found = new List<ISimpleAudioVolume>();
     var enumerator = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
-    IMMDevice device = null;
+    IMMDevice device;
     Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 1, out device));
-    IAudioEndpointVolume endpoint = null;
-    Guid iid = typeof(IAudioEndpointVolume).GUID;
-    Marshal.ThrowExceptionForHR(device.Activate(ref iid, 23, 0, out endpoint));
-    return endpoint;
+    Guid iid = typeof(IAudioSessionManager2).GUID;
+    IAudioSessionManager2 manager;
+    Marshal.ThrowExceptionForHR(device.Activate(ref iid, 23, IntPtr.Zero, out manager));
+    IAudioSessionEnumerator sessions;
+    Marshal.ThrowExceptionForHR(manager.GetSessionEnumerator(out sessions));
+    int count;
+    Marshal.ThrowExceptionForHR(sessions.GetCount(out count));
+    for (int n = 0; n < count; n++) {
+      IAudioSessionControl2 session;
+      uint pid;
+      if (sessions.GetSession(n, out session) != 0 || session.GetProcessId(out pid) != 0 || pid == 0) continue;
+      string name;
+      try { name = Process.GetProcessById((int)pid).ProcessName; } catch { continue; }
+      if (!name.Equals("Spotify", StringComparison.OrdinalIgnoreCase)) continue;
+      var volume = session as ISimpleAudioVolume;
+      if (volume != null) found.Add(volume);
+    }
+    return found;
   }
+  // -1: Spotify has no sound session yet.
   public static int GetVolume() {
-    var e = Endpoint(); float v; bool muted;
-    Marshal.ThrowExceptionForHR(e.GetMasterVolumeLevelScalar(out v));
-    Marshal.ThrowExceptionForHR(e.GetMute(out muted));
-    return muted ? 0 : (int)Math.Round(v * 100);
+    foreach (var v in Spotify()) {
+      float level; bool muted;
+      Marshal.ThrowExceptionForHR(v.GetMasterVolume(out level));
+      Marshal.ThrowExceptionForHR(v.GetMute(out muted));
+      return muted ? 0 : (int)Math.Round(level * 100);
+    }
+    return -1;
   }
   public static void SetVolume(int percent) {
-    var e = Endpoint();
-    Marshal.ThrowExceptionForHR(e.SetMasterVolumeLevelScalar(Math.Max(0, Math.Min(100, percent)) / 100f, Guid.Empty));
-    Marshal.ThrowExceptionForHR(e.SetMute(false, Guid.Empty));
+    Guid context = Guid.Empty;
+    foreach (var v in Spotify()) {
+      v.SetMasterVolume(Math.Max(0, Math.Min(100, percent)) / 100f, ref context);
+      v.SetMute(false, ref context);
+    }
   }
   public static void ToggleMute() {
-    var e = Endpoint(); bool muted;
-    Marshal.ThrowExceptionForHR(e.GetMute(out muted));
-    Marshal.ThrowExceptionForHR(e.SetMute(!muted, Guid.Empty));
+    Guid context = Guid.Empty;
+    var all = Spotify();
+    if (all.Count == 0) return;
+    bool muted;
+    all[0].GetMute(out muted);
+    foreach (var v in all) v.SetMute(!muted, ref context);
   }
 }
 '@
   $audioOk = $true
 } catch {
-  [Console]::Error.WriteLine("System volume is not available: $($_.Exception.Message)")
+  [Console]::Error.WriteLine("Spotify volume is not available: $($_.Exception.Message)")
 }
 
 function Get-Volume {
   if (-not $audioOk) { return $null }
-  try { return [LyricWallAudio]::GetVolume() } catch { return $null }
+  try {
+    $v = [LyricWallAudio]::GetVolume()
+    if ($v -lt 0) { return $null }
+    return $v
+  } catch { return $null }
 }
 
 # WinRT async calls are turned into .NET tasks and awaited.
@@ -166,7 +212,7 @@ function Send-MediaCommand($line) {
   $cmd = $parts[0]
   $arg = 0.0
   if ($parts.Count -gt 1) { $arg = [double]::Parse($parts[1], [Globalization.CultureInfo]::InvariantCulture) }
-  # Volume works even without Spotify (it is the system volume).
+  # Spotify's sound session, found by its process; works without the media controls session too.
   if ($cmd -eq 'volume') { if ($audioOk) { [LyricWallAudio]::SetVolume([int][math]::Round($arg)) }; return }
   if ($cmd -eq 'mute') { if ($audioOk) { [LyricWallAudio]::ToggleMute() }; return }
   $s = Get-Spotify

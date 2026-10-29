@@ -76,11 +76,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .ch { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 700; }
 .ch .k { display: flex; align-items: center; gap: 8px; }
 .ch small { font-size: 12px; font-weight: 500; color: var(--ink2); }
-.big { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
-.big b { font-size: 58px; font-weight: 800; letter-spacing: -.04em; line-height: .95; font-variant-numeric: tabular-nums; color: var(--big); transition: color 2.4s; }
-.big span { font-size: 14px; font-weight: 600; color: var(--ink2); letter-spacing: .04em; }
 #viz { width: 100%; flex: 1; min-height: 0; display: block; }
-.foot { font-size: 11px; color: var(--ink3); }
 
 .q { display: flex; flex-direction: column; gap: 9px; flex: 1; }
 .qi { display: grid; grid-template-columns: 34px 1fr 22px; align-items: center; gap: 10px; transition: opacity .6s; }
@@ -96,9 +92,6 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 
 /* lyrics */
 .lyr { position: relative; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
-.lyr .head { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink2); font-weight: 600; padding-left: 2px; }
-.live[hidden] { display: none; }
-.live { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; padding: 2px 7px; border-radius: 6px; background: var(--soft); color: var(--ink2); }
 /* The view reaches 48px past the text on both sides, so the blur of the lines fades out softly
    there instead of being cut off at the edge of the text. */
 .vp { position: relative; flex: 1; overflow: hidden; margin: 0 -48px;

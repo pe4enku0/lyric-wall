@@ -12,7 +12,7 @@
   $('device').textContent = info.deviceLabel;
 
   // Look from the settings window (main/appearance.js); the own picture is loaded separately.
-  let S = { theme: 'dusty', bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0, showLyrics: true, audioReactive: false, fps: 30 };
+  let S = { theme: 'dusty', bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0, showLyrics: true, fps: 30 };
   let userImg = null;
 
   /* The mockup is drawn for 1280×800. Scale so the height is ~800 mockup points
@@ -210,7 +210,6 @@
   function showLyrics(r) {
     lyr = r;
     lastScroll = null;
-    $('live').hidden = r.status !== 'synced';
     const ul = $('lines');
     ul.className = r.status === 'synced' ? '' : r.status === 'plain' ? 'plain' : 'msg';
     if (r.status === 'synced') {
@@ -318,14 +317,12 @@
   function showVolume(v) {
     if (v === track.volume) return;
     track.volume = v;
-    if (v == null) { put($('vol'), 'textContent', '—'); put($('volBox').style, 'visibility', 'hidden'); return; }
-    put($('vol'), 'textContent', String(v));
+    if (v == null) { put($('volBox').style, 'visibility', 'hidden'); return; }
     put($('volBar').style, 'width', v + '%');
     put($('volBox').style, 'visibility', '');
     wake();
   }
   function setPlaying(on) {
-    if (playing !== on) setTimeout(syncAudio);
     playing = on;
     const pp = $('pp'), icon = on ? 'pause' : 'play';
     if (pp.dataset.icon !== icon) { pp.dataset.icon = icon; pp.innerHTML = on ? PAUSE_ICON : PLAY_ICON; }
@@ -338,7 +335,7 @@
     $('title').textContent = t(`state.${state}.title`);
     $('artist').textContent = t(`state.${state}.detail`);
     $('capL').textContent = 'SPOTIFY';
-    put($('vol'), 'textContent', '—'); put($('volBox').style, 'visibility', 'hidden');
+    put($('volBox').style, 'visibility', 'hidden');
     put($('mode'), 'hidden', true);
     track.volume = null;
     showLyrics({ id: null, status: 'none' });
@@ -396,7 +393,7 @@
     none:        { speed: 0,   sway: 0,  size: [0, 0] }
   };
   let pKind = 'snow', pColors = ['#f1eef4'];
-  let vizRgb = '255,92,112', vizOff = 'rgba(255,255,255,.13)';
+  let vizRgb = '255,92,112';
   const rnd = (a, b) => a + Math.random() * (b - a);
   const mk = () => {
     const k = KINDS[pKind] || KINDS.snow;
@@ -416,7 +413,6 @@
     const kind = cs.getPropertyValue('--particles').trim() || 'snow';
     pColors = ['--p1', '--p2', '--p3'].map(v => cs.getPropertyValue(v).trim()).filter(Boolean);
     vizRgb = cs.getPropertyValue('--viz-rgb').trim() || vizRgb;
-    vizOff = cs.getPropertyValue('--viz-off').trim() || vizOff;
     if (kind !== pKind || !flakes.length) { pKind = kind; flakes = flakes.map(mk); }
   }
 
@@ -483,82 +479,56 @@
     sx.globalAlpha = 1;
   }
 
-  /* ---------- sound card: volume scale, plus the real sound when the system lets us listen ---------- */
-  const vc = $('viz'), vx = vc.getContext('2d'), N = 26, lv = new Array(N).fill(.2);
-  // Bars grow from left to right like a volume scale; the bars up to the current volume are lit.
-  const ramp = i => .2 + .8 * i / (N - 1);
-  let audio = null;          // { stream, ctx, analyser, data } while listening to the computer's sound
-  let audioStarting = false, audioFailed = false, audioStopTimer = null;
-  const footBase = t(info.platform === 'darwin' ? 'ui.volSpotify' : 'ui.volSystem');
-  const setFoot = () => put($('foot'), 'textContent', audio ? `${footBase} · ${t('ui.withSound')}` : footBase);
+  /* ---------- sound card: the bars jump to the beat ----------
+     The tempo (BPM) comes from the public Deezer catalog (main/tempo.js) and the beats are counted from the
+     song position, so nothing listens to the computer's sound. The card only shows; it has no buttons. */
+  const vc = $('viz'), vx = vc.getContext('2d'), N = 24, lv = new Array(N).fill(.05);
+  let tempo = { id: null, bpm: 0 };
+  function onTempo(r) { tempo = r; wake(); }
+  // The canvas gets as many pixels as it has room in the card.
+  function sizeViz() {
+    const w = vc.clientWidth, h = vc.clientHeight;
+    if (w && h && (vc.width !== w || vc.height !== h)) { vc.width = w; vc.height = h; }
+  }
+  // The same "random" number for the same beat and bar: every beat gets its own pattern.
+  const noise = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+  // Bars on the left (bass) are a bit taller, like a spectrum.
+  const shape = i => 1 - .4 * i / (N - 1);
 
-  async function startAudio() {
-    if (audio || audioStarting || audioFailed) return;
-    audioStarting = true;
-    try {
-      // The main process answers with the computer's sound ("loopback"); the screen picture is not needed.
-      const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-      stream.getVideoTracks().forEach(tr => tr.stop());
-      if (!stream.getAudioTracks().length) throw new Error('no sound track');
-      const ctx = new AudioContext();
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 128; analyser.smoothingTimeConstant = .6;
-      ctx.createMediaStreamSource(stream).connect(analyser);
-      audio = { stream, ctx, analyser, data: new Uint8Array(analyser.frequencyBinCount) };
-      api.log('info', 'Sound card: listening to the computer sound');
-      setFoot();
-    } catch (e) {
-      audioFailed = true; // do not ask again until the option is turned off and on
-      api.log('warn', 'Sound card: cannot listen to the computer sound, showing the volume only: ' + e.message);
+  function heights() {
+    const bpm = tempo.id === track.id ? tempo.bpm : 0;
+    if (!playing) return () => .05;
+    if (!bpm) {
+      // Tempo unknown: a calm wave.
+      const t = performance.now() / 1000;
+      return i => .14 + .1 * shape(i) * (1 + Math.sin(t * 2.2 + i * .55));
     }
-    audioStarting = false;
-    if (audio && !(S.audioReactive && !frozen)) stopAudio();
-  }
-  function stopAudio() {
-    if (!audio) return;
-    audio.stream.getTracks().forEach(tr => tr.stop());
-    audio.ctx.close();
-    audio = null;
-    setFoot();
-  }
-  // Listen only while music plays (stop 15 s after a pause), never while the wallpaper is paused.
-  function syncAudio() {
-    const want = S.audioReactive && !frozen;
-    if (!want) { clearTimeout(audioStopTimer); audioStopTimer = null; stopAudio(); return; }
-    if (playing) { clearTimeout(audioStopTimer); audioStopTimer = null; startAudio(); }
-    else if (audio && !audioStopTimer) audioStopTimer = setTimeout(() => { audioStopTimer = null; if (!playing) stopAudio(); }, 15000);
+    const beats = clock.now() * bpm / 60, k = Math.floor(beats);
+    const hit = Math.exp(-(beats - k) * 3.2);              // jump on the beat, fall until the next one
+    const half = Math.exp(-((beats * 2) % 1) * 6) * .35;  // a smaller jump between the beats
+    const accent = k % 4 === 0 ? 1 : .8;                 // the first beat of a bar is a bit stronger
+    return i => .1 + .9 * shape(i) * accent * (hit * (.5 + .5 * noise(k, i)) + half * noise(k + .5, i));
   }
 
   function drawViz() {
-    const VW = vc.width, VH = vc.height, bw = VW / N;
-    const lit = track.volume == null ? N : Math.round(track.volume / 100 * N);
-    const live = audio && playing;
-    if (live) audio.analyser.getByteFrequencyData(audio.data);
+    const VW = vc.width, VH = vc.height, step = VW / N, bw = step * .62, target = heights();
     vx.clearRect(0, 0, VW, VH);
+    vx.shadowColor = `rgba(${vizRgb},.6)`; vx.shadowBlur = 8;
     let moving = false;
     for (let i = 0; i < N; i++) {
-      let tgt = ramp(i);
-      if (live) {
-        // bass on the left, treble on the right
-        const bin = Math.min(audio.data.length - 1, Math.floor(1 + Math.pow(i / N, 1.7) * audio.data.length * .7));
-        tgt = Math.min(1, Math.max(.06, ramp(i) * .25 + audio.data[bin] / 255 * .85));
-      }
-      lv[i] += (tgt - lv[i]) * .3;
-      const h = lv[i] * VH, x = i * bw + 2;
+      const tgt = Math.min(1, target(i));
+      lv[i] += (tgt - lv[i]) * (tgt > lv[i] ? .85 : .3);  // up fast, down slower
+      const h = Math.max(4, lv[i] * (VH - 8)), x = i * step + (step - bw) / 2;
+      const gr = vx.createLinearGradient(0, VH - h, 0, VH);
+      gr.addColorStop(0, `rgba(${vizRgb},.95)`); gr.addColorStop(1, `rgba(${vizRgb},.15)`);
+      vx.fillStyle = gr;
       vx.beginPath();
-      vx.roundRect ? vx.roundRect(x, VH - h, bw - 6, h, 3) : vx.rect(x, VH - h, bw - 6, h);
-      if (i < lit) {
-        const gr = vx.createLinearGradient(0, VH - h, 0, VH);
-        gr.addColorStop(0, `rgba(${vizRgb},.95)`); gr.addColorStop(1, `rgba(${vizRgb},.15)`);
-        vx.fillStyle = gr; vx.shadowColor = `rgba(${vizRgb},.6)`; vx.shadowBlur = 8;
-      } else {
-        vx.fillStyle = vizOff; vx.shadowBlur = 0;
-      }
+      vx.roundRect ? vx.roundRect(x, VH - h, bw, h, Math.min(4, bw / 2)) : vx.rect(x, VH - h, bw, h);
       vx.fill();
       if (Math.abs(tgt - lv[i]) > .003) moving = true;
     }
     vx.shadowBlur = 0;
-    return moving || live;
+    return moving;
   }
 
   /* ---------- main loop ----------
@@ -596,7 +566,6 @@
   function setFrozen(st) {
     frozen = !!st.paused;
     document.body.classList.toggle('frozen', frozen);
-    syncAudio();
     if (!frozen) wake();
   }
 
@@ -684,31 +653,30 @@
   }
 
   /* ---------- start ---------- */
-  const refit = () => { fit(); wake(); reportHits(); };
-  addEventListener('resize', refit); api.onLayoutChanged(refit); fit();
+  const refit = () => { fit(); sizeViz(); wake(); reportHits(); };
+  addEventListener('resize', refit); api.onLayoutChanged(refit); fit(); sizeViz();
   api.onRender(setFrozen);
   setFrozen(await api.getRender());
   // Apply the look; fetch the own picture only when it is new.
   function applyLook(look) {
     const newImage = look.imageVersion !== S.imageVersion || (look.bg === 'photo' && !userImg);
-    if (look.audioReactive && !S.audioReactive) audioFailed = false; // turned on again: try again
     S = look;
     stage.dataset.theme = S.theme || 'dusty';
     readTheme();
     setCount(S.snowCount);
     applyBg();
     $('lyr').classList.toggle('off', !S.showLyrics);
-    syncAudio();
     wake();
     if (newImage && look.hasImage) api.getImage().then(url => { userImg = url; applyBg(); });
   }
   api.onLook(applyLook);
   applyLook(await api.getLook());
-  setFoot();
   showMessage('starting');
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());
   api.onLyrics(onLyrics);
+  api.onTempo(onTempo);
+  onTempo(await api.getTempo());
   api.onWebNow(onWeb);
   api.onWebState(st => onWeb({ loggedIn: st.loggedIn }));
   onWeb(await api.getWebNow());
