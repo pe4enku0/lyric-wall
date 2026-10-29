@@ -42,7 +42,27 @@ repeat
 end repeat
 `;
 
-const VERBS = { toggle: 'playpause', next: 'next track', prev: 'previous track' };
+const VERBS = { toggle: 'playpause', next: 'next track', prev: 'previous track', shuffle: 'set shuffling to not shuffling' };
+let lastVolume = null;  // from the last snapshot
+let savedVolume = 50;   // volume before "mute"
+
+// Window level just above the desktop icons (and below all normal windows) for the click layer.
+// Electron has no option for it, so it is set on the NSWindow directly (Objective-C runtime via koffi).
+let objc = null;
+function objcApi() {
+  if (objc) return objc;
+  const koffi = require('koffi');
+  const lib = koffi.load('/usr/lib/libobjc.A.dylib');
+  const cg = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics');
+  objc = {
+    sel: lib.func('uintptr_t sel_registerName(const char *name)'),
+    sendId: lib.func('uintptr_t objc_msgSend(uintptr_t self, uintptr_t op)'),
+    sendLong: lib.func('void objc_msgSend(uintptr_t self, uintptr_t op, long value)'),
+    levelForKey: cg.func('int32_t CGWindowLevelForKey(int32_t key)')
+  };
+  return objc;
+}
+const kCGDesktopIconWindowLevelKey = 18;
 
 let proc = null;
 let onUpdate = null;
@@ -92,6 +112,7 @@ function startLoop() {
       const line = pending.slice(0, i).trim();
       pending = pending.slice(i + 1);
       const snap = line && parseLine(line);
+      if (snap && snap.volume != null) lastVolume = snap.volume;
       if (snap) onUpdate(snap);
       else if (line) errors = (errors + '\n' + line).slice(-500);
     }
@@ -117,6 +138,7 @@ module.exports = {
   name: 'mac',
   deviceKey: 'device.mac',
   trayIcon: path.join(__dirname, '..', 'assets', 'trayTemplate.png'),
+  soundSettingsUrl: 'x-apple.systempreferences:com.apple.Sound-Settings.extension',
 
   init() {
     // No Dock icon: the app lives in the menu bar only.
@@ -146,6 +168,17 @@ module.exports = {
 
   detachWallpaper() {},
 
+  placeHitLayer(win) {
+    try {
+      const o = objcApi();
+      win.setVisibleOnAllWorkspaces(true);
+      const nsWindow = o.sendId(win.getNativeWindowHandle().readBigUInt64LE(0), o.sel('window'));
+      o.sendLong(nsWindow, o.sel('setLevel:'), o.levelForKey(kCGDesktopIconWindowLevelKey) + 1);
+    } catch (e) {
+      log.error('Click layer: could not place it above the desktop icons:', e.message);
+    }
+  },
+
   startNowPlaying(cb) {
     onUpdate = cb;
     running = true;
@@ -159,10 +192,17 @@ module.exports = {
     proc = null;
   },
 
-  control(cmd) {
-    const verb = VERBS[cmd];
-    if (!verb) return Promise.resolve();
-    const script = `if application "Spotify" is running then tell application "Spotify" to ${verb}`;
+  control(cmd, value) {
+    let verb = VERBS[cmd];
+    if (cmd === 'seek') verb = `set player position to ${Math.max(0, Number(value) || 0).toFixed(2)}`;
+    if (cmd === 'volume') verb = `set sound volume to ${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}`;
+    if (cmd === 'mute') {
+      if (lastVolume > 0) { savedVolume = lastVolume; verb = 'set sound volume to 0'; } else verb = `set sound volume to ${savedVolume}`;
+    }
+    // Opening Spotify is the only command that may start it.
+    const script = cmd === 'open' ? 'tell application "Spotify" to activate'
+      : verb ? `if application "Spotify" is running then tell application "Spotify" to ${verb}` : null;
+    if (!script) return Promise.resolve();
     return new Promise(resolve => {
       execFile('osascript', ['-e', script], { timeout: 5000 }, err => {
         if (err) log.error('Spotify (mac): command', cmd, 'failed:', err.message.trim());

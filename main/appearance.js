@@ -1,4 +1,5 @@
-// Options of the settings window: background, picture blur/dim, snow, pausing on battery.
+// Options of the settings window: background, picture blur/dim, snow, pausing on battery, sound card;
+// plus showing the lyrics (the lyrics button on the wallpaper).
 // Applied right away and kept in settings.json.
 const { app } = require('electron');
 const { EventEmitter } = require('events');
@@ -27,15 +28,21 @@ function get() {
     snowCount: settings.get('snowCount'),
     hasImage: hasImage(),
     imageVersion: settings.get('imageVersion'),
-    pauseOnBattery: settings.get('pauseOnBattery')
+    pauseOnBattery: settings.get('pauseOnBattery'),
+    showLyrics: settings.get('showLyrics'),
+    audioReactive: settings.get('audioReactive'),
+    fps: settings.get('fps')
   };
 }
 
 function set(key, value) {
   if (key === 'bg') {
     if (!BACKGROUNDS.includes(value) || (value === 'photo' && !hasImage())) return get();
-  } else if (key === 'pauseOnBattery') {
+  } else if (['pauseOnBattery', 'showLyrics', 'audioReactive'].includes(key)) {
     value = !!value;
+  } else if (key === 'fps') {
+    if (![15, 20, 30].includes(Number(value))) return get();
+    value = Number(value);
   } else if (LIMITS[key]) {
     const [lo, hi] = LIMITS[key];
     value = Math.min(hi, Math.max(lo, Number(value) || 0));

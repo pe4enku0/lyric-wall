@@ -2,8 +2,7 @@
 // What the UI gets: { id, status, lines?, plain? }
 //   id:     the Spotify track id the lyrics belong to
 //   status: 'loading' | 'synced' | 'plain' | 'instrumental' | 'not-found' | 'offline' | 'busy' | 'error'
-//   lines:  [{ t: seconds, text, words? }] for synced lyrics; plain: [text] for plain lyrics
-//   words:  [{ t, text }] only when the lyrics have exact word times (enhanced LRC)
+//   lines:  [{ t: seconds, text }] for synced lyrics; plain: [text] for plain lyrics
 const { app, net } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -25,19 +24,14 @@ let retryTimer = null;
 const toSeconds = (m, s) => Number(m) * 60 + Number(s);
 
 // "[01:23.45] words" -> { t: 83.45, text: 'words' }. A line may have several time stamps.
-// Enhanced LRC also times every word: "[01:23.45] <01:23.45> Hello <01:24.10> world".
+// Word time tags of enhanced LRC ("<01:23.45>") are removed.
 function parseLrc(text) {
   const lines = [];
   for (const raw of text.split(/\r?\n/)) {
     const stamps = [...raw.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
     if (!stamps.length) continue;
-    const body = raw.replace(/\[[^\]]*\]/g, '');
-    const tagged = [...body.matchAll(/<(\d+):(\d+(?:\.\d+)?)>([^<]*)/g)]
-      .map(m => ({ t: toSeconds(m[1], m[2]), text: m[3].trim() }))
-      .filter(w => w.text);
-    const words = tagged.length ? tagged : null;
-    const clean = words ? words.map(w => w.text).join(' ') : body.trim();
-    for (const m of stamps) lines.push({ t: toSeconds(m[1], m[2]), text: clean, ...(words && { words }) });
+    const words = raw.replace(/\[[^\]]*\]|<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    for (const m of stamps) lines.push({ t: toSeconds(m[1], m[2]), text: words });
   }
   return lines.sort((a, b) => a.t - b.t);
 }
@@ -80,25 +74,37 @@ async function search(params) {
   }
 }
 
-async function lookup(s) {
-  const duration = Math.round(s.duration || 0);
-  // 1. Exact match (LRCLIB allows about ±2 s difference in duration).
-  //    For unknown songs LRCLIB searches other sources and may answer "busy"; then go on to the search.
-  if (duration > 0) {
-    try {
-      const exact = await request('/get', { artist_name: s.artist, track_name: s.title, album_name: s.album || '', duration });
-      if (exact) return exact;
-    } catch (e) {
-      if (!e.busy) throw e;
-    }
-  }
-  // 2. Search by title and artist; take a result with a fitting duration, synced lyrics first.
-  const list = await search({ track_name: simplifyTitle(s.title), artist_name: mainArtist(s.artist) }) || [];
+// A search result with a fitting duration, synced lyrics first.
+function pick(list, duration) {
   const kind = x => (x.syncedLyrics ? 0 : x.plainLyrics ? 1 : x.instrumental ? 2 : 3);
   const gap = x => (duration && x.duration ? Math.abs(x.duration - duration) : 30);
-  const fitting = list.filter(x => gap(x) <= 8 || !x.duration || !duration);
+  const fitting = (list || []).filter(x => gap(x) <= 8 || !x.duration || !duration);
   fitting.sort((a, b) => kind(a) - kind(b) || gap(a) - gap(b));
   return fitting[0] || null;
+}
+
+async function lookup(s) {
+  const duration = Math.round(s.duration || 0);
+  const exact = { artist_name: s.artist, track_name: s.title, album_name: s.album || '', duration };
+  let busy = false, failure = null;
+  // A failed request does not stop the others; the error counts only if nothing is found.
+  const soft = p => p.catch(e => { if (e.busy) busy = true; else failure = failure || e; return null; });
+  // 1. Fast, at the same time: a search by title and artist (without "Remastered", "feat." etc.)
+  //    and LRCLIB's own database (exact match, ±2 s). A fitting synced search result is used right away.
+  const cachedP = duration > 0 ? soft(request('/get-cached', exact)) : Promise.resolve(null);
+  const found = pick(await soft(search({ track_name: simplifyTitle(s.title), artist_name: mainArtist(s.artist) })), duration);
+  if (found && found.syncedLyrics) return found;
+  const cached = await cachedP;
+  if (cached && (cached.syncedLyrics || cached.instrumental)) return cached;
+  // 2. Slower: LRCLIB also asks other sources for this exact track.
+  if (duration > 0) {
+    const full = await soft(request('/get', exact));
+    if (full && (full.syncedLyrics || full.instrumental || !(cached || found))) return full;
+  }
+  if (cached || found) return cached || found;
+  if (failure) throw failure;
+  if (busy) throw Object.assign(new Error('LRCLIB is busy'), { busy: true });
+  return null;
 }
 
 function toResult(rec) {

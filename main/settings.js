@@ -17,7 +17,11 @@ const defaults = {
   snowSpeed: 1,
   snowCount: 90,
   imageVersion: 0, // changes every time a new own picture is chosen
-  pauseOnBattery: false // stop the wallpaper while running on battery (main/power.js)
+  pauseOnBattery: false, // stop the wallpaper while running on battery (main/power.js)
+  showLyrics: true,
+  fps: 30, // wallpaper frames per second: 30, 20 or 15
+  // Sound card bars follow the computer's sound. macOS asks for the screen recording permission, so off there.
+  audioReactive: process.platform === 'win32'
 };
 
 let data = { ...defaults };

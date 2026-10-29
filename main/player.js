@@ -35,9 +35,10 @@ function subscribe(fn) {
   };
 }
 
-function control(cmd) {
-  log.info('Player command:', cmd);
-  return adapter.control(cmd);
+// cmd: 'toggle' | 'next' | 'prev' | 'seek' (value: seconds) | 'volume' (value: 0-100) | 'mute' | 'shuffle' | 'open'
+function control(cmd, value) {
+  log.info('Player command:', cmd, value ?? '');
+  return adapter.control(cmd, value);
 }
 
 module.exports = { subscribe, control, get: () => current };

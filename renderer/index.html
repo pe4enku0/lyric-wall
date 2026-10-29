@@ -16,37 +16,38 @@
 
   <div class="cols" id="cols">
     <div class="left">
-      <div class="glass art">
+      <div class="glass art" data-act="cover">
         <img id="artA" alt="">
         <img id="artB" alt="" class="out">
         <span class="chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M9 18a3 3 0 1 1-2-2.8V4l12-2v13a3 3 0 1 1-2-2.8V6.4L9 7.8Z"/></svg><span data-i18n="ui.nowPlaying"></span></span>
         <span class="dot"></span>
         <div class="cap"><span id="capL">SPOTIFY</span><span id="capR">00:00:00</span></div>
+        <div class="toast" id="toast" hidden></div>
       </div>
 
       <div class="glass info">
         <div class="ttl">
           <div><h2><span id="title"></span><i id="explicit" hidden>E</i></h2><div class="ar" id="artist"></div></div>
           <div class="dots">
-            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/></svg></span>
-            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span>
+            <span data-act="like"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/></svg></span>
+            <span data-act="more"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span>
           </div>
         </div>
-        <div class="prog"><span id="cur">0:00</span><div class="bar"><i id="fill"></i><b id="knob"></b></div><span id="rem">-0:00</span></div>
+        <div class="prog"><span id="cur">0:00</span><div class="bar" data-act="progress"><i id="fill"></i><b id="knob"></b></div><span id="rem">-0:00</span></div>
         <div class="ctrl">
           <div class="vol" id="volBox">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="rgba(228,225,232,.75)"><path d="M3 9h4l5-5v16l-5-5H3Z"/></svg>
-            <div class="vb"><i id="volBar"></i></div>
+            <svg data-act="mute" width="12" height="12" viewBox="0 0 24 24" fill="rgba(228,225,232,.75)"><path d="M3 9h4l5-5v16l-5-5H3Z"/></svg>
+            <div class="vb" data-act="volume"><i id="volBar"></i></div>
           </div>
           <div class="mid">
-            <svg width="24" height="17" viewBox="0 0 26 18" id="bPrev"><path d="M12 9 24 1v16Z"/><path d="M1 9 13 1v16Z"/></svg>
-            <svg width="18" height="24" viewBox="0 0 18 24" id="pp"><rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/></svg>
-            <svg width="24" height="17" viewBox="0 0 26 18" id="bNext"><path d="M14 9 2 1v16Z"/><path d="M25 9 13 1v16Z"/></svg>
+            <svg width="24" height="17" viewBox="0 0 26 18" id="bPrev" data-act="prev"><path d="M12 9 24 1v16Z"/><path d="M1 9 13 1v16Z"/></svg>
+            <svg width="18" height="24" viewBox="0 0 18 24" id="pp" data-act="pp"><rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/></svg>
+            <svg width="24" height="17" viewBox="0 0 26 18" id="bNext" data-act="next"><path d="M14 9 2 1v16Z"/><path d="M25 9 13 1v16Z"/></svg>
           </div>
           <div class="ex">
-            <span class="lyb"><svg width="16" height="14" viewBox="0 0 24 20" fill="#3d3a42"><path d="M3 1h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Zm3 5v2h12V6Zm0 4v2h8v-2Z"/></svg></span>
-            <svg width="20" height="18" viewBox="0 0 24 22" fill="none" stroke="#e4e1e8" stroke-width="1.8"><path d="M6 15H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-3"/><path d="M12 13 7 20h10Z" fill="#e4e1e8" stroke="none"/></svg>
-            <span id="device"></span>
+            <span class="lyb" data-act="lyrics"><svg width="16" height="14" viewBox="0 0 24 20" fill="#3d3a42"><path d="M3 1h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Zm3 5v2h12V6Zm0 4v2h8v-2Z"/></svg></span>
+            <span class="dev" data-act="device"><svg width="20" height="18" viewBox="0 0 24 22" fill="none" stroke="#e4e1e8" stroke-width="1.8"><path d="M6 15H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-3"/><path d="M12 13 7 20h10Z" fill="#e4e1e8" stroke="none"/></svg>
+            <span id="device"></span></span>
           </div>
         </div>
       </div>
@@ -56,17 +57,17 @@
           <div class="ch"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="hsl(350 80% 62%)"><rect x="2" y="9" width="4" height="10" rx="1.5"/><rect x="10" y="4" width="4" height="15" rx="1.5"/><rect x="18" y="12" width="4" height="7" rx="1.5"/></svg><span data-i18n="ui.sound"></span></span><small data-i18n="ui.now"></small></div>
           <div class="big"><b id="vol">0</b><span data-i18n="ui.volume"></span></div>
           <canvas id="viz" width="460" height="150"></canvas>
-          <div class="foot" data-i18n="ui.visualizer"></div>
+          <div class="foot" id="foot"></div>
         </div>
         <div class="glass card">
           <div class="ch"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><rect x="3" y="5" width="18" height="2.4" rx="1.2"/><rect x="3" y="11" width="18" height="2.4" rx="1.2"/><rect x="3" y="17" width="12" height="2.4" rx="1.2"/></svg><span data-i18n="ui.upNext"></span></span><small id="qn"></small></div>
           <div class="q" id="queue"></div>
-          <div class="pill" id="mode" hidden></div>
+          <div class="pill" id="mode" data-act="shuffle" hidden></div>
         </div>
       </div>
     </div>
 
-    <div class="lyr">
+    <div class="lyr" id="lyr">
       <div class="head">
         <svg width="15" height="14" viewBox="0 0 24 20" fill="rgba(228,225,232,.62)"><path d="M3 1h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Z"/></svg>
         <span data-i18n="ui.lyrics"></span> <span class="live" id="live" hidden>LIVE</span>

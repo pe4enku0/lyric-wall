@@ -7,6 +7,7 @@ const player = require('./player');
 const lyrics = require('./lyrics');
 const appearance = require('./appearance');
 const power = require('./power');
+const hitlayer = require('./hitlayer');
 const log = require('./log');
 
 // npm run window: show the wallpaper in a normal window to look at the design while developing.
@@ -51,11 +52,13 @@ function create() {
     if (windowed) { win.show(); log.info('Wallpaper in a normal window (--window)'); return; }
     const mode = await adapter.attachWallpaper(win, screen.getPrimaryDisplay(), settings);
     log.info('Wallpaper on, mode:', mode);
+    if (win && mode !== 'none' && !power.state().paused) hitlayer.create(win.webContents);
   });
 
   // If the window disappears by itself (for example Windows Explorer restarted), create it again.
   win.on('closed', () => {
     win = null;
+    hitlayer.destroy();
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
     if (closingOnPurpose) return;
     if (windowed) { app.quit(); return; }
@@ -80,11 +83,16 @@ power.onChange(st => {
   if (!win) return;
   send('render:state', st);
   listen(!st.paused);
+  // No click layer while paused (a game is full screen, the screen is locked…).
+  if (windowed) return;
+  if (st.paused) hitlayer.destroy();
+  else { hitlayer.create(win.webContents); send('layout:changed'); }
 });
 
 function destroy() {
   clearTimeout(restartTimer);
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  hitlayer.destroy();
   if (!win) return;
   closingOnPurpose = true;
   adapter.detachWallpaper(win);

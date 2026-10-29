@@ -1,7 +1,7 @@
 // Windows-only code. This file is never loaded on macOS.
 // The wallpaper window is embedded behind the desktop icons (the WorkerW trick used by
 // Wallpaper Engine / Lively). Spotify is read through the win-media.ps1 helper.
-const { screen } = require('electron');
+const { screen, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const log = require('../main/log');
@@ -56,7 +56,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const hwndOf = win => Number(win.getNativeWindowHandle().readBigUInt64LE(0));
 
 // Current embedding: the mode and the Explorer windows we are attached to.
-let state = { mode: null, parent: 0, workerw: 0 };
+let state = { mode: null, parent: 0, workerw: 0, hwnd: 0 };
 
 // Finds the desktop windows. Progman is the desktop itself, SHELLDLL_DefView holds the icons,
 // WorkerW is where Windows draws the wallpaper. Our window goes between the icons and WorkerW.
@@ -122,7 +122,7 @@ function embed(win, hwnd, d, display) {
   if (Number(w.GetAncestor(hwnd, GA_PARENT)) !== Number(parent)) throw new Error('SetParent did not work');
   placeInParent(hwnd, parent, display);
   win.showInactive();
-  state = { mode: d.raised ? 'workerw-24h2' : 'workerw', parent, workerw: d.workerw };
+  state = { mode: d.raised ? 'workerw-24h2' : 'workerw', parent, workerw: d.workerw, hwnd };
 }
 
 // Fallback: a normal window placed right above the desktop and below all other windows.
@@ -133,20 +133,33 @@ function bottom(win, hwnd, display) {
   const ex = Number(w.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
   w.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
   win.showInactive();
-  state = { mode: 'bottom', parent: 0, workerw: 0 };
+  state = { mode: 'bottom', parent: 0, workerw: 0, hwnd };
   placeBottom(hwnd, display);
 }
 
-function placeBottom(hwnd, display) {
-  const w = user32(), b = physBounds(display);
+// The top-level window that shows the desktop icons.
+function desktopHost() {
+  const w = user32();
   let desk = w.FindWindowW('Progman', null), cur = 0;
   while ((cur = w.FindWindowExW(0, cur, 'WorkerW', null))) {
     if (w.FindWindowExW(cur, 0, 'SHELLDLL_DefView', null)) { desk = cur; break; }
   }
-  // SetWindowPos puts the window right BELOW the given one, so use the window right above the desktop.
-  const above = desk ? Number(w.GetWindow(desk, GW_HWNDPREV)) : 0;
-  const after = above && above !== hwnd ? above : HWND_BOTTOM;
-  w.SetWindowPos(hwnd, after, b.x, b.y, b.width, b.height, SWP_NOACTIVATE);
+  return desk;
+}
+
+// Puts hwnd right above the window `ref` in the z-order. SetWindowPos places a window right BELOW the
+// one it is given, so the window currently right above `ref` is used.
+function placeAbove(hwnd, ref, flags, bounds) {
+  const w = user32();
+  const above = ref ? Number(w.GetWindow(ref, GW_HWNDPREV)) : 0;
+  const b = bounds || { x: 0, y: 0, width: 0, height: 0 };
+  // Already right above it: keep the z-order, only move.
+  if (above === hwnd) { w.SetWindowPos(hwnd, 0, b.x, b.y, b.width, b.height, flags | SWP_NOZORDER); return; }
+  w.SetWindowPos(hwnd, above || HWND_BOTTOM, b.x, b.y, b.width, b.height, flags);
+}
+
+function placeBottom(hwnd, display) {
+  placeAbove(hwnd, desktopHost(), SWP_NOACTIVATE, physBounds(display));
 }
 
 // Is a game or another app covering the whole screen? Asks Windows first (the same check it uses to
@@ -222,6 +235,7 @@ module.exports = {
   name: 'win',
   deviceKey: 'device.win',
   trayIcon: path.join(__dirname, '..', 'assets', 'tray.ico'),
+  soundSettingsUrl: 'ms-settings:sound',
 
   init() {},
 
@@ -279,6 +293,19 @@ module.exports = {
     }
   },
 
+  // Click layer: above the desktop icons (and above the wallpaper in the fallback mode), below all windows.
+  placeHitLayer(win) {
+    try {
+      const w = user32(), hwnd = hwndOf(win);
+      const ex = Number(w.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+      w.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+      const ref = state.mode === 'bottom' && state.hwnd ? state.hwnd : desktopHost();
+      placeAbove(hwnd, ref, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    } catch (e) {
+      log.error('Click layer: could not place it above the desktop icons:', e.message);
+    }
+  },
+
   detachWallpaper(win) {
     try {
       if (win && !win.isDestroyed()) win.hide();
@@ -290,7 +317,7 @@ module.exports = {
     } catch (e) {
       log.error('Wallpaper: error while turning off:', e.message);
     }
-    state = { mode: null, parent: 0, workerw: 0 };
+    state = { mode: null, parent: 0, workerw: 0, hwnd: 0 };
   },
 
   isFullscreenAppActive() {
@@ -315,8 +342,11 @@ module.exports = {
     helper = null;
   },
 
-  control(cmd) {
-    if (helper && ['toggle', 'next', 'prev'].includes(cmd)) helper.stdin.write(cmd + '\n');
+  control(cmd, value) {
+    if (cmd === 'open') shell.openExternal('spotify:');
+    else if (helper && ['toggle', 'next', 'prev', 'seek', 'volume', 'mute', 'shuffle'].includes(cmd)) {
+      helper.stdin.write(value == null ? `${cmd}\n` : `${cmd} ${Number(value)}\n`);
+    }
     return Promise.resolve();
   }
 };

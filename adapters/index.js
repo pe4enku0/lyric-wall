@@ -12,6 +12,8 @@ if (process.platform === 'darwin') {
     name: 'other',
     deviceKey: 'device.win',
     trayIcon: require('path').join(__dirname, '..', 'assets', 'trayTemplate@2x.png'),
+    soundSettingsUrl: '',
+    placeHitLayer() {},
     init() {},
     wallpaperWindowOptions: display => ({ ...display.bounds }),
     attachWallpaper(win) { win.show(); return 'window'; },

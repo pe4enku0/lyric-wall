@@ -31,6 +31,8 @@
     $('spd').value = look.snowSpeed; $('spdO').textContent = (+look.snowSpeed).toFixed(1).replace('.0', '') + '×';
     $('cnt').value = look.snowCount; $('cntO').textContent = look.snowCount;
     $('battery').checked = !!look.pauseOnBattery;
+    $('audio').checked = !!look.audioReactive;
+    for (const b of $('fps').children) b.setAttribute('aria-pressed', String(+b.dataset.v === look.fps));
   }
   async function set(key, value) {
     look = await api.setLook(key, value);
@@ -48,6 +50,9 @@
   slider('cnt', 'snowCount');
 
   $('battery').addEventListener('change', e => set('pauseOnBattery', e.target.checked));
+  $('audio').addEventListener('change', e => set('audioReactive', e.target.checked));
+  $('fps').addEventListener('click', e => { const b = e.target.closest('button'); if (b) set('fps', +b.dataset.v); });
+  $('audioNote').textContent = t(info.platform === 'darwin' ? 'look.audioHint.mac' : 'look.audioHint.win');
 
   /* ---------- own picture ---------- */
   // Resize to at most 2560 px and turn into JPEG here; the main process copies it into the app data folder.

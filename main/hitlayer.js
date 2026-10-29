@@ -1,0 +1,92 @@
+// Click layer: an invisible window above the desktop icons and below all normal windows that makes the
+// wallpaper's buttons clickable. The wallpaper itself never gets clicks (it lies under the icons).
+// The layer catches the mouse only while the pointer is over a button; everywhere else clicks go to the
+// desktop as usual. Hovers and clicks are passed on to the wallpaper, which does the actual work.
+const { BrowserWindow, ipcMain, screen } = require('electron');
+const path = require('path');
+const adapter = require('../adapters');
+const log = require('./log');
+
+let win = null;        // the click layer
+let wallpaper = null;  // webContents of the wallpaper (reports button positions, gets the events)
+let rects = [];        // buttons, in wallpaper window coordinates
+let catching = false;  // the layer currently takes mouse clicks
+
+function layout() {
+  if (!win || !rects.length) return;
+  const pad = 4;
+  const x0 = Math.floor(Math.min(...rects.map(r => r.x)) - pad), y0 = Math.floor(Math.min(...rects.map(r => r.y)) - pad);
+  const x1 = Math.ceil(Math.max(...rects.map(r => r.x + r.w)) + pad), y1 = Math.ceil(Math.max(...rects.map(r => r.y + r.h)) + pad);
+  const d = screen.getPrimaryDisplay().bounds;
+  win.setBounds({ x: d.x + x0, y: d.y + y0, width: x1 - x0, height: y1 - y0 });
+  win.webContents.send('hit:rects', rects.map(r => ({ ...r, x: r.x - x0, y: r.y - y0 })));
+  adapter.placeHitLayer(win);
+}
+
+function setCatching(on) {
+  if (!win || on === catching) return;
+  catching = on;
+  // forward: mouse moves still reach the page while clicks pass through, so it can tell when to catch.
+  win.setIgnoreMouseEvents(!on, { forward: true });
+}
+
+function create(wallpaperContents) {
+  wallpaper = wallpaperContents;
+  if (win) return;
+  win = new BrowserWindow({
+    width: 10, height: 10,
+    show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    focusable: false,
+    acceptFirstMouse: true,
+    enableLargerThanScreen: true,
+    roundedCorners: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false
+    }
+  });
+  catching = true;
+  setCatching(false);
+  win.once('ready-to-show', () => {
+    win.showInactive();
+    layout();
+    log.info('Click layer for the wallpaper buttons is on');
+  });
+  win.on('closed', () => { win = null; catching = false; });
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'hit.html'));
+}
+
+function destroy() {
+  if (win) win.destroy();
+  win = null;
+  catching = false;
+}
+
+// From the wallpaper: where the buttons are.
+ipcMain.on('hit:rects', (e, items) => {
+  if (!wallpaper || e.sender !== wallpaper) return;
+  rects = Array.isArray(items) ? items : [];
+  layout();
+});
+
+// From the click layer: { type: 'hover', id } (id null = no button) or { type: 'click', id, fx }.
+ipcMain.on('hit:event', (e, ev) => {
+  if (!win || e.sender !== win.webContents || !ev) return;
+  if (ev.type === 'hover') setCatching(!!ev.id);
+  if (wallpaper && !wallpaper.isDestroyed()) wallpaper.send('hit:event', ev);
+});
+
+module.exports = { create, destroy };

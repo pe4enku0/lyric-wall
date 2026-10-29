@@ -74,6 +74,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .vol .vb i { position: absolute; left: 0; top: 0; bottom: 0; width: 64%; border-radius: 3px; background: rgba(255,255,255,.85); }
 .mid { display: flex; justify-content: center; align-items: center; gap: 30px; }
 .mid svg { fill: #fff; cursor: pointer; }
+.ex .dev { display: flex; align-items: center; gap: 14px; }
 .ex { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--ink2); }
 .lyb { width: 30px; height: 26px; border-radius: 7px; background: #fff; display: grid; place-items: center; }
 
@@ -109,24 +110,14 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
   -webkit-mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%);
           mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%); }
 #lines { list-style: none; margin: 0; padding: 0; position: absolute; left: 0; right: 0; top: 0;
-  transition: transform 1s cubic-bezier(.2,.8,.2,1), opacity .7s ease; }
+  transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .25s ease; }
 #lines li {
   font-size: 52px; line-height: 1.16; font-weight: 800; letter-spacing: -.012em; word-spacing: .08em;
   padding: 18px 0; transform-origin: left center; color: #d9d6dd; text-wrap: balance;
-  transition: filter 1s ease, opacity 1s ease, transform 1s cubic-bezier(.2,.8,.2,1), color 1s ease;
+  transition: filter .4s ease, opacity .4s ease, transform .45s cubic-bezier(.2,.8,.2,1), color .4s ease;
 }
 #lines li.on { color: #e9e6ec; text-shadow: 0 2px 30px rgba(0,0,0,.25); }
 #lines li.gap { padding: 0; height: 22px; }
-/* Words of the line being sung: dim until sung, then they pop up, glow and stay bright. */
-#lines li .w { display: inline-block; transform-origin: 50% 80%; transition: opacity .2s ease; }
-#lines li.on .w { opacity: .45; }
-#lines li.on .w.sung { opacity: 1; }
-#lines li.on .w.pop { animation: word-pop .55s cubic-bezier(.2, .9, .3, 1.3); }
-@keyframes word-pop {
-  0%   { transform: translateY(0) scale(1); }
-  35%  { transform: translateY(-8px) scale(1.12); text-shadow: 0 0 24px rgba(255,255,255,.8), 0 0 4px rgba(255,255,255,.6); }
-  100% { transform: translateY(0) scale(1); }
-}
 /* Paused wallpaper (locked screen, game, battery): nothing moves at all. */
 body.frozen *, body.frozen *::before, body.frozen *::after { animation-play-state: paused !important; transition: none !important; }
 /* Messages instead of lyrics: "Looking for the lyrics…", "Lyrics not found"… */
@@ -138,5 +129,16 @@ body.frozen *, body.frozen *::before, body.frozen *::after { animation-play-stat
 
 @media (prefers-reduced-motion: reduce) {
   #lines, #lines li, .art img, .stage { transition-duration: .01s !important; }
-  #lines li.on .w.pop { animation: none; }
 }
+
+/* Buttons (data-act): hover and press feedback. */
+[data-act] { cursor: pointer; transition: transform .15s ease, filter .15s ease, opacity .15s ease; }
+[data-act].hover { filter: brightness(1.3); }
+[data-act].pressed { transform: scale(.9); }
+.art[data-act].pressed, .bar[data-act].pressed, .vb[data-act].pressed { transform: scale(.98); }
+.lyr { transition: opacity .4s ease; }
+.lyr.off { opacity: 0; }
+/* Short message over the cover, e.g. after pressing the star. */
+.toast { position: absolute; z-index: 2; left: 50%; bottom: 46px; transform: translate(-50%, 6px); max-width: 80%; padding: 8px 14px; border-radius: 99px; background: rgba(20,20,24,.72); backdrop-filter: blur(10px); font-size: 13px; font-weight: 600; text-align: center; opacity: 0; transition: opacity .25s ease, transform .25s ease; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast[hidden] { display: none; }

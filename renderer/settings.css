@@ -37,6 +37,10 @@ header.top p { margin: 0; color: var(--muted); font-size: 14px; }
 .sl div { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
 .sl output { font-family: var(--mono); }
 .set section.wide { grid-column: 1 / -1; }
+.fps { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; }
+.seg { display: flex; gap: 3px; padding: 3px; border-radius: 10px; background: rgba(255,255,255,.06); border: 1px solid var(--line); }
+.seg button { min-width: 44px; padding: 5px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font: 600 13px var(--mono); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: rgba(255,255,255,.12); color: var(--fg); }
 .chk { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .chk input { width: 18px; height: 18px; margin: 0; accent-color: #d9d4e2; }
 .note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }

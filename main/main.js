@@ -1,5 +1,5 @@
 // Main process: windows, tray, system integration.
-const { app, ipcMain } = require('electron');
+const { app, ipcMain, shell, session, desktopCapturer } = require('electron');
 const os = require('os');
 const log = require('./log');
 
@@ -36,7 +36,10 @@ ipcMain.handle('app:info', () => ({
   deviceLabel: i18n.t(adapter.deviceKey)
 }));
 ipcMain.handle('player:get', () => player.get());
-ipcMain.on('player:control', (_e, cmd) => player.control(cmd));
+ipcMain.on('player:control', (_e, cmd, value) => player.control(cmd, value));
+ipcMain.on('app:log', (_e, level, text) => (level === 'warn' ? log.warn : log.info)('UI:', text));
+ipcMain.on('app:openSoundSettings', () => shell.openExternal(adapter.soundSettingsUrl));
+ipcMain.on('app:openControl', () => control.show());
 ipcMain.handle('lyrics:get', () => lyrics.get());
 ipcMain.handle('render:get', () => power.state());
 
@@ -59,6 +62,12 @@ app.on('activate', () => { if (Date.now() - startedAt > 3000) control.show(); })
 app.whenReady().then(() => {
   log.info(`Start Lyric Wall ${app.getVersion()}: ${process.platform} ${os.release()}, Electron ${process.versions.electron}, adapter ${adapter.name}, language ${i18n.lang()}`);
   adapter.init();
+  // The wallpaper's sound card may listen to the computer's sound ("loopback"); only the sound is used.
+  session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
+    desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } })
+      .then(sources => callback(sources.length ? { video: sources[0], audio: 'loopback' } : {}))
+      .catch(e => { log.warn('Sound card: no access to the computer sound:', e.message); callback({}); });
+  });
   power.start();
   appearance.onChange(power.checkBattery);
   wallpaper.watchDisplays();

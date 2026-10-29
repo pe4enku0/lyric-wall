@@ -11,9 +11,8 @@
   const { info, t } = await LW.initI18n();
   $('device').textContent = info.deviceLabel;
 
-  /* Background and snow settings. Defaults from the mockup for now; the settings window comes in step 6. */
   // Look from the settings window (main/appearance.js); the own picture is loaded separately.
-  let S = { bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0 };
+  let S = { bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0, showLyrics: true, audioReactive: false, fps: 30 };
   let userImg = null;
 
   /* The mockup is drawn for 1280×800. Scale so the height is ~800 mockup points
@@ -95,7 +94,8 @@
   const DUSK = dusk();
 
   /* ---------- current track ---------- */
-  let track = { id: null, tone: null, cover: NO_COVER, duration: 0 };
+  let track = { id: null, tone: null, cover: NO_COVER, duration: 0, volume: null };
+  let volHold = 0;
   let playing = false;
   const clock = LW.createClock();
 
@@ -168,33 +168,13 @@
   const hms = s => { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
 
   /* ---------- lyrics (main/lyrics.js loads them from LRCLIB) ---------- */
-  const LEAD = 0.25;      // show a line a moment before it is sung
-  const WORD_LEAD = 0.05; // and a word just before
+  const LEAD = 0.35; // switch to a line a moment before it is sung
   let lyr = { id: null, status: 'none' }; // what is shown now
   let latestLyrics = { id: null };        // last result from the main process (may arrive before the track)
-  let synced = [];                        // [{ t, text, words: [{ t, text }] | null }] for synced lyrics
+  let synced = [];                        // [{ t, text }] for synced lyrics
   let li = 0;                             // current line
-  let wi = -1;                            // last sung word of the current line
   let fadeTimer = null;
   let lastScroll = null;
-
-  // Time of every word. Exact times if the lyrics have them (enhanced LRC); otherwise estimated:
-  // the line's singing time is shared between its words by their syllables.
-  const syllables = w => Math.max(1, (w.match(/[aeiouyаеёиоуыэюяäöüåæøéèáóíú]/gi) || []).length);
-  function timeWords(lines) {
-    return lines.map((l, i) => {
-      if (l.text === '♪') return { ...l, words: null };
-      if (l.words && l.words.length) return l;
-      const tokens = l.text.split(/\s+/).filter(Boolean);
-      const next = i + 1 < lines.length ? lines[i + 1].t : l.t + 6;
-      const span = Math.min((next - l.t) * .92, Math.max(1.2, tokens.join('').length * .2));
-      const weights = tokens.map(w => syllables(w) + .5);
-      const total = weights.reduce((a, b) => a + b, 0);
-      let acc = 0;
-      const words = tokens.map((text, k) => { const w = { t: l.t + span * acc / total, text }; acc += weights[k]; return w; });
-      return { ...l, words };
-    });
-  }
 
   function renderLines(lines) {
     const ul = $('lines'); ul.innerHTML = '';
@@ -203,22 +183,6 @@
       if (text) el.textContent = text; else el.className = 'gap';
       ul.appendChild(el);
     });
-  }
-  // Synced lines: every word in its own span so it can pop.
-  function renderSynced() {
-    const ul = $('lines'); ul.innerHTML = '';
-    for (const l of synced) {
-      const el = document.createElement('li');
-      if (l.words) {
-        l.words.forEach((w, k) => {
-          if (k) el.append(' ');
-          const sp = document.createElement('span');
-          sp.className = 'w'; sp.textContent = w.text;
-          el.appendChild(sp);
-        });
-      } else el.textContent = l.text;
-      ul.appendChild(el);
-    }
   }
   function focusLine(instant) {
     const ul = $('lines'), items = ul.children;
@@ -242,24 +206,6 @@
     while (lo <= hi) { const mid = (lo + hi) >> 1; if (synced[mid].t <= pos + LEAD) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
     return ans;
   }
-  // Sung words of the current line are bright, the rest dim. A word reached while playing pops;
-  // after a seek (a jump over several words) they just light up.
-  function updateWords(pos, lineChanged) {
-    const l = synced[li], el = $('lines').children[li];
-    if (!l || !l.words || !el) return;
-    let k = -1;
-    while (k + 1 < l.words.length && l.words[k + 1].t <= pos + WORD_LEAD) k++;
-    if (k === wi && !lineChanged) return;
-    const prev = lineChanged ? -1 : wi;
-    const pop = k > prev && k - prev <= 2;
-    const spans = el.children;
-    for (let j = 0; j < spans.length; j++) {
-      spans[j].classList.toggle('sung', j <= k);
-      if (j > k || lineChanged) spans[j].classList.remove('pop');
-      if (pop && j > prev && j <= k) spans[j].classList.add('pop');
-    }
-    wi = k;
-  }
 
   function showLyrics(r) {
     lyr = r;
@@ -269,13 +215,10 @@
     ul.className = r.status === 'synced' ? '' : r.status === 'plain' ? 'plain' : 'msg';
     if (r.status === 'synced') {
       // A "♪" line for the intro and for instrumental breaks (empty lines in the LRC file).
-      const lines = r.lines.map(l => ({ t: l.t, text: l.text || '♪', words: l.words }));
-      if (!lines.length || lines[0].t > 2) lines.unshift({ t: 0, text: '♪' });
-      synced = timeWords(lines);
-      renderSynced();
+      synced = r.lines.map(l => ({ t: l.t, text: l.text || '♪' }));
+      if (!synced.length || synced[0].t > 2) synced.unshift({ t: 0, text: '♪' });
+      renderLines(synced.map(l => l.text));
       li = lineAt(clock.now());
-      wi = -1;
-      updateWords(clock.now(), true);
     } else if (r.status === 'plain') {
       synced = [];
       renderLines(r.plain);
@@ -294,7 +237,7 @@
     clearTimeout(fadeTimer);
     if (!lyr.id) { showLyrics(r); return; }
     ul.style.opacity = 0;
-    fadeTimer = setTimeout(() => { showLyrics(r); ul.style.opacity = 1; }, 380);
+    fadeTimer = setTimeout(() => { showLyrics(r); ul.style.opacity = 1; }, 250);
   }
   function onLyrics(r) {
     latestLyrics = r;
@@ -303,9 +246,8 @@
   // Called every frame with the current position.
   function updateLyrics(pos, d) {
     if (lyr.status === 'synced' && synced.length) {
-      const i = lineAt(pos), changed = i !== li;
-      if (changed) { li = i; focusLine(false); }
-      updateWords(pos, changed);
+      const i = lineAt(pos);
+      if (i !== li) { li = i; focusLine(false); }
     } else if (lyr.status === 'plain' && d) {
       // Plain lyrics have no timing: scroll them evenly through the song.
       const ul = $('lines'), vp = ul.parentElement;
@@ -340,7 +282,17 @@
   /* ---------- applying player updates ---------- */
   const PAUSE_ICON = '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>';
   const PLAY_ICON = '<path d="M2 1 17 12 2 23Z"/>';
+  function showVolume(v) {
+    if (v === track.volume) return;
+    track.volume = v;
+    if (v == null) { put($('vol'), 'textContent', '—'); put($('volBox').style, 'visibility', 'hidden'); return; }
+    put($('vol'), 'textContent', String(v));
+    put($('volBar').style, 'width', v + '%');
+    put($('volBox').style, 'visibility', '');
+    wake();
+  }
   function setPlaying(on) {
+    if (playing !== on) setTimeout(syncAudio);
     playing = on;
     const pp = $('pp'), icon = on ? 'pause' : 'play';
     if (pp.dataset.icon !== icon) { pp.dataset.icon = icon; pp.innerHTML = on ? PAUSE_ICON : PLAY_ICON; }
@@ -348,21 +300,23 @@
 
   function showMessage(state) {
     if (track.id === state) return;
-    track = { id: state, tone: null, cover: NO_COVER, duration: 0 };
+    track = { id: state, tone: null, cover: NO_COVER, duration: 0, volume: null };
     clock.set(0, false); setPlaying(false);
     $('title').textContent = t(`state.${state}.title`);
     $('artist').textContent = t(`state.${state}.detail`);
     $('capL').textContent = 'SPOTIFY';
-    $('vol').textContent = '—'; $('volBox').style.visibility = 'hidden';
-    $('mode').hidden = true;
+    put($('vol'), 'textContent', '—'); put($('volBox').style, 'visibility', 'hidden');
+    put($('mode'), 'hidden', true);
+    track.volume = null;
     showLyrics({ id: null, status: 'none' });
+    reportHits();
     setCover(NO_COVER); applyBg();
   }
 
   function showTrack(s) {
     const changed = s.id !== track.id;
     if (changed) {
-      track = { id: s.id, tone: null, cover: s.art || NO_COVER, duration: s.duration || 0 };
+      track = { id: s.id, tone: null, cover: s.art || NO_COVER, duration: s.duration || 0, volume: track.volume };
       $('title').textContent = s.title || '';
       $('artist').textContent = s.artist || '';
       $('capL').textContent = [s.artist, s.album].filter(Boolean).join(' · ').toUpperCase();
@@ -374,13 +328,10 @@
     track.duration = s.duration || track.duration;
     setCover(track.cover);
 
-    if (s.volume == null) { put($('vol'), 'textContent', '—'); put($('volBox').style, 'visibility', 'hidden'); }
-    else {
-      put($('vol'), 'textContent', String(Math.round(s.volume)));
-      put($('volBar').style, 'width', Math.round(s.volume) + '%');
-      put($('volBox').style, 'visibility', '');
-    }
-    put($('mode'), 'hidden', s.shuffle == null);
+    // Right after the volume was changed here, keep our value until Spotify / Windows report the new one.
+    if (Date.now() > volHold) showVolume(s.volume == null ? null : Math.round(s.volume));
+    const modeHidden = s.shuffle == null;
+    if ($('mode').hidden !== modeHidden) { $('mode').hidden = modeHidden; reportHits(); }
     if (s.shuffle != null) put($('mode'), 'textContent', t(s.shuffle ? 'ui.shuffleOn' : 'ui.shuffleOff'));
 
     clock.update(s, changed);
@@ -414,46 +365,105 @@
     sx.globalAlpha = 1;
   }
 
-  /* ---------- visualizer ---------- */
+  /* ---------- sound card: volume scale, plus the real sound when the system lets us listen ---------- */
   const vc = $('viz'), vx = vc.getContext('2d'), N = 26, lv = new Array(N).fill(.2);
-  function drawViz(time) {
+  // Bars grow from left to right like a volume scale; the bars up to the current volume are lit.
+  const ramp = i => .2 + .8 * i / (N - 1);
+  let audio = null;          // { stream, ctx, analyser, data } while listening to the computer's sound
+  let audioStarting = false, audioFailed = false, audioStopTimer = null;
+  const footBase = t(info.platform === 'darwin' ? 'ui.volSpotify' : 'ui.volSystem');
+  const setFoot = () => put($('foot'), 'textContent', audio ? `${footBase} · ${t('ui.withSound')}` : footBase);
+
+  async function startAudio() {
+    if (audio || audioStarting || audioFailed) return;
+    audioStarting = true;
+    try {
+      // The main process answers with the computer's sound ("loopback"); the screen picture is not needed.
+      const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+      stream.getVideoTracks().forEach(tr => tr.stop());
+      if (!stream.getAudioTracks().length) throw new Error('no sound track');
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 128; analyser.smoothingTimeConstant = .6;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      audio = { stream, ctx, analyser, data: new Uint8Array(analyser.frequencyBinCount) };
+      api.log('info', 'Sound card: listening to the computer sound');
+      setFoot();
+    } catch (e) {
+      audioFailed = true; // do not ask again until the option is turned off and on
+      api.log('warn', 'Sound card: cannot listen to the computer sound, showing the volume only: ' + e.message);
+    }
+    audioStarting = false;
+    if (audio && !(S.audioReactive && !frozen)) stopAudio();
+  }
+  function stopAudio() {
+    if (!audio) return;
+    audio.stream.getTracks().forEach(tr => tr.stop());
+    audio.ctx.close();
+    audio = null;
+    setFoot();
+  }
+  // Listen only while music plays (stop 15 s after a pause), never while the wallpaper is paused.
+  function syncAudio() {
+    const want = S.audioReactive && !frozen;
+    if (!want) { clearTimeout(audioStopTimer); audioStopTimer = null; stopAudio(); return; }
+    if (playing) { clearTimeout(audioStopTimer); audioStopTimer = null; startAudio(); }
+    else if (audio && !audioStopTimer) audioStopTimer = setTimeout(() => { audioStopTimer = null; if (!playing) stopAudio(); }, 15000);
+  }
+
+  function drawViz() {
     const VW = vc.width, VH = vc.height, bw = VW / N;
+    const lit = track.volume == null ? N : Math.round(track.volume / 100 * N);
+    const live = audio && playing;
+    if (live) audio.analyser.getByteFrequencyData(audio.data);
     vx.clearRect(0, 0, VW, VH);
-    const beat = Math.pow(Math.max(0, Math.sin(time / 1000 * Math.PI * 2.1)), 8);
     let moving = false;
     for (let i = 0; i < N; i++) {
-      const base = .22 + .18 * Math.sin(i * .55 + time / 700) + .14 * Math.sin(i * 1.3 - time / 430);
-      const tgt = playing ? Math.min(1, Math.max(.05, base + beat * (1 - i / N) * .65 + Math.random() * .08)) : .04;
-      lv[i] += (tgt - lv[i]) * .18;
+      let tgt = ramp(i);
+      if (live) {
+        // bass on the left, treble on the right
+        const bin = Math.min(audio.data.length - 1, Math.floor(1 + Math.pow(i / N, 1.7) * audio.data.length * .7));
+        tgt = Math.min(1, Math.max(.06, ramp(i) * .25 + audio.data[bin] / 255 * .85));
+      }
+      lv[i] += (tgt - lv[i]) * .3;
       const h = lv[i] * VH, x = i * bw + 2;
-      const gr = vx.createLinearGradient(0, VH - h, 0, VH);
-      gr.addColorStop(0, 'rgba(255,92,112,.95)'); gr.addColorStop(1, 'rgba(255,92,112,.15)');
-      vx.fillStyle = gr; vx.shadowColor = 'rgba(255,80,100,.6)'; vx.shadowBlur = 8;
       vx.beginPath();
       vx.roundRect ? vx.roundRect(x, VH - h, bw - 6, h, 3) : vx.rect(x, VH - h, bw - 6, h);
+      if (i < lit) {
+        const gr = vx.createLinearGradient(0, VH - h, 0, VH);
+        gr.addColorStop(0, 'rgba(255,92,112,.95)'); gr.addColorStop(1, 'rgba(255,92,112,.15)');
+        vx.fillStyle = gr; vx.shadowColor = 'rgba(255,80,100,.6)'; vx.shadowBlur = 8;
+      } else {
+        vx.fillStyle = 'rgba(255,255,255,.13)'; vx.shadowBlur = 0;
+      }
       vx.fill();
       if (Math.abs(tgt - lv[i]) > .003) moving = true;
     }
     vx.shadowBlur = 0;
-    return moving;
+    return moving || live;
   }
 
   /* ---------- main loop ----------
-     At most 30 frames per second. When nothing moves (music paused, visualizer settled) it sleeps until
+     At most 30 frames per second (or 20 / 15, chosen in the settings). When nothing moves (music paused, visualizer settled) it sleeps until
      something changes, and while the wallpaper is paused (locked screen, game, battery) it stops completely. */
-  const FRAME_MS = 1000 / 30;
-  let last = performance.now(), lastFrame = 0, raf = 0, frozen = false, lastPct = -1;
+  let last = performance.now(), lastFrame = 0, raf = 0, frameTimer = 0, frozen = false, lastPct = -1;
   const shown = {};
   const setText = (id, v) => { if (shown[id] !== v) { shown[id] = v; $(id).textContent = v; } };
   function wake() {
-    if (raf || frozen) return;
+    if (raf || frameTimer || frozen) return;
     last = performance.now();
     raf = requestAnimationFrame(loop);
+  }
+  // The next frame is asked for with a timer: asking on every screen refresh would wake the browser and
+  // the GPU at the display rate (120 Hz on a MacBook) even when most of those frames are skipped.
+  function scheduleFrame() {
+    if (frozen || frameTimer) return;
+    frameTimer = setTimeout(() => { frameTimer = 0; if (!frozen) raf = requestAnimationFrame(loop); },
+      Math.max(0, 1000 / (S.fps || 30) - (performance.now() - lastFrame)));
   }
   function loop(now) {
     raf = 0;
     if (frozen) return;
-    if (now - lastFrame < FRAME_MS - 1) { raf = requestAnimationFrame(loop); return; }
     lastFrame = now;
     const dt = Math.min(.1, (now - last) / 1000); last = now;
     const d = track.duration, pos = d ? Math.min(d, clock.now()) : 0;
@@ -462,41 +472,113 @@
     setText('cur', fmt(pos)); setText('rem', '-' + fmt(d - pos)); setText('capR', hms(pos));
     updateLyrics(pos, d);
     drawSnow(dt);
-    const vizMoving = drawViz(now);
-    if (playing || vizMoving) raf = requestAnimationFrame(loop);
+    const vizMoving = drawViz();
+    if (playing || vizMoving) scheduleFrame();
   }
   function setFrozen(st) {
     frozen = !!st.paused;
     document.body.classList.toggle('frozen', frozen);
+    syncAudio();
     if (!frozen) wake();
   }
 
-  /* ---------- controls (work in "npm run window"; on the desktop use the tray menu) ---------- */
-  $('pp').addEventListener('click', () => { clock.toggle(); setPlaying(clock.playing); api.control('toggle'); wake(); });
-  $('bNext').addEventListener('click', () => api.control('next'));
-  $('bPrev').addEventListener('click', () => api.control('prev'));
+  /* ---------- buttons ----------
+     Every element with data-act is a button. On the desktop the wallpaper itself gets no clicks (they go to
+     the desktop icons), so an invisible click layer above the icons (main/hitlayer.js) reports them here.
+     In "npm run window" the elements are clicked directly. fx: where in the element (0..1, left to right). */
+  let toastTimer = null;
+  function toast(text) {
+    const el = $('toast');
+    el.textContent = text; el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('show'));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.classList.remove('show'); setTimeout(() => { el.hidden = true; }, 300); }, 2600);
+  }
+  const actEl = id => document.querySelector(`[data-act="${id}"]`);
+  function press(id) {
+    const el = actEl(id); if (!el) return;
+    el.classList.add('pressed');
+    setTimeout(() => el.classList.remove('pressed'), 160);
+  }
+  function hover(id) {
+    document.querySelectorAll('[data-act].hover').forEach(el => el.classList.remove('hover'));
+    if (id && actEl(id)) actEl(id).classList.add('hover');
+  }
+  function act(id, fx) {
+    press(id);
+    const isTrack = !!(track.id && track.duration);
+    switch (id) {
+      case 'prev': case 'next': api.control(id); break;
+      case 'pp': clock.toggle(); setPlaying(clock.playing); api.control('toggle'); wake(); break;
+      case 'progress':
+        if (isTrack) { const to = Math.max(0, Math.min(1, fx)) * track.duration; clock.set(to, clock.playing); api.control('seek', to); wake(); }
+        break;
+      case 'volume': {
+        const v = Math.round(Math.max(0, Math.min(1, fx)) * 100);
+        volHold = Date.now() + 2500; showVolume(v); api.control('volume', v);
+        break;
+      }
+      case 'mute': api.control('mute'); break;
+      case 'shuffle': api.control('shuffle'); break;
+      case 'cover': api.control('open'); break;
+      case 'lyrics': api.setLook('showLyrics', !S.showLyrics); break;
+      case 'device': api.openSoundSettings(); break;
+      case 'more': api.openControl(); break;
+      case 'like': toast(t('ui.likeLater')); break;
+    }
+  }
+  document.querySelectorAll('[data-act]').forEach(el => el.addEventListener('click', e => {
+    const r = el.getBoundingClientRect();
+    act(el.dataset.act, (e.clientX - r.left) / r.width);
+  }));
+  api.onHit(e => {
+    if (e.type === 'hover') hover(e.id);
+    else if (e.type === 'click') act(e.id, e.fx);
+  });
+  // Tell the click layer where the buttons are (in this window's coordinates).
+  let hitsTimer = null;
+  function reportHits() {
+    clearTimeout(hitsTimer);
+    hitsTimer = setTimeout(() => {
+      // Thin elements (the 4 px progress and volume bars, the small speaker) get a 24 px tall/wide target.
+      const MIN = 24;
+      const grow = (start, len) => (len < MIN ? [start - (MIN - len) / 2, MIN] : [start, len]);
+      const items = [...document.querySelectorAll('[data-act]')].map(el => {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return null;
+        const [x, w] = grow(r.left, r.width), [y, h] = grow(r.top, r.height);
+        return { id: el.dataset.act, x, y, w, h };
+      }).filter(Boolean);
+      api.reportHits(items);
+    }, 120);
+  }
 
   /* ---------- start ---------- */
-  const refit = () => { fit(); wake(); };
+  const refit = () => { fit(); wake(); reportHits(); };
   addEventListener('resize', refit); api.onLayoutChanged(refit); fit();
   api.onRender(setFrozen);
   setFrozen(await api.getRender());
   // Apply the look; fetch the own picture only when it is new.
   function applyLook(look) {
     const newImage = look.imageVersion !== S.imageVersion || (look.bg === 'photo' && !userImg);
+    if (look.audioReactive && !S.audioReactive) audioFailed = false; // turned on again: try again
     S = look;
     setCount(S.snowCount);
     applyBg();
+    $('lyr').classList.toggle('off', !S.showLyrics);
+    syncAudio();
     wake();
     if (newImage && look.hasImage) api.getImage().then(url => { userImg = url; applyBg(); });
   }
   api.onLook(applyLook);
   applyLook(await api.getLook());
+  setFoot();
   showMessage('starting');
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());
   api.onLyrics(onLyrics);
   onLyrics(await api.getLyrics());
-  if (document.fonts) document.fonts.ready.then(() => focusLine(true));
+  if (document.fonts) document.fonts.ready.then(() => { focusLine(true); reportHits(); });
+  reportHits();
   wake();
 })();
