@@ -52,7 +52,8 @@
       "extendInfo": {
         "LSUIElement": true,
         "NSAppleEventsUsageDescription": "Lyric Wall reads the current Spotify track and controls playback."
-      }
+      },
+      "icon": "assets/icon-mac.png"
     },
     "win": {
       "target": [
@@ -63,11 +64,15 @@
           ]
         }
       ],
-      "artifactName": "Lyric-Wall-Setup-${version}.${ext}"
+      "artifactName": "Lyric-Wall-Setup-${version}.${ext}",
+      "icon": "assets/icon-win.png"
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false
+      "perMachine": false,
+      "shortcutName": "Lyric Wall",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "asarUnpack": [
       "adapters/win-media.ps1"

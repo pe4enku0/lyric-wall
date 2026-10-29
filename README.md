@@ -36,8 +36,10 @@ npm start        # start the wallpaper (an icon appears in the menu bar)
 npm run window   # show the wallpaper in a normal window to look at the design
 ```
 
-Control everything from the menu bar icon (Mac) or the tray icon (Windows):
-wallpaper on/off, play/pause, next track, language, start at login, log, quit.
+Opening the app (or clicking its icon again while it runs) shows the **control window**:
+what is playing, playback buttons, wallpaper on/off, language, start at login, log, quit.
+You can close it — the wallpaper keeps running. The same controls are in the menu bar icon (Mac)
+or the tray icon (Windows). When started at login the app stays in the background without a window.
 The log and settings live in the app data folder:
 Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`.
 
@@ -46,10 +48,10 @@ Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`
 | Folder | Contents |
 |---|---|
 | `main/` | main process: windows, tray, player, settings, log, languages |
-| `renderer/` | the wallpaper UI (look taken from `mockup.html`) |
+| `renderer/` | the wallpaper UI (look taken from `mockup.html`) and the control window |
 | `adapters/` | `mac.js` and `win.js` (+ `win-media.ps1`); each system loads only its own file |
 | `locales/` | UI text in English (`en.json`) and Russian (`ru.json`) |
-| `assets/` | menu bar and tray icons |
+| `assets/` | app icon (`icon-mac.png`, `icon-win.png`), menu bar and tray icons |
 | `mockup.html` | the original design mockup |
 
 ## Sending changes to GitHub

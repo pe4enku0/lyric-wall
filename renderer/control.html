@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https:">
+<title>Lyric Wall</title>
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/onest/index.css">
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/jetbrains-mono/index.css">
+<link rel="stylesheet" href="control.css">
+</head>
+<body>
+<div class="bg"></div><div class="grain" id="grain"></div>
+<main>
+  <header class="top">
+    <img src="../assets/icon-win.png" alt="">
+    <div><h1>Lyric Wall</h1><span id="ver"></span></div>
+  </header>
+
+  <section class="glass np">
+    <span class="chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M9 18a3 3 0 1 1-2-2.8V4l12-2v13a3 3 0 1 1-2-2.8V6.4L9 7.8Z"/></svg><span data-i18n="ui.nowPlaying"></span></span>
+    <div class="row">
+      <img id="cover" alt="">
+      <div class="meta"><div id="title"></div><div id="artist"></div></div>
+    </div>
+    <div class="prog"><span id="cur">0:00</span><div class="bar"><i id="fill"></i><b id="knob"></b></div><span id="dur">0:00</span></div>
+    <div class="ctrl" id="ctrl">
+      <button type="button" id="bPrev" aria-label="Previous"><svg width="24" height="17" viewBox="0 0 26 18"><path d="M12 9 24 1v16Z"/><path d="M1 9 13 1v16Z"/></svg></button>
+      <button type="button" id="pp" aria-label="Play / Pause"></button>
+      <button type="button" id="bNext" aria-label="Next"><svg width="24" height="17" viewBox="0 0 26 18"><path d="M14 9 2 1v16Z"/><path d="M25 9 13 1v16Z"/></svg></button>
+    </div>
+  </section>
+
+  <section class="glass set">
+    <div class="opt">
+      <span data-i18n="control.wallpaper"></span>
+      <button type="button" class="sw" id="optWall" role="switch" aria-checked="false"><i></i></button>
+    </div>
+    <div class="opt stack">
+      <span data-i18n="control.language"></span>
+      <div class="seg" id="optLang">
+        <button type="button" data-v="auto" data-i18n="control.langAuto"></button>
+        <button type="button" data-v="en">English</button>
+        <button type="button" data-v="ru">Русский</button>
+      </div>
+    </div>
+    <div class="opt stack" id="rowMode" hidden>
+      <span data-i18n="control.mode"></span>
+      <div class="seg" id="optMode">
+        <button type="button" data-v="auto" data-i18n="control.modeAuto"></button>
+        <button type="button" data-v="bottom" data-i18n="control.modeBottom"></button>
+      </div>
+    </div>
+    <div class="opt">
+      <span><span data-i18n="control.loginItem"></span><small id="loginHint" data-i18n="control.loginItemDev" hidden></small></span>
+      <button type="button" class="sw" id="optLogin" role="switch" aria-checked="false"><i></i></button>
+    </div>
+    <p class="soon" data-i18n="control.settingsSoon"></p>
+  </section>
+
+  <footer>
+    <p id="hint"></p>
+    <div class="btns">
+      <button type="button" id="bLog" data-i18n="control.openLog"></button>
+      <button type="button" id="bQuit" data-i18n="control.quit"></button>
+    </div>
+  </footer>
+</main>
+<script src="common.js"></script>
+<script src="control.js"></script>
+</body>
+</html>

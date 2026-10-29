@@ -3,13 +3,13 @@
 //   state:    'playing' | 'paused' | 'stopped' | 'not-running' | 'not-installed' | 'no-permission' | 'error'
 //   position, duration: seconds; at: time (ms) when position was read
 //   volume:   0-100, or null when the system does not report it; shuffle: true/false/null
+// Spotify is read only while someone listens (the wallpaper or the control window).
 const adapter = require('../adapters');
 const log = require('./log');
 
 let current = { state: 'starting' };
 let lastLogged = '';
-let sink = null;
-let active = false;
+const listeners = new Set();
 
 function onUpdate(snap) {
   // Windows sends the cover only when the track changes; keep it for the following updates.
@@ -22,20 +22,17 @@ function onUpdate(snap) {
     else log.info(`Spotify: ${snap.state}`, snap.message || '');
   }
   current = snap;
-  if (sink) sink(snap);
+  for (const fn of listeners) fn(snap);
 }
 
-function start(onSnapshot) {
-  sink = onSnapshot;
-  if (active) return;
-  active = true;
-  adapter.startNowPlaying(onUpdate);
-}
-
-function stop() {
-  if (!active) return;
-  active = false;
-  adapter.stopNowPlaying();
+// Returns a function that stops listening.
+function subscribe(fn) {
+  listeners.add(fn);
+  if (listeners.size === 1) adapter.startNowPlaying(onUpdate);
+  return () => {
+    if (!listeners.delete(fn)) return;
+    if (listeners.size === 0) adapter.stopNowPlaying();
+  };
 }
 
 function control(cmd) {
@@ -43,4 +40,4 @@ function control(cmd) {
   return adapter.control(cmd);
 }
 
-module.exports = { start, stop, control, get: () => current };
+module.exports = { subscribe, control, get: () => current };

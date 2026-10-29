@@ -6,10 +6,7 @@
   const api = window.lyricWall;
 
   /* ---------- language ---------- */
-  const info = await api.info();
-  const t = key => (key in info.strings ? info.strings[key] : key);
-  document.documentElement.lang = info.lang;
-  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  const { info, t } = await LW.initI18n();
   $('device').textContent = info.deviceLabel;
 
   /* Background and snow settings. Defaults from the mockup for now; the settings window comes in step 6. */
@@ -28,13 +25,7 @@
     for (const f of flakes) { if (f.x > W) f.x = Math.random() * W; if (f.y > H) f.y = Math.random() * H; }
   }
 
-  /* film grain */
-  (() => {
-    const c = document.createElement('canvas'); c.width = c.height = 256;
-    const g = c.getContext('2d'), d = g.createImageData(256, 256);
-    for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
-    g.putImageData(d, 0, 0); $('grain').style.backgroundImage = `url(${c.toDataURL()})`;
-  })();
+  $('grain').style.backgroundImage = `url(${LW.grain()})`;
 
   /* Cover shown when there is no track (or no cover). */
   const NO_COVER = (() => {
@@ -98,9 +89,7 @@
   /* ---------- current track ---------- */
   let track = { id: null, hue: 225, cover: NO_COVER, duration: 0 };
   let playing = false;
-  // Smooth position between updates: base position + time passed since it was taken.
-  let basePos = 0, baseAt = Date.now();
-  const posNow = () => Math.max(0, basePos + (playing ? (Date.now() - baseAt) / 1000 : 0));
+  const clock = LW.createClock();
 
   // A stable colour per track until "colour from cover" arrives in step 6.
   const hueOf = id => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; };
@@ -127,7 +116,7 @@
     } else { el.style.backgroundImage = `url("${src}")`; requestAnimationFrame(() => { el.style.opacity = 1; }); }
   }
 
-  const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const fmt = LW.fmt;
   const hms = s => { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
 
   /* ---------- lyrics (real lyrics arrive in step 5) ---------- */
@@ -184,7 +173,7 @@
   function showMessage(state) {
     if (track.id === state) return;
     track = { id: state, hue: 225, cover: NO_COVER, duration: 0 };
-    setPlaying(false); basePos = 0;
+    clock.set(0, false); setPlaying(false);
     $('title').textContent = t(`state.${state}.title`);
     $('artist').textContent = t(`state.${state}.detail`);
     $('capL').textContent = 'SPOTIFY';
@@ -214,12 +203,8 @@
     $('mode').hidden = s.shuffle == null;
     if (s.shuffle != null) $('mode').textContent = t(s.shuffle ? 'ui.shuffleOn' : 'ui.shuffleOff');
 
-    // Position: jump on a new track, pause or a big difference (seek); otherwise correct gently so nothing twitches.
-    const target = (s.position || 0) + (s.playing ? (Date.now() - (s.at || Date.now())) / 1000 : 0);
-    const cur = posNow();
-    basePos = changed || !s.playing || !playing || Math.abs(target - cur) > 1.5 ? target : cur + (target - cur) * 0.25;
-    baseAt = Date.now();
-    setPlaying(!!s.playing);
+    clock.update(s, changed);
+    setPlaying(clock.playing);
   }
 
   function onPlayer(s) {
@@ -269,7 +254,7 @@
   let last = performance.now();
   function loop(now) {
     const dt = Math.min(.1, (now - last) / 1000); last = now;
-    const d = track.duration, pos = d ? Math.min(d, posNow()) : 0, p = d ? pos / d : 0;
+    const d = track.duration, pos = d ? Math.min(d, clock.now()) : 0, p = d ? pos / d : 0;
     $('fill').style.width = (p * 100) + '%'; $('knob').style.left = (p * 100) + '%';
     $('cur').textContent = fmt(pos); $('rem').textContent = '-' + fmt(d - pos);
     $('capR').textContent = hms(pos);
@@ -278,7 +263,7 @@
   }
 
   /* ---------- controls (work in "npm run window"; on the desktop use the tray menu) ---------- */
-  $('pp').addEventListener('click', () => { basePos = posNow(); baseAt = Date.now(); setPlaying(!playing); api.control('toggle'); });
+  $('pp').addEventListener('click', () => { clock.toggle(); setPlaying(clock.playing); api.control('toggle'); });
   $('bNext').addEventListener('click', () => api.control('next'));
   $('bPrev').addEventListener('click', () => api.control('prev'));
 

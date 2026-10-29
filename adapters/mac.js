@@ -74,11 +74,12 @@ function startLoop() {
   clearTimeout(retryTimer);
   let pending = '';
   let errors = '';
-  proc = spawn('osascript', ['-'], { stdio: ['pipe', 'ignore', 'pipe'] });
-  proc.stdin.end(LOOP_SCRIPT);
+  const p = spawn('osascript', ['-'], { stdio: ['pipe', 'ignore', 'pipe'] });
+  proc = p;
+  p.stdin.end(LOOP_SCRIPT);
   // osascript "log" writes to stderr.
-  proc.stderr.setEncoding('utf8');
-  proc.stderr.on('data', chunk => {
+  p.stderr.setEncoding('utf8');
+  p.stderr.on('data', chunk => {
     pending += chunk;
     let i;
     while ((i = pending.indexOf('\n')) >= 0) {
@@ -89,8 +90,10 @@ function startLoop() {
       else if (line) errors = (errors + '\n' + line).slice(-500);
     }
   });
-  proc.on('error', e => log.error('Spotify (mac): could not start osascript:', e.message));
-  proc.on('exit', code => {
+  p.on('error', e => log.error('Spotify (mac): could not start osascript:', e.message));
+  p.on('exit', code => {
+    // A process we stopped ourselves (or an old one) must not touch the current state.
+    if (proc !== p) return;
     proc = null;
     if (!running) return;
     // -2741 / -1728: the script cannot be compiled because Spotify (and its dictionary) is not installed.

@@ -12,6 +12,7 @@ const windowed = process.argv.includes('--window');
 let win = null;
 let closingOnPurpose = false;
 let restartTimer = null;
+let unsubscribe = null;
 
 function send(channel, ...args) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
@@ -52,6 +53,7 @@ function create() {
   // If the window disappears by itself (for example Windows Explorer restarted), create it again.
   win.on('closed', () => {
     win = null;
+    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
     if (closingOnPurpose) return;
     if (windowed) { app.quit(); return; }
     log.warn('Wallpaper window closed by itself, recreating in 3 seconds');
@@ -61,13 +63,13 @@ function create() {
 
   win.webContents.on('render-process-gone', (_e, d) => log.error('Wallpaper UI crashed:', d.reason));
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
-  player.start(snap => send('player:state', snap));
+  unsubscribe = player.subscribe(snap => send('player:state', snap));
   return win;
 }
 
 function destroy() {
   clearTimeout(restartTimer);
-  player.stop();
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   if (!win) return;
   closingOnPurpose = true;
   adapter.detachWallpaper(win);

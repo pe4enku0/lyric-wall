@@ -17,7 +17,11 @@ const settings = require('./settings');
 const i18n = require('./i18n');
 const player = require('./player');
 const wallpaper = require('./wallpaper');
+const actions = require('./actions');
+const control = require('./control');
 const tray = require('./tray');
+
+const startedAt = Date.now();
 
 ipcMain.handle('app:info', () => ({
   version: app.getVersion(),
@@ -29,7 +33,21 @@ ipcMain.handle('app:info', () => ({
 ipcMain.handle('player:get', () => player.get());
 ipcMain.on('player:control', (_e, cmd) => player.control(cmd));
 
-app.on('second-instance', () => log.info('Second launch ignored: the app is already running (tray icon)'));
+// Started automatically at login: stay in the background without opening a window.
+function startedAtLogin() {
+  if (actions.LOGIN_ARGS.some(a => process.argv.includes(a))) return true;
+  if (process.platform === 'darwin') {
+    const s = app.getLoginItemSettings();
+    return !!s.wasOpenedAtLogin || (s.openAtLogin && os.uptime() < 180);
+  }
+  return false;
+}
+
+// Clicking the app icon while it is already running opens the control window.
+app.on('second-instance', () => { log.info('App icon clicked again: opening the control window'); control.show(); });
+// macOS sends "activate" when the app is opened again from Finder / Launchpad / Dock.
+// It also fires right at start, so the first seconds are ignored.
+app.on('activate', () => { if (Date.now() - startedAt > 3000) control.show(); });
 
 app.whenReady().then(() => {
   log.info(`Start Lyric Wall ${app.getVersion()}: ${process.platform} ${os.release()}, Electron ${process.versions.electron}, adapter ${adapter.name}, language ${i18n.lang()}`);
@@ -37,6 +55,8 @@ app.whenReady().then(() => {
   wallpaper.watchDisplays();
   if (settings.get('wallpaperEnabled')) wallpaper.create();
   tray.create();
+  if (startedAtLogin()) log.info('Started at login: no window');
+  else control.show();
 
   // For the automatic check in GitHub Actions: start, run for 10 seconds, quit.
   if (process.argv.includes('--smoke-test')) {

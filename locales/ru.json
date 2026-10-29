@@ -1,7 +1,7 @@
 {
   "device.mac": "MacBook",
   "device.win": "Компьютер",
-
+  "tray.open": "Открыть Lyric Wall",
   "tray.wallpaper": "Обои",
   "tray.playPause": "Пауза / продолжить",
   "tray.next": "Следующий трек",
@@ -15,12 +15,8 @@
   "tray.loginItemDev": "Запускать при входе (в установленной версии)",
   "tray.openLog": "Открыть лог",
   "tray.quit": "Выйти",
-
   "dialog.loginApproval.title": "Нужно разрешение macOS",
   "dialog.loginApproval.detail": "Открой Системные настройки → Основные → Объекты входа и включи Lyric Wall.",
-  "dialog.settings.title": "Настройки",
-  "dialog.settings.detail": "Окно настроек появится на шаге 6.",
-
   "ui.nowPlaying": "Сейчас играет",
   "ui.sound": "Звук",
   "ui.now": "Сейчас",
@@ -33,7 +29,6 @@
   "ui.lyrics": "Текст песни",
   "ui.lyricsSoon": "Текст песни появится на следующем шаге",
   "ui.lyricsSource": "текст из LRCLIB",
-
   "state.starting.title": "Ищу Spotify…",
   "state.starting.detail": "",
   "state.not-running.title": "Spotify не запущен",
@@ -45,5 +40,18 @@
   "state.no-permission.title": "Нет доступа к Spotify",
   "state.no-permission.detail": "Системные настройки → Конфиденциальность и безопасность → Автоматизация → Lyric Wall → включи Spotify",
   "state.error.title": "Не удаётся получить данные Spotify",
-  "state.error.detail": "Подробности в логе (иконка в трее → Открыть лог)"
+  "state.error.detail": "Подробности в логе (иконка в трее → Открыть лог)",
+  "control.wallpaper": "Обои на рабочем столе",
+  "control.language": "Язык",
+  "control.langAuto": "Как в системе",
+  "control.mode": "Режим обоев",
+  "control.modeAuto": "За иконками",
+  "control.modeBottom": "Под окнами",
+  "control.loginItem": "Запускать при входе",
+  "control.loginItemDev": "Работает в установленной версии",
+  "control.settingsSoon": "Настройки фона и снежинок появятся на шаге 6.",
+  "control.openLog": "Открыть лог",
+  "control.quit": "Выйти",
+  "control.hint.mac": "Окно можно закрыть: обои продолжат работать. Значок — в строке меню.",
+  "control.hint.win": "Окно можно закрыть: обои продолжат работать. Значок — в трее рядом с часами."
 }

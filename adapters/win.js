@@ -150,9 +150,10 @@ let running = false;
 function startHelper() {
   clearTimeout(retryTimer);
   let pending = '';
-  helper = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', HELPER], { windowsHide: true });
-  helper.stdout.setEncoding('utf8');
-  helper.stdout.on('data', chunk => {
+  const h = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', HELPER], { windowsHide: true });
+  helper = h;
+  h.stdout.setEncoding('utf8');
+  h.stdout.on('data', chunk => {
     pending += chunk;
     let i;
     while ((i = pending.indexOf('\n')) >= 0) {
@@ -168,10 +169,12 @@ function startHelper() {
       }
     }
   });
-  helper.stderr.setEncoding('utf8');
-  helper.stderr.on('data', d => log.warn('Spotify (win) helper:', d.trim().slice(0, 500)));
-  helper.on('error', e => log.error('Spotify (win): could not start PowerShell:', e.message));
-  helper.on('exit', code => {
+  h.stderr.setEncoding('utf8');
+  h.stderr.on('data', d => log.warn('Spotify (win) helper:', d.trim().slice(0, 500)));
+  h.on('error', e => log.error('Spotify (win): could not start PowerShell:', e.message));
+  h.on('exit', code => {
+    // A helper we stopped ourselves (or an old one) must not touch the current state.
+    if (helper !== h) return;
     helper = null;
     if (!running) return;
     log.warn('Spotify (win): helper exited with code', code, '- restarting in 10 s');
