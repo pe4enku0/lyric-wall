@@ -8,13 +8,14 @@ const log = require('../main/log');
 
 const GWL_STYLE = -16, GWL_EXSTYLE = -20;
 const WS_CHILD = 0x40000000, WS_POPUP = 0x80000000;
-const WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
+const WS_EX_TRANSPARENT = 0x20, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
+const DWMWA_CLOAKED = 14, PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
 const HWND_BOTTOM = 1, GW_HWNDLAST = 1, GW_HWNDPREV = 3, GW_CHILD = 5, GA_PARENT = 1;
 const SW_HIDE = 0, SW_SHOWNA = 8, LWA_ALPHA = 0x2, SMTO_NORMAL = 0;
 const MONITOR_DEFAULTTONEAREST = 2;
-// SHQueryUserNotificationState: busy / Direct3D full screen / presentation mode / full-screen Store app
-const QUNS_FULLSCREEN = [2, 3, 4, 7];
+// SHQueryUserNotificationState: busy (full-screen app) / Direct3D full screen / presentation mode
+const QUNS_FULLSCREEN = [2, 3, 4];
 const DESKTOP_CLASSES = ['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd'];
 
 // Windows functions from user32.dll via koffi, loaded on first use.
@@ -24,6 +25,8 @@ function user32() {
   const koffi = require('koffi');
   const lib = koffi.load('user32.dll');
   const shell = koffi.load('shell32.dll');
+  const dwm = koffi.load('dwmapi.dll');
+  const kernel = koffi.load('kernel32.dll');
   koffi.struct('RECT', { left: 'int32', top: 'int32', right: 'int32', bottom: 'int32' });
   koffi.struct('MONITORINFO', { cbSize: 'uint32', rcMonitor: 'RECT', rcWork: 'RECT', dwFlags: 'uint32' });
   const fn = sig => lib.func(sig);
@@ -46,7 +49,12 @@ function user32() {
     GetWindowThreadProcessId: fn('uint32_t __stdcall GetWindowThreadProcessId(intptr_t hwnd, _Out_ uint32_t *pid)'),
     MonitorFromWindow: fn('intptr_t __stdcall MonitorFromWindow(intptr_t hwnd, uint32_t flags)'),
     GetMonitorInfoW: fn('int __stdcall GetMonitorInfoW(intptr_t monitor, _Inout_ MONITORINFO *info)'),
-    SHQueryUserNotificationState: shell.func('int __stdcall SHQueryUserNotificationState(_Out_ int *state)')
+    SHQueryUserNotificationState: shell.func('int __stdcall SHQueryUserNotificationState(_Out_ int *state)'),
+    IsWindowVisible: fn('int __stdcall IsWindowVisible(intptr_t hwnd)'),
+    DwmGetWindowAttribute: dwm.func('int __stdcall DwmGetWindowAttribute(intptr_t hwnd, uint32_t attr, _Out_ int32_t *value, uint32_t size)'),
+    OpenProcess: kernel.func('intptr_t __stdcall OpenProcess(uint32_t access, int inherit, uint32_t pid)'),
+    QueryFullProcessImageNameW: kernel.func('int __stdcall QueryFullProcessImageNameW(intptr_t process, uint32_t flags, _Out_ uint8_t *name, _Inout_ uint32_t *size)'),
+    CloseHandle: kernel.func('int __stdcall CloseHandle(intptr_t handle)')
   };
   return u;
 }
@@ -162,25 +170,59 @@ function placeBottom(hwnd, display) {
   placeAbove(hwnd, desktopHost(), SWP_NOACTIVATE, physBounds(display));
 }
 
-// Is a game or another app covering the whole screen? Asks Windows first (the same check it uses to
-// hold back notifications), then compares the active window with its monitor.
+// Why the last check said "full screen": program and window class (for the log).
+let fullscreenWhy = '';
+
+function windowClass(w, hwnd) {
+  const buf = Buffer.alloc(512);
+  const len = w.GetClassNameW(hwnd, buf, 256);
+  return buf.toString('utf16le', 0, len * 2);
+}
+
+function processName(w, pid) {
+  const h = w.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+  if (!h) return `pid ${pid}`;
+  try {
+    const buf = Buffer.alloc(1040), size = [520];
+    if (!w.QueryFullProcessImageNameW(h, 0, buf, size)) return `pid ${pid}`;
+    return path.win32.basename(buf.toString('utf16le', 0, size[0] * 2));
+  } finally {
+    w.CloseHandle(h);
+  }
+}
+
+// Is a game or another app covering the whole screen? Looks at the active window: overlays of other apps
+// (NVIDIA, Discord, Steam…) also cover the screen but are see-through, so click-through, tool, non-activating
+// and system-hidden (cloaked) windows do not count. Then asks Windows (the same check it uses to hold back
+// notifications) and compares the window with its monitor.
 function fullscreenAppActive() {
   const w = user32();
-  const quns = [0];
-  if (w.SHQueryUserNotificationState(quns) === 0 && QUNS_FULLSCREEN.includes(quns[0])) return true;
   const fg = w.GetForegroundWindow();
-  if (!fg) return false;
+  if (!fg || !w.IsWindowVisible(fg)) return false;
   const pid = [0];
   w.GetWindowThreadProcessId(fg, pid);
   if (pid[0] === process.pid) return false;
-  const buf = Buffer.alloc(512);
-  const len = w.GetClassNameW(fg, buf, 256);
-  if (DESKTOP_CLASSES.includes(buf.toString('utf16le', 0, len * 2))) return false;
-  const r = {}, info = { cbSize: 40 };
-  w.GetWindowRect(fg, r);
-  if (!w.GetMonitorInfoW(w.MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST), info)) return false;
-  const m = info.rcMonitor;
-  return r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom;
+  const cls = windowClass(w, fg);
+  if (DESKTOP_CLASSES.includes(cls)) return false;
+  const ex = Number(w.GetWindowLongPtrW(fg, GWL_EXSTYLE));
+  if (ex & (WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)) return false;
+  const cloaked = [0];
+  if (w.DwmGetWindowAttribute(fg, DWMWA_CLOAKED, cloaked, 4) === 0 && cloaked[0]) return false;
+
+  let why = '';
+  const quns = [0];
+  if (w.SHQueryUserNotificationState(quns) === 0 && QUNS_FULLSCREEN.includes(quns[0])) why = `Windows reports full screen (${quns[0]})`;
+  else {
+    const r = {}, info = { cbSize: 40 };
+    w.GetWindowRect(fg, r);
+    if (w.GetMonitorInfoW(w.MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST), info)) {
+      const m = info.rcMonitor;
+      if (r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom) why = 'covers the whole monitor';
+    }
+  }
+  if (!why) return false;
+  fullscreenWhy = `${processName(w, pid[0])} (${cls}): ${why}`;
+  return true;
 }
 
 let fullscreenWarned = false;
@@ -319,6 +361,8 @@ module.exports = {
     }
     state = { mode: null, parent: 0, workerw: 0, hwnd: 0 };
   },
+
+  fullscreenReason: () => fullscreenWhy,
 
   isFullscreenAppActive() {
     try {

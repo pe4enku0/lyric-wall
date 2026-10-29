@@ -78,6 +78,7 @@ the login is stored encrypted (macOS Keychain / Windows data protection) and nev
   Lyric Wall → turn on Spotify.
 - **Windows:** Spotify is read through Windows media controls (the same as the volume flyout).
   No Spotify login is needed. Spotify's own volume is not available there, so the system volume is shown.
+  If Windows gives no cover, it is looked up in the public iTunes catalog by artist and title.
 
 ## Lyrics and performance
 

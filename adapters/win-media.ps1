@@ -106,7 +106,7 @@ function Get-Spotify {
 }
 
 function Get-Art($props) {
-  if ($null -eq $props.Thumbnail) { return '' }
+  if ($null -eq $props.Thumbnail) { throw 'Spotify gave no cover to Windows media controls' }
   $stream = Await ($props.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
   $net = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
   $mem = New-Object System.IO.MemoryStream
@@ -117,6 +117,7 @@ function Get-Art($props) {
 }
 
 $lastArtKey = ''
+$artNoteKey = ''
 $script:playing = $false
 
 function Send-State {
@@ -150,7 +151,11 @@ function Send-State {
   }
   # The cover is sent only when the track changes (it is big).
   if ($key -ne $script:lastArtKey) {
-    try { $out.art = Get-Art $props } catch { $out.art = '' }
+    try { $out.art = Get-Art $props } catch {
+      $out.art = ''
+      # Once per track: why there is no cover (goes to the app log).
+      if ($key -ne $script:artNoteKey) { [Console]::Error.WriteLine("Cover: $($_.Exception.Message)"); $script:artNoteKey = $key }
+    }
     if ($out.art) { $script:lastArtKey = $key }
   }
   Send $out

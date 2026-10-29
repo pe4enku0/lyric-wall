@@ -43,7 +43,7 @@ ipcMain.handle('player:get', () => player.get());
 ipcMain.on('player:control', (_e, cmd, value) => player.control(cmd, value));
 ipcMain.on('app:log', (_e, level, text) => (log[level] || log.info)('UI:', text));
 ipcMain.on('app:openSoundSettings', () => shell.openExternal(adapter.soundSettingsUrl));
-ipcMain.on('app:openControl', () => control.show());
+ipcMain.on('app:openControl', () => control.show('the "…" button on the wallpaper'));
 ipcMain.handle('lyrics:get', () => lyrics.get());
 ipcMain.handle('web:getNow', () => ({ ...spotifyWeb.getNow(), loggedIn: spotifyWeb.state().loggedIn }));
 ipcMain.handle('web:like', (_e, on) => spotifyWeb.setLiked(!!on));
@@ -64,10 +64,10 @@ function welcome() {
 app.on('render-process-gone', (_e, wc, d) => log.error('A window crashed:', d.reason, d.exitCode, wc.getURL().split('/').pop()));
 app.on('child-process-gone', (_e, d) => { if (d.reason !== 'clean-exit') log.error('App process gone:', d.type, d.reason, d.exitCode); });
 
-app.on('second-instance', () => { log.info('App icon clicked again: opening the control window'); control.show(); });
+app.on('second-instance', (_e, argv) => control.show(`the app was started again (${argv.slice(1).join(' ') || 'no arguments'})`));
 // macOS sends "activate" when the app is opened again from Finder / Launchpad / Dock.
 // It also fires right at start, so the first seconds are ignored.
-app.on('activate', () => { if (Date.now() - startedAt > 3000) control.show(); });
+app.on('activate', () => { if (Date.now() - startedAt > 3000) control.show('macOS reopened the app (Finder / Launchpad)'); });
 
 app.whenReady().then(() => {
   const d = screen.getPrimaryDisplay();
@@ -76,10 +76,16 @@ app.whenReady().then(() => {
     `screen ${d.size.width}x${d.size.height} at ${d.scaleFactor}x, ${screen.getAllDisplays().length} display(s)`);
   adapter.init();
   // The wallpaper's sound card may listen to the computer's sound ("loopback"); only the sound is used.
+  // Without access (macOS asks for the screen recording permission) the request is refused quietly
+  // and the sound card shows only the volume.
   session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
+    const refuse = why => {
+      log.warn('Sound card: no access to the computer sound:', why);
+      try { callback({}); } catch (_) { /* refusing throws in Electron; the page gets the error */ }
+    };
     desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } })
-      .then(sources => callback(sources.length ? { video: sources[0], audio: 'loopback' } : {}))
-      .catch(e => { log.warn('Sound card: no access to the computer sound:', e.message); callback({}); });
+      .then(sources => (sources.length ? callback({ video: sources[0], audio: 'loopback' }) : refuse('no screen to capture')))
+      .catch(e => refuse(e && e.message || String(e)));
   });
   power.start();
   spotifyWeb.start();

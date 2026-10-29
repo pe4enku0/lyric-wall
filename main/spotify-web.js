@@ -24,6 +24,7 @@ let userName = '';
 let now = { uri: null, queue: [], liked: false }; // what the wallpaper shows
 let lastTrackId = null;
 let lastSnapshotAt = 0; // the wallpaper is showing music (it is not paused or off)
+let localUri = null;    // macOS: the track URI straight from the Spotify app (the Web API may not know it yet)
 let queueTimer = null;
 let loginServer = null;
 
@@ -170,7 +171,7 @@ async function refreshNow() {
   try {
     const q = await api('GET', '/me/player/queue');
     const current = q && q.currently_playing;
-    const uri = current ? current.uri : null;
+    const uri = current ? current.uri : localUri;
     let liked = false;
     if (uri) liked = !!((await api('GET', '/me/library/contains?uris=' + encodeURIComponent(uri))) || [])[0];
     now = { uri, queue: ((q && q.queue) || []).slice(0, 3).map(trackInfo), liked };
@@ -183,13 +184,17 @@ async function refreshNow() {
 // Called with every player snapshot: reload the queue when the track changes.
 function onSnapshot(s) {
   lastSnapshotAt = Date.now();
+  if (s && typeof s.id === 'string' && s.id.startsWith('spotify:track:')) localUri = s.id;
   if (!token || !s || !s.id || s.id === lastTrackId) return;
   lastTrackId = s.id;
   setTimeout(refreshNow, 1500); // the Web API learns about the new track a moment later
 }
 
 async function setLiked(on) {
-  if (!token || !now.uri) return now;
+  if (!token) return now;
+  // Right after signing in or a track change the Web API may not know the track yet: ask it now.
+  if (!now.uri) await refreshNow();
+  if (!now.uri) { log.warn('Spotify Web API: like: the current track is unknown'); return { ...now, error: 'no-track' }; }
   const uri = encodeURIComponent(now.uri);
   try {
     await api(on ? 'PUT' : 'DELETE', `/me/library?uris=${uri}`);
@@ -197,6 +202,8 @@ async function setLiked(on) {
     log.info(`Spotify Web API: track ${on ? 'liked' : 'unliked'}`);
   } catch (e) {
     log.warn('Spotify Web API: like failed:', e.message);
+    events.emit('now', now);
+    return { ...now, error: 'failed' };
   }
   events.emit('now', now);
   return now;

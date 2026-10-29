@@ -28,7 +28,11 @@ function checkBattery() {
 // Locked screen and full-screen apps are also checked every 2 s, in case an event is missed.
 function poll() {
   update('locked', powerMonitor.getSystemIdleState(1) === 'locked');
-  if (adapter.isFullscreenAppActive) update('fullscreen', adapter.isFullscreenAppActive());
+  if (adapter.isFullscreenAppActive) {
+    const full = adapter.isFullscreenAppActive();
+    if (full && !reasons.has('fullscreen') && adapter.fullscreenReason) log.info('Full-screen window:', adapter.fullscreenReason());
+    update('fullscreen', full);
+  }
 }
 
 function start() {

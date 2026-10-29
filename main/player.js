@@ -4,16 +4,38 @@
 //   position, duration: seconds; at: time (ms) when position was read
 //   volume:   0-100, or null when the system does not report it; shuffle: true/false/null
 // Spotify is read only while someone listens (the wallpaper or the control window).
+const { net } = require('electron');
 const adapter = require('../adapters');
 const log = require('./log');
 
 let current = { state: 'starting' };
+// Covers found elsewhere when the system gives none (Windows media controls sometimes have no cover).
+const foundCovers = new Map(); // track id -> url ('' = looked, nothing found)
+
+// The public iTunes catalog by artist and title; no account needed.
+async function findCover(s) {
+  const res = await net.fetch('https://itunes.apple.com/search?' + new URLSearchParams({ term: `${s.artist} ${s.title}`.slice(0, 200), entity: 'song', limit: '1' }), { signal: AbortSignal.timeout(8000) });
+  const first = ((await res.json()).results || [])[0];
+  return first && first.artworkUrl100 ? first.artworkUrl100.replace('100x100bb', '600x600bb') : '';
+}
+
+function coverFallback(snap) {
+  if (foundCovers.has(snap.id)) { snap.art = foundCovers.get(snap.id) || snap.art; return; }
+  if (foundCovers.size > 300) foundCovers.clear();
+  foundCovers.set(snap.id, '');
+  findCover(snap).then(url => {
+    foundCovers.set(snap.id, url);
+    log.info(`Cover: ${url ? 'found in the iTunes catalog' : 'not found'} for ${snap.artist} - ${snap.title}`);
+    if (url && current.id === snap.id && !current.art) onUpdate({ ...current, art: url, at: current.at });
+  }).catch(e => log.warn('Cover: iTunes search failed:', e.message));
+}
 let lastLogged = '';
 const listeners = new Set();
 
 function onUpdate(snap) {
   // Windows sends the cover only when the track changes; keep it for the following updates.
   if (snap.art === undefined && snap.id && snap.id === current.id) snap.art = current.art;
+  if (snap.title && snap.id && !snap.art) coverFallback(snap);
 
   const key = `${snap.state}|${snap.id || ''}`;
   if (key !== lastLogged) {

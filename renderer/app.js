@@ -293,7 +293,7 @@
     wake();
   }
   function onWeb(n) {
-    web = { ...web, ...n };
+    for (const [k, v] of Object.entries(n || {})) if (v !== undefined) web[k] = v; // only what came
     renderQueue();
   }
 
@@ -558,13 +558,17 @@
       case 'lyrics': api.setLook('showLyrics', !S.showLyrics); break;
       case 'device': api.openSoundSettings(); break;
       case 'more': api.openControl(); break;
-      case 'like':
-        if (!web.loggedIn) { toast(t('ui.likeLogin')); api.openSettings(); break; }
-        if (!web.uri) break;
-        web.liked = !web.liked; renderStar();
-        api.webLike(web.liked).then(onWeb);
+      case 'like': {
+        if (!web.loggedIn) { toast(t('ui.likeLogin')); break; }
+        const want = !web.liked;
+        web.liked = want; renderStar(); // right away; corrected if Spotify says no
+        api.webLike(want).then(res => {
+          if (res.error) toast(t(res.error === 'no-track' ? 'ui.likeNoTrack' : 'ui.likeFailed'));
+          onWeb({ uri: res.uri, liked: res.liked, queue: res.queue });
+        });
         break;
-      case 'login': api.openSettings(); break;
+      }
+      case 'login': api.openSettings('the "Sign in" link on the wallpaper'); break;
     }
   }
   document.addEventListener('click', e => {

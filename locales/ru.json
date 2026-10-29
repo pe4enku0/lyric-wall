@@ -118,5 +118,7 @@
   "web.signedIn": "Вход в Spotify выполнен",
   "web.signedInAs": "Вход выполнен:",
   "web.badId": "Client ID — это 32 буквы и цифры со страницы Settings твоего приложения.",
-  "web.failed": "Не удалось войти."
+  "web.failed": "Не удалось войти.",
+  "ui.likeNoTrack": "Spotify ещё не знает, какой трек играет, — попробуй через секунду",
+  "ui.likeFailed": "Spotify не принял лайк. Подробности в логе"
 }

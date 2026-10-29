@@ -77,7 +77,7 @@
   $('optLogin').onclick = e => set('loginItem', !isOn(e.currentTarget));
   $('optLang').onclick = e => { const b = e.target.closest('button'); if (b) set('language', b.dataset.v); };
   $('optMode').onclick = e => { const b = e.target.closest('button'); if (b) set('winMode', b.dataset.v); };
-  $('bLook').onclick = () => api.openSettings();
+  $('bLook').onclick = () => api.openSettings('the control window');
   $('bLog').onclick = () => api.openLog();
   $('bQuit').onclick = () => api.quit();
 

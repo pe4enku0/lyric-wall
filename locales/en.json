@@ -118,5 +118,7 @@
   "web.signedIn": "Signed in to Spotify",
   "web.signedInAs": "Signed in as",
   "web.badId": "The Client ID is 32 letters and digits from your app's Settings page.",
-  "web.failed": "Could not sign in."
+  "web.failed": "Could not sign in.",
+  "ui.likeNoTrack": "Spotify does not know the current track yet — try again in a moment",
+  "ui.likeFailed": "Spotify did not accept the like. Details are in the log"
 }

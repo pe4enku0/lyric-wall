@@ -55,7 +55,7 @@ contextBridge.exposeInMainWorld('lyricWall', {
   onStatus: cb => ipcRenderer.on('control:status', (_e, st) => cb(st)),
   openLog: () => ipcRenderer.send('control:openLog'),
   quit: () => ipcRenderer.send('control:quit'),
-  openSettings: () => ipcRenderer.send('settings:open'),
+  openSettings: reason => ipcRenderer.send('settings:open', reason),
 
   // Look of the wallpaper (settings window)
   getLook: () => ipcRenderer.invoke('look:get'),

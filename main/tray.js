@@ -13,13 +13,13 @@ function refresh() {
   if (!tray) return;
   const s = actions.state();
   const items = [
-    { label: t('tray.open'), click: control.show },
+    { label: t('tray.open'), click: () => control.show('tray menu') },
     { type: 'separator' },
     { label: t('tray.wallpaper'), type: 'checkbox', checked: s.wallpaperEnabled, click: i => actions.set('wallpaperEnabled', i.checked) },
     { label: t('tray.playPause'), enabled: s.wallpaperEnabled, click: () => player.control('toggle') },
     { label: t('tray.next'), enabled: s.wallpaperEnabled, click: () => player.control('next') },
     { type: 'separator' },
-    { label: t('tray.settings'), click: settingsWindow.show }
+    { label: t('tray.settings'), click: () => settingsWindow.show('tray menu') }
   ];
   if (process.platform === 'win32') {
     items.push({ label: t('tray.mode'), submenu: [

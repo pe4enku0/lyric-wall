@@ -16,7 +16,9 @@ function send(channel, ...args) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
 }
 
-function show() {
+// reason: who asked for it (shown in the log, so a window that "opens by itself" can be traced).
+function show(reason) {
+  log.info('Control window requested by:', reason || 'unknown');
   if (win) { focus(win); return; }
   win = createAppWindow('control.html', 440);
   win.on('closed', () => {

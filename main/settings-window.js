@@ -8,14 +8,15 @@ const log = require('./log');
 
 let win = null;
 
-function show() {
+function show(reason) {
+  log.info('Settings window requested by:', reason || 'unknown');
   if (win) { focus(win); return; }
   win = createAppWindow('settings.html', 700);
   win.on('closed', () => { win = null; });
   log.info('Settings window opened');
 }
 
-ipcMain.on('settings:open', () => show());
+ipcMain.on('settings:open', (_e, reason) => show(reason || 'a button in the app'));
 ipcMain.handle('look:get', () => appearance.get());
 ipcMain.handle('look:set', (_e, key, value) => appearance.set(key, value));
 ipcMain.handle('look:saveImage', (_e, dataUrl) => appearance.saveImage(dataUrl));
