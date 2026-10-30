@@ -162,6 +162,30 @@
 .stage[data-theme="vhs"] .qe b { font-family: var(--display); font-weight: 800; font-size: 14px; text-transform: uppercase; }
 .stage[data-theme="vhs"] .qe span { font: 18px/1.05 var(--vt); text-transform: uppercase; color: rgba(237,237,237,.6); }
 
+/* ---------- clock and date ---------- */
+.stage[data-theme="vhs"] .time { font-family: var(--vt); font-weight: 400; font-stretch: normal; letter-spacing: 0; line-height: .8;
+  font-size: calc(var(--clock) * 1.18);
+  text-shadow: -3px 0 rgba(63,224,232,.6), 3px 0 color-mix(in srgb, var(--accent) 75%, transparent); }
+.stage[data-theme="vhs"] .date { font: 32px/1 var(--vt); text-transform: uppercase; white-space: pre; color: rgba(237,237,237,.82);
+  margin-top: 14px; }
+.stage[data-theme="vhs"][data-layout="b"] .date { font-size: 28px; margin-top: 10px; }
+
+/* ---------- lyrics ---------- */
+/* The current line is a tape subtitle: a black plate under the words, a colour bleed; sung words white,
+   the rest faint. The other lines stay as in the default look (blurred, smaller), in #EDEDED. */
+.stage[data-theme="vhs"] #lines li { letter-spacing: 0; font-stretch: 100%; }
+.stage[data-theme="vhs"] #lines li.on .lt { background: #000; padding: 0 .18em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  text-shadow: -3px 0 rgba(63,224,232,.7), 3px 0 color-mix(in srgb, var(--accent) 75%, transparent); }
+.stage[data-theme="vhs"] #lines li.on .w { color: rgba(244,244,244,.42);
+  text-shadow: -3px 0 rgba(63,224,232,.3), 3px 0 color-mix(in srgb, var(--accent) 32%, transparent); }
+.stage[data-theme="vhs"] #lines li.on .w.sung { color: #F4F4F4; text-shadow: inherit; }
+.stage[data-theme="vhs"] #lines.msg li { font: 400 calc(var(--line) * .6)/1.1 var(--vt); text-transform: uppercase; color: rgba(237,237,237,.7); }
+
+/* No synced lyrics / nothing playing: the outlined title in capitals, a VT323 screen message under it. */
+.stage[data-theme="vhs"] .qt { text-transform: uppercase; letter-spacing: 0; font-stretch: 100%; -webkit-text-stroke-color: rgba(237,237,237,.38); }
+.stage[data-theme="vhs"] .qn { font: 26px/1 var(--vt); text-transform: uppercase; color: rgba(237,237,237,.75); }
+.stage[data-theme="vhs"] .qn .ic { display: none; }
+
 /* Short message (after the star). */
 .stage[data-theme="vhs"] .toast { border-radius: 2px; border: 2px solid var(--vhs-white); background: #07070A; backdrop-filter: none;
   font: 20px/1.1 var(--vt); text-transform: uppercase; }

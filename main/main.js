@@ -53,6 +53,7 @@ ipcMain.handle('app:info', async () => ({
   ui: ['mac', 'win'].includes(process.env.LW_UI) ? process.env.LW_UI : process.platform === 'darwin' ? 'mac' : 'win',
   lang: i18n.lang(),
   strings: i18n.uiStrings(),
+  stringsEn: i18n.uiStrings('en'), // the VHS theme is always in English (its font has no Cyrillic)
   accent: sysAccent(),
   deviceLabel: (await Promise.race([modelName, new Promise(r => setTimeout(r, 1500, null))])) || i18n.t(adapter.deviceKey)
 }));

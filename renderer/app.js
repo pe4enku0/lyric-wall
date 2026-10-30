@@ -10,6 +10,8 @@
 
   /* ---------- language and platform ---------- */
   const { info, t } = await LW.initI18n();
+  // Words on the wallpaper: the VHS theme speaks English in any language (its font, VT323, has no Cyrillic).
+  const tv = key => (S.theme === 'vhs' && info.stringsEn && key in info.stringsEn ? info.stringsEn[key] : t(key));
   const plat = info.ui || (info.platform === 'darwin' ? 'mac' : 'win');
   LW.platform = plat;
   stage.dataset.platform = plat;
@@ -245,10 +247,20 @@
   /* ---------- clock and date ---------- */
   const timeFmt = new Intl.DateTimeFormat(info.lang, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const dateFmt = new Intl.DateTimeFormat(info.lang, { weekday: 'long', month: 'long', day: 'numeric' });
-  function tick() {
+  // VHS: like a recorder's screen, "FRI   OCT. 30 2026" (capitals come from vhs.css).
+  const vhsDay = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+  const vhsMonth = new Intl.DateTimeFormat('en-US', { month: 'short' });
+  function vhsDate(d) {
+    const m = vhsMonth.format(d);
+    return `${vhsDay.format(d)}   ${m}${m.length === 3 && m !== 'May' ? '.' : ''} ${d.getDate()} ${d.getFullYear()}`;
+  }
+  function showClock() {
     const d = new Date(), date = dateFmt.format(d);
     put($('time'), 'textContent', timeFmt.format(d));
-    put($('date'), 'textContent', date.charAt(0).toUpperCase() + date.slice(1));
+    put($('date'), 'textContent', S.theme === 'vhs' ? vhsDate(d) : date.charAt(0).toUpperCase() + date.slice(1));
+  }
+  function tick() {
+    showClock();
     setTimeout(tick, 60000 - (Date.now() % 60000) + 50);
   }
 
@@ -277,13 +289,42 @@
   let fadeTimer = null;
   let lastScroll = null;
 
-  function renderLines(lines) {
-    const ul = $('lines'); ul.innerHTML = ''; heights = [];
+  // words: VHS with synced lyrics; every line is <span class="lt"> (the black subtitle plate) of
+  // <span class="w"> words, which light up one after another while the line is sung (see sungWords).
+  function renderLines(lines, words) {
+    const ul = $('lines'); ul.innerHTML = ''; heights = []; sungShown = -1;
     lines.forEach(text => {
       const el = document.createElement('li');
-      if (text) el.textContent = text; else el.className = 'gap';
+      if (!text) el.className = 'gap';
+      else if (!words) el.textContent = text;
+      else {
+        const lt = document.createElement('span');
+        lt.className = 'lt';
+        text.split(/\s+/).forEach((w, i) => {
+          if (i) lt.appendChild(document.createTextNode(' '));
+          const s = document.createElement('span');
+          s.className = 'w'; s.textContent = w;
+          lt.appendChild(s);
+        });
+        el.appendChild(lt);
+      }
       ul.appendChild(el);
     });
+  }
+  // VHS: how many words of the current line are sung by now. The line takes the time until the next one,
+  // but at most about half a second per word (a long instrumental gap does not stretch it).
+  let sungShown = -1;
+  function sungWords(pos) {
+    const el = $('lines').children[li];
+    if (!el || !el.firstChild || el.firstChild.className !== 'lt') return;
+    const words = el.firstChild.children, n = words.length;
+    const start = synced[li].t, next = synced[li + 1] ? synced[li + 1].t : start + 6;
+    const dur = Math.max(.5, Math.min(next - start, .45 * n + 1));
+    const sung = Math.max(0, Math.min(n, Math.ceil((pos - start) / dur * n)));
+    const mark = li * 1000 + sung;
+    if (mark === sungShown) return;
+    sungShown = mark;
+    for (let i = 0; i < n; i++) words[i].classList.toggle('sung', i < sung);
   }
   function focusLine(instant) {
     const ul = $('lines'), items = ul.children;
@@ -321,8 +362,10 @@
     $('quiet').hidden = !quiet;
     $('vp').hidden = quiet;
     if (!quiet) return;
-    put($('quietTitle'), 'textContent', track.idle ? t('ui.quiet') : $('title').textContent);
-    put($('quietNote'), 'textContent', track.idle ? t('ui.quietNote') : lyr.status === 'instrumental' ? t('lyrics.instrumental') : t('ui.noSynced'));
+    put($('quietTitle'), 'textContent', track.idle ? tv('ui.quiet') : $('title').textContent);
+    // VHS: a short screen message, "NO SYNCED LYRICS".
+    const noSynced = S.theme === 'vhs' ? 'No synced lyrics' : t('ui.noSynced');
+    put($('quietNote'), 'textContent', track.idle ? tv('ui.quietNote') : lyr.status === 'instrumental' ? tv('lyrics.instrumental') : noSynced);
   }
 
   function showLyrics(r) {
@@ -335,7 +378,7 @@
       // A "♪" line for the intro and for instrumental breaks (empty lines in the LRC file).
       synced = r.lines.map(l => ({ t: l.t, text: l.text || '♪' }));
       if (!synced.length || synced[0].t > 2) synced.unshift({ t: 0, text: '♪' });
-      renderLines(synced.map(l => l.text));
+      renderLines(synced.map(l => l.text), S.theme === 'vhs');
       li = lineAt(clock.now());
     } else if (r.status === 'plain') {
       synced = [];
@@ -343,7 +386,7 @@
       ul.style.transform = 'translateY(40px)';
     } else {
       synced = []; li = 0;
-      const msg = ['none', 'not-found', 'instrumental'].includes(r.status) ? [] : [t(`lyrics.${r.status}`)];
+      const msg = ['none', 'not-found', 'instrumental'].includes(r.status) ? [] : [tv(`lyrics.${r.status}`)];
       renderLines(msg);
     }
     applyState(); // shows the lines or the outlined words before the lines are measured
@@ -370,6 +413,7 @@
     if (lyr.status === 'synced' && synced.length) {
       const i = lineAt(pos);
       if (i !== li) { li = i; focusLine(false); }
+      if (S.theme === 'vhs') sungWords(pos);
     } else if (lyr.status === 'plain' && d) {
       // Plain lyrics have no timing: scroll them evenly through the song.
       const ul = $('lines'), vp = $('vp');
@@ -399,17 +443,14 @@
     el.querySelector('.short').textContent = short;
     return el;
   }
-  // VHS speaks English in any language (its font, VT323, has no Cyrillic); capitals come from vhs.css.
-  const VHS_TEXT = { loginTitle: 'Connect Spotify', login: 'Sign in in the settings', empty: 'Queue is empty', emptyHint: 'Add songs in Spotify', more: '+{n} more' };
   function renderQueue() {
     const q = $('queue'); q.innerHTML = '';
     const list = web.loggedIn && !track.idle ? web.queue : [];
+    // VHS: the short hints (capitals take more room).
     const vhs = S.theme === 'vhs';
     stage.dataset.queue = list.length ? 'ok' : 'empty';
-    if (!web.loggedIn && vhs) q.appendChild(emptyNote(VHS_TEXT.loginTitle, VHS_TEXT.login, VHS_TEXT.login, 'login'));
-    else if (!web.loggedIn) q.appendChild(emptyNote(t('ui.queueLoginTitle'), t('ui.queueLogin'), t('ui.queueLoginShort'), 'login'));
-    else if (!list.length && vhs) q.appendChild(emptyNote(VHS_TEXT.empty, VHS_TEXT.emptyHint, VHS_TEXT.emptyHint));
-    else if (!list.length) q.appendChild(emptyNote(t('ui.queueEmpty'), t('ui.queueEmptyHint'), t('ui.queueEmptyShort')));
+    if (!web.loggedIn) q.appendChild(emptyNote(tv('ui.queueLoginTitle'), tv(vhs ? 'ui.queueLoginShort' : 'ui.queueLogin'), tv('ui.queueLoginShort'), 'login'));
+    else if (!list.length) q.appendChild(emptyNote(tv('ui.queueEmpty'), tv(vhs ? 'ui.queueEmptyShort' : 'ui.queueEmptyHint'), tv('ui.queueEmptyShort')));
     else {
       (S.layout === 'b' ? list.slice(0, 1) : list).forEach((it, k) => {
         const row = document.createElement('div');
@@ -426,7 +467,7 @@
       const room = q.clientHeight;
       for (const row of q.children) if (row.offsetTop - q.offsetTop + row.offsetHeight > room + 1) row.hidden = true;
     }
-    const more = S.layout === 'b' && list.length > 1 ? (vhs ? VHS_TEXT.more : t('ui.more')).replace('{n}', list.length - 1) : '';
+    const more = S.layout === 'b' && list.length > 1 ? tv('ui.more').replace('{n}', list.length - 1) : '';
     put($('qn'), 'textContent', more);
     renderStar();
     reportHits();
@@ -483,8 +524,8 @@
     if (track.id === state) return;
     track = { id: state, idle: true, tone: null, accent: null, cover: NO_COVER, duration: 0, volume: track.volume };
     clock.set(0, false);
-    $('title').textContent = t(`state.${state}.title`);
-    $('artist').textContent = t(`state.${state}.detail`) || t('state.stopped.detail');
+    $('title').textContent = tv(`state.${state}.title`);
+    $('artist').textContent = tv(`state.${state}.detail`) || tv('state.stopped.detail');
     showVolume(null);
     put($('mode'), 'hidden', true);
     showLyrics({ id: null, status: 'none' });
@@ -1149,7 +1190,12 @@
     $('lyr').classList.toggle('off', !S.showLyrics);
     applyLayout(layout, lookApplied);
     // VHS has other sizes (buttons, fonts): measure again, also once its font has loaded.
-    if (themeChanged && lookApplied) { relayout(); reportHits(); }
+    if (themeChanged && lookApplied) {
+      // VHS words (English, the lyrics split into words) or the theme's own: draw them again.
+      showClock();
+      if (track.idle) { const st = track.id; track.id = null; showMessage(st); } else if (lyr.id) showLyrics(lyr);
+      relayout(); reportHits();
+    }
     if (S.theme === 'vhs' && document.fonts) document.fonts.load('20px VT323').then(() => { relayout(); reportHits(); });
     applyState();
     lookApplied = true;

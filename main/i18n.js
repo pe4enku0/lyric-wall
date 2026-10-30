@@ -22,9 +22,9 @@ function t(key) {
   return key in d ? d[key] : (dicts.en[key] ?? key);
 }
 
-// All strings for the wallpaper UI (it cannot read files itself).
-function uiStrings() {
-  return { ...dicts.en, ...dicts[lang()] };
+// All strings for the wallpaper UI (it cannot read files itself), in the UI language or the one asked for.
+function uiStrings(l = lang()) {
+  return { ...dicts.en, ...dicts[l] };
 }
 
 module.exports = { lang, t, uiStrings };
