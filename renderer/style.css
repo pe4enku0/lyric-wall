@@ -21,16 +21,17 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
   --btn-r: 50%; --pp-r: 50%; --lyb-r: 10px; --dev-r: 18px; --thumb-r: 10px;
   --skip: 48px; --pp: 64px; --b-skip: 40px; --b-pp: 48px;
 }
+/* Windows: the Mac design, a little bigger for a 1080p screen (only the system font differs). */
 .stage[data-platform="win"] {
   --ui-font: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', 'Onest Variable', sans-serif;
   --col: 440px; --gutter: 80px;
-  --cover: 408px; --cover-r: 6px; --card-r: 8px; --small-r: 8px;
+  --cover: 408px; --cover-r: 18px; --card-r: 30px; --small-r: 24px;
   --title: 34px; --artist: 18px;
   --clock: 160px; --date: 24px; --line: 72px;
   --b-clock: 128px; --b-date: 22px; --b-line: 80px; --lyr-max: 1400px;
-  --strip: 128px; --sound-w: 260px; --next-w: 340px; --b-cover: 96px; --b-cover-r: 4px; --b-meta: 220px; --strip-r: 8px;
-  --btn-r: 4px; --pp-r: 6px; --lyb-r: 4px; --dev-r: 4px; --thumb-r: 4px;
-  --skip: 44px; --pp: 56px; --b-skip: 40px; --b-pp: 48px;
+  --strip: 128px; --sound-w: 260px; --next-w: 340px; --b-cover: 96px; --b-cover-r: 15px; --b-meta: 220px; --strip-r: 26px;
+  --btn-r: 50%; --pp-r: 50%; --lyb-r: 10px; --dev-r: 18px; --thumb-r: 10px;
+  --skip: 52px; --pp: 68px; --b-skip: 44px; --b-pp: 52px;
 }
 
 /* ---------- background ---------- */
@@ -125,10 +126,6 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .bar { grid-area: bar; }
 .slider i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--accent); transform-origin: 0 50%; transform: scaleX(0); }
 .slider b { display: none; }
-/* Windows 11 sliders: 4 px track and a round thumb (grey ring, accent dot). */
-.stage[data-platform="win"] .slider { height: 4px; border-radius: 2px; }
-.stage[data-platform="win"] .slider b { display: block; position: absolute; top: 50%; left: 0; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%;
-  background: radial-gradient(circle, var(--accent) 0 5px, #45404A 5.5px); box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 1px 3px rgba(0,0,0,.35); }
 
 /* transport: ☆ ⏮ ⏯ ⏭ ⋯ */
 .transport { display: flex; align-items: center; justify-content: space-between; }
@@ -144,10 +141,6 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .tb.pp .ic { width: calc(var(--pp) * .44); height: calc(var(--pp) * .44); }
 .stage[data-layout="b"] .tb.like, .stage[data-layout="b"] .tb.more { width: 36px; height: 36px; }
 .stage[data-layout="b"] .tb.like .ic, .stage[data-layout="b"] .tb.more .ic { width: 20px; height: 20px; }
-.stage[data-platform="win"] .tb.skip { background: rgba(255,255,255,.06); }
-.stage[data-platform="win"] .tb.skip .ic { width: 20px; height: 20px; }
-.stage[data-platform="win"] .tb.pp { background: var(--accent); color: var(--on-accent); }
-.stage[data-platform="win"] .tb.pp .ic { width: 24px; height: 24px; }
 .stage[data-state="idle"] .tb:not(.pp) { opacity: .35; }
 
 /* volume, lyrics button, sound output */
@@ -158,7 +151,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .spk { width: 28px; height: 28px; display: grid; place-items: center; color: var(--text-2); flex: none; }
 .vb { flex: 1; min-width: 0; }
 .stage[data-layout="b"] .vb { flex: none; width: 80px; }
-.stage[data-platform="mac"] .vb i { background: var(--fill-plain); }
+.stage[data-platform] .vb i { background: var(--fill-plain); }
 .slider i, .slider b { transition: transform .35s cubic-bezier(.2,.8,.2,1), scale .2s ease; }
 .bar i, .slider.drag i { transition: none; }
 .bar b, .slider.drag b { transition: scale .2s ease; }
@@ -168,14 +161,11 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .vol.na { opacity: .35; }
 .lyb { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: var(--lyb-r); background: var(--soft); color: var(--text); transition: background .25s ease, color .25s ease, opacity .25s ease; }
 .lyb.on { background: var(--btn-light); color: var(--btn-light-ink); }
-.stage[data-platform="win"] .lyb.on { background: var(--accent); color: var(--on-accent); }
 .lyb.na { background: rgba(255,255,255,.06); color: rgba(245,242,244,.45); }
 .dev { height: 36px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 14px 0 10px; border-radius: var(--dev-r); background: var(--soft);
   font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; }
 .devl { max-width: 140px; overflow: hidden; text-overflow: ellipsis; transition: opacity .3s ease; }
 .caret { display: none; color: var(--text-2); }
-.stage[data-platform="win"] .dev { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); padding: 0 8px 0 12px; }
-.stage[data-platform="win"] .caret { display: grid; }
 .stage[data-layout="b"] .dev { width: 36px; padding: 0; justify-content: center; border-radius: var(--btn-r); }
 .stage[data-layout="b"] .devl, .stage[data-layout="b"] .caret { display: none; }
 
@@ -200,13 +190,11 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .q { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: hidden; }
 .qi { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 10px; flex: none;
   margin: -4px; padding: 4px; border-radius: 10px; }
-.stage[data-platform="win"] .qi { border-radius: 6px; }
 .qi.hover { background: rgba(255,255,255,.08); }
 .qi img { transition: transform .22s cubic-bezier(.3, .7, .4, 1); }
 .qi.hover img { transform: scale(1.06); }
 .qi.pressed { transform: scale(.97); }
 .qi img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--soft); }
-.stage[data-platform="win"] .qi img { border-radius: 4px; }
 .qi .t { font-size: 14px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qi .a { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stage[data-layout="b"] .qi { grid-template-columns: 48px minmax(0, 1fr); }
@@ -215,7 +203,6 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .qe { display: flex; flex-direction: column; gap: 4px; }
 .qe .sq { display: flex; gap: 8px; margin-bottom: 6px; }
 .qe .sq i { width: 30px; height: 30px; border-radius: 7px; border: 1.5px dashed rgba(245,242,244,.28); }
-.stage[data-platform="win"] .qe .sq i { border-radius: 4px; }
 .qe .sq i:nth-child(2) { opacity: .6; }
 .qe .sq i:nth-child(3) { opacity: .3; }
 .qe b { font-size: 14px; font-weight: 600; }
@@ -285,17 +272,13 @@ body.frozen *, body.frozen *::before, body.frozen *::after { animation-play-stat
   filter .2s ease, opacity .25s ease, background .2s ease, color .25s ease; }
 .tb.hover, .lyb.hover, .dev.hover, .spk.hover, .shuf.hover { transform: scale(1.08); }
 .tb.hover:not(.pp), .spk.hover, .shuf.hover { background: rgba(255,255,255,.1); }
-.stage[data-platform="win"] .tb.skip.hover { background: rgba(255,255,255,.12); }
 .tb.pp.hover { box-shadow: 0 0 0 6px color-mix(in srgb, var(--btn-light) 16%, transparent), 0 8px 22px rgba(0,0,0,.35); }
-.stage[data-platform="win"] .tb.pp.hover { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent), 0 8px 22px rgba(0,0,0,.35); }
 .lyb.hover:not(.on), .dev.hover { background: rgba(255,255,255,.14); }
 .lyb.on.hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--btn-light) 18%, transparent); }
-.stage[data-platform="win"] .lyb.on.hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent); }
 .cover.hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 14px 34px rgba(0,0,0,.45); }
 .qe.link.hover { filter: brightness(1.25); }
-/* Sliders get thicker under the mouse (Mac) or their thumb grows (Windows). */
-.stage[data-platform="mac"] .slider.hover, .stage[data-platform="mac"] .slider.drag { scale: 1 1.7; }
-.stage[data-platform="win"] .slider.hover b, .stage[data-platform="win"] .slider.drag b { scale: 1.15; }
+/* Sliders get thicker under the mouse. */
+.stage[data-platform] .slider.hover, .stage[data-platform] .slider.drag { scale: 1 1.7; }
 [data-act].pressed { transform: scale(.92); }
 .cover[data-act].pressed { transform: scale(.98); }
 .slider[data-act].pressed { transform: none; }

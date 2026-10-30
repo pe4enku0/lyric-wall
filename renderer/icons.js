@@ -67,7 +67,10 @@
     chevron: `<path ${S} d="m9 6 6 6-6 6"/>`
   };
 
-  const SETS = { mac: MAC, win: WIN };
+  // Windows shows the Mac icons too; only the sound output is a speaker instead of AirPlay.
+  // (The Fluent set keeps the icons of the settings rows.)
+  const SPEAKER = '<path fill="currentColor" fill-rule="evenodd" d="M7.5 2.5h9a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2ZM12 5a1.7 1.7 0 1 0 0 3.4A1.7 1.7 0 0 0 12 5Zm0 5.6a4.2 4.2 0 1 0 0 8.4 4.2 4.2 0 0 0 0-8.4Zm0 2.6a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2Z"/>';
+  const SETS = { mac: MAC, win: { ...WIN, ...MAC, device: SPEAKER } };
   window.LW = window.LW || {};
   LW.platform = 'mac';
   LW.icon = (name, size = 24) => {

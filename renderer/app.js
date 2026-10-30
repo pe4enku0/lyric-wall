@@ -777,7 +777,7 @@
     }
     // Mac shows the time left (−1:56), Windows the length of the track (4:10).
     setText('cur', d ? fmt(pos) : DASH);
-    setText('rem', !d ? DASH : plat === 'mac' ? '−' + fmt(d - pos) : fmt(d));
+    setText('rem', !d ? DASH : '−' + fmt(d - pos));
     updateLyrics(pos, d);
     drawParticles(dt);
     const vizMoving = drawViz(now, dt);

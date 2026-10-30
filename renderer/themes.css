@@ -30,18 +30,12 @@
   --dim: #000; --grain-opacity: 0; --grain-blend: overlay;
   --particles: snow; --p1: #fff; --p2: #fff; --p3: #fff;
 }
-/* Glass of the cards: macOS vibrancy and Windows 11 acrylic. */
-.themed[data-platform="mac"] {
+/* Glass of the cards (macOS vibrancy; Windows uses the same). */
+.themed[data-platform] {
   --card-bg: rgba(38,34,44,.58);
   --card-filter: blur(30px) saturate(160%);
   --card-border: rgba(255,255,255,.08);
   --card-shadow: none;
-}
-.themed[data-platform="win"] {
-  --card-bg: rgba(36,33,40,.74);
-  --card-filter: blur(40px) saturate(140%);
-  --card-border: rgba(255,255,255,.07);
-  --card-shadow: 0 16px 48px rgba(0,0,0,.42);
 }
 
 /* ---------- themes ---------- */
