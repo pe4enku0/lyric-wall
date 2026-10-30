@@ -225,6 +225,22 @@
   }
 
   const fmt = LW.fmt;
+  // VHS tape counter: 00:02:14.
+  const tape = s => {
+    s = Math.max(0, Math.floor(s || 0));
+    return [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, '0')).join(':');
+  };
+
+  /* VHS theme: the progress (40) and the volume (16) as segments: passed ones white, the current one in
+     the accent, the rest faint (vhs.css). The bars stay the click and drag targets. */
+  function makeSegs(el, n) { for (let i = 0; i < n; i++) el.appendChild(document.createElement('span')); }
+  makeSegs($('progSegs'), 40); makeSegs($('volSegs'), 16);
+  // cur: index of the current segment (-1: none).
+  function paintSegs(el, cur) {
+    if (el.dataset.cur === String(cur)) return;
+    el.dataset.cur = cur;
+    [...el.children].forEach((s, i) => { s.className = i < cur ? 'done' : i === cur ? 'cur' : ''; });
+  }
 
   /* ---------- clock and date ---------- */
   const timeFmt = new Intl.DateTimeFormat(info.lang, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -424,6 +440,7 @@
     img.onload = () => {
       img.classList.remove('out'); front.classList.add('out');
       [front, back] = [img, front];
+      $('glitch').style.backgroundImage = `url("${src}")`; // VHS: a strip of the cover, shifted (vhs.css)
     };
     img.onerror = () => { if (src !== NO_COVER) setCover(NO_COVER); };
     img.dataset.src = src;
@@ -446,6 +463,7 @@
     if (v == null) return;
     put($('volBar').style, 'transform', `scaleX(${v / 100})`);
     put($('volKnob').style, 'transform', `translateX(${($('volBar').parentElement.clientWidth * v / 100).toFixed(1)}px)`);
+    paintSegs($('volSegs'), Math.round(v * 16 / 100) - 1);
   }
   function setPlaying(on) {
     if (on && !playing) heardAt = performance.now(); // give the sound a moment after Play
@@ -803,8 +821,16 @@
       $('knob').style.transform = `translateX(${(pct * $('fill').parentElement.clientWidth).toFixed(1)}px)`;
     }
     // Mac shows the time left (−1:56), Windows the length of the track (4:10).
-    setText('cur', d ? fmt(pos) : DASH);
-    setText('rem', !d ? DASH : '−' + fmt(d - pos));
+    // VHS: "SP" (tape speed) and the time left as −00:01:56; the tape counter above the cover.
+    if (S.theme === 'vhs') {
+      setText('cur', 'SP');
+      setText('rem', '−' + tape(d ? d - pos : 0));
+      setText('vcrCount', tape(d ? pos : 0));
+      paintSegs($('progSegs'), d ? Math.min(39, Math.floor(pct * 40)) : -1);
+    } else {
+      setText('cur', d ? fmt(pos) : DASH);
+      setText('rem', !d ? DASH : '−' + fmt(d - pos));
+    }
     updateLyrics(pos, d);
     drawParticles(dt);
     const vizMoving = drawViz(now, dt);
@@ -1085,6 +1111,7 @@
   function applyLook(look) {
     const newImage = look.imageVersion !== S.imageVersion || (look.bg === 'photo' && !userImg);
     const layout = look.layout || 'a';
+    const themeChanged = (look.theme || 'default') !== stage.dataset.theme;
     S = { ...look, layout: S.layout };
     stage.dataset.theme = S.theme || 'default';
     readTheme();
@@ -1092,6 +1119,9 @@
     applyBg(); applyAccent();
     $('lyr').classList.toggle('off', !S.showLyrics);
     applyLayout(layout, lookApplied);
+    // VHS has other sizes (buttons, fonts): measure again, also once its font has loaded.
+    if (themeChanged && lookApplied) { relayout(); reportHits(); }
+    if (S.theme === 'vhs' && document.fonts) document.fonts.load('20px VT323').then(() => { relayout(); reportHits(); });
     applyState();
     lookApplied = true;
     wake();

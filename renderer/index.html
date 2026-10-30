@@ -24,9 +24,12 @@
     <div class="leftcol">
       <div class="player" id="player">
         <div class="pbg glass" data-fly></div>
+        <!-- VHS theme only: the recorder's state (PLAY / PAUSE / STOP) and the tape counter. -->
+        <div class="vcr" data-fly><span class="vst"></span><span id="vcrCount">00:00:00</span></div>
         <div class="cover" id="cover" data-act="cover" data-fly>
           <img id="artA" alt="">
           <img id="artB" alt="" class="out">
+          <i class="glitch" id="glitch"></i>
           <div class="empty" data-icon="noteOutline" data-size="40"></div>
         </div>
         <div class="meta" data-fly>
@@ -35,7 +38,7 @@
           <div class="artist" id="artist"></div>
         </div>
         <div class="prog" data-fly>
-          <div class="bar slider" data-act="progress"><i id="fill"></i><b id="knob"></b></div>
+          <div class="bar slider" data-act="progress"><i id="fill"></i><b id="knob"></b><span class="segs" id="progSegs"></span></div>
           <span id="cur">–:––</span><span id="rem">–:––</span>
         </div>
         <div class="transport" data-fly>
@@ -48,7 +51,7 @@
         <div class="util" data-fly>
           <div class="vol" id="volBox">
             <span class="spk" data-act="mute" data-icon="volume" data-size="20"></span>
-            <div class="vb slider" data-act="volume"><i id="volBar"></i><b id="volKnob"></b></div>
+            <div class="vb slider" data-act="volume"><i id="volBar"></i><b id="volKnob"></b><span class="segs" id="volSegs"></span></div>
           </div>
           <span class="lyb" id="lyb" data-act="lyrics" data-icon="lyrics" data-size="18"></span>
           <span class="dev" data-act="device"><span data-icon="device" data-size="18"></span><span class="devl" id="device"></span><span class="caret" data-icon="caret" data-size="14"></span></span>
