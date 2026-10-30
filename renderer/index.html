@@ -37,7 +37,7 @@
         <div class="prog"><span id="cur">0:00</span><div class="bar" data-act="progress"><i id="fill"></i><b id="knob"></b></div><span id="rem">-0:00</span></div>
         <div class="ctrl">
           <div class="vol" id="volBox">
-            <svg data-act="mute" width="12" height="12" viewBox="0 0 24 24" fill="rgba(228,225,232,.75)"><path d="M3 9h4l5-5v16l-5-5H3Z"/></svg>
+            <svg data-act="mute" width="14" height="12" viewBox="0 0 28 24" fill="rgba(228,225,232,.75)" stroke="rgba(228,225,232,.75)" stroke-width="2.4" stroke-linecap="round"><path d="M3 9h4l5-5v16l-5-5H3Z" stroke="none"/><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7" fill="none"/><path class="x" d="m17 9 6 6m0-6-6 6" fill="none"/></svg>
             <div class="vb" data-act="volume"><i id="volBar"></i></div>
           </div>
           <div class="mid">
@@ -56,6 +56,7 @@
       <div class="row">
         <div class="glass card">
           <div class="ch"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="hsl(350 80% 62%)"><rect x="2" y="9" width="4" height="10" rx="1.5"/><rect x="10" y="4" width="4" height="15" rx="1.5"/><rect x="18" y="12" width="4" height="7" rx="1.5"/></svg><span data-i18n="ui.sound"></span></span><small data-i18n="ui.now"></small></div>
+          <div class="big" data-act="volnum"><b id="volNum">–</b><span data-i18n="ui.volumeUnit"></span></div>
           <canvas id="viz" width="460" height="230"></canvas>
         </div>
         <div class="glass card">

@@ -278,23 +278,30 @@ function Send-MediaCommand($cmd, [double]$arg) {
 
 $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), $utf8)
 $pending = $reader.ReadLineAsync()
-while ($true) {
+$done = $false
+while (-not $done) {
   try { Send-State } catch { Send @{ state = 'error'; message = $_.Exception.Message } }
   # Wait for a command (1 s while playing, 2 s otherwise); stdin closes when the app exits.
   $waitMs = 2000
   if ($script:playing) { $waitMs = 1000 }
   if ($pending.Wait($waitMs)) {
-    $line = $pending.Result
-    if ($null -eq $line) { break }
-    $parts = $line.Trim().Split(' ')
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    try {
-      $arg = 0.0
-      if ($parts.Count -gt 2) { $arg = [double]::Parse($parts[2], [Globalization.CultureInfo]::InvariantCulture) }
-      $res = Send-MediaCommand $parts[1] $arg
-    } catch { $res = @{ ok = $false; note = $_.Exception.Message } }
-    Send @{ ack = $parts[0]; cmd = $parts[1]; ok = $res.ok; note = $res.note; ms = $sw.ElapsedMilliseconds }
-    Start-Sleep -Milliseconds 300
-    $pending = $reader.ReadLineAsync()
+    # Run every command that is already waiting before the next update (dragging the volume bar sends several a second).
+    $media = $false
+    do {
+      $line = $pending.Result
+      if ($null -eq $line) { $done = $true; break }
+      $parts = $line.Trim().Split(' ')
+      $sw = [Diagnostics.Stopwatch]::StartNew()
+      try {
+        $arg = 0.0
+        if ($parts.Count -gt 2) { $arg = [double]::Parse($parts[2], [Globalization.CultureInfo]::InvariantCulture) }
+        $res = Send-MediaCommand $parts[1] $arg
+      } catch { $res = @{ ok = $false; note = $_.Exception.Message } }
+      Send @{ ack = $parts[0]; cmd = $parts[1]; ok = $res.ok; note = $res.note; ms = $sw.ElapsedMilliseconds }
+      if ($parts[1] -ne 'volume' -and $parts[1] -ne 'mute') { $media = $true }
+      $pending = $reader.ReadLineAsync()
+    } while ($pending.Wait(0))
+    # Spotify needs a moment before its state shows a play / skip / seek.
+    if ($media -and -not $done) { Start-Sleep -Milliseconds 300 }
   }
 }

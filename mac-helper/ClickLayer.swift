@@ -8,7 +8,13 @@
 //
 // stdin:  one JSON line per update: [{"id":"pp","x":10,"y":20,"w":30,"h":30}, ...]
 //         (screen points, top-left origin of the main screen, like Electron)
-// stdout: one JSON line per click: {"id":"pp","fx":0.5}  (fx: where in the button, 0..1 from the left)
+// stdout: one JSON line per mouse event (fx: where in the button, 0 = left edge, 1 = right edge; it goes past
+//         0..1 when a drag leaves the button):
+//         {"type":"press","id":"volume","fx":0.5}   mouse button down
+//         {"type":"drag","id":"volume","fx":0.7}    moved with the button down (at most 30 times a second)
+//         {"type":"release","id":"volume","fx":0.8} button up, wherever the mouse is
+//         {"type":"click","id":"pp","fx":0.5}       button up inside the button it went down on
+//         {"type":"wheel","id":"volume","dy":1}     scroll; dy > 0 = wheel away / fingers up, 1 = one wheel notch
 // The helper quits when stdin closes (the app quit).
 import AppKit
 
@@ -27,14 +33,39 @@ final class ButtonView: NSView {
 
   required init?(coder: NSCoder) { nil }
 
+  var lastDrag = 0.0
+
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-  override func mouseDown(with event: NSEvent) {}
+
+  func fx(_ event: NSEvent) -> Double {
+    Double(convert(event.locationInWindow, from: nil).x / bounds.width)
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    emit(["type": "press", "id": id, "fx": fx(event)])
+  }
+
+  // macOS keeps sending these to this view while the button is down, even outside it.
+  override func mouseDragged(with event: NSEvent) {
+    guard event.timestamp - lastDrag >= 1.0 / 30 else { return }
+    lastDrag = event.timestamp
+    emit(["type": "drag", "id": id, "fx": fx(event)])
+  }
 
   override func mouseUp(with event: NSEvent) {
-    let p = convert(event.locationInWindow, from: nil)
-    guard bounds.contains(p) else { return }
-    emit(["id": id, "fx": Double(p.x / bounds.width)])
+    let x = fx(event)
+    emit(["type": "release", "id": id, "fx": x])
+    if bounds.contains(convert(event.locationInWindow, from: nil)) { emit(["type": "click", "id": id, "fx": x]) }
     window?.orderBack(nil) // stay behind the other windows
+  }
+
+  override func scrollWheel(with event: NSEvent) {
+    // The direction of the hand, whatever "natural scrolling" is set to.
+    var dy = Double(event.scrollingDeltaY)
+    if event.isDirectionInvertedFromDevice { dy = -dy }
+    if dy == 0 { return }
+    // A trackpad sends many small steps (in points), a mouse wheel one step per notch.
+    emit(["type": "wheel", "id": id, "dy": event.hasPreciseScrollingDeltas ? dy / 30 : (dy > 0 ? 1.0 : -1.0)])
   }
 }
 

@@ -174,7 +174,7 @@ module.exports = {
   detachWallpaper() {},
 
   // Click layer through the native helper. Returns null when the helper is missing (the Electron layer is used).
-  createNativeHitLayer(onClick) {
+  createNativeHitLayer(onEvent) {
     if (!fs.existsSync(CLICK_HELPER)) {
       log.warn('Click helper not found, using the simpler click layer:', path.basename(CLICK_HELPER));
       return null;
@@ -188,7 +188,7 @@ module.exports = {
       while ((i = pending.indexOf('\n')) >= 0) {
         const line = pending.slice(0, i).trim();
         pending = pending.slice(i + 1);
-        try { if (line) onClick(JSON.parse(line)); } catch (_) { log.warn('Click helper: bad output:', line.slice(0, 200)); }
+        try { if (line) onEvent(JSON.parse(line)); } catch (_) { log.warn('Click helper: bad output:', line.slice(0, 200)); }
       }
     });
     p.stderr.setEncoding('utf8');
@@ -232,8 +232,8 @@ module.exports = {
     proc = null;
   },
 
-  // rid: request id for the log.
-  control(cmd, value, rid = 'x') {
+  // rid: request id for the log; quiet: log only failures (a volume drag sends many commands).
+  control(cmd, value, rid = 'x', quiet = false) {
     let verb = VERBS[cmd];
     if (cmd === 'seek') verb = `set player position to ${Math.max(0, Number(value) || 0).toFixed(2)}`;
     if (cmd === 'volume') verb = `set sound volume to ${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}`;
@@ -248,7 +248,7 @@ module.exports = {
     return new Promise(resolve => {
       execFile('osascript', ['-e', script], { timeout: 5000 }, err => {
         if (err) log.error(`[${rid}] Spotify (mac): ${cmd} failed in ${Date.now() - sent} ms:`, err.message.trim());
-        else log.info(`[${rid}] Spotify (mac): ${cmd} done in ${Date.now() - sent} ms`);
+        else if (!quiet) log.info(`[${rid}] Spotify (mac): ${cmd} done in ${Date.now() - sent} ms`);
         resolve();
       });
     });

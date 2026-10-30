@@ -24,6 +24,7 @@
   --msg: rgba(228,225,232,.72); --plain: #e4e1e8;
   --dim: #000; --grain-opacity: .16; --grain-blend: overlay;
   --viz-rgb: 255,92,112;
+  --big: hsl(calc(var(--hue) + 120) 60% 86%); /* the big volume number */
   --particles: snow; --p1: #f1eef4; --p2: #f1eef4; --p3: #f1eef4;
 }
 
@@ -47,6 +48,7 @@
   --msg: rgba(42,36,48,.6); --plain: #2a2430;
   --dim: #fff; --grain-opacity: .07; --grain-blend: soft-light;
   --viz-rgb: 240,74,106;
+  --big: rgb(var(--viz-rgb));
   --particles: butterflies; --p1: #f48fb1; --p2: #f06292; --p3: #ffcf7a;
 }
 
@@ -69,6 +71,7 @@
   --msg: rgba(74,31,44,.6); --plain: #4a1f2c;
   --dim: #fff; --grain-opacity: .06; --grain-blend: soft-light;
   --viz-rgb: 224,85,120;
+  --big: rgb(var(--viz-rgb));
   --particles: petals; --p1: #f8bbd0; --p2: #f48fb1; --p3: #fde2ea;
 }
 
@@ -178,6 +181,7 @@
   --msg: rgba(35,51,31,.6); --plain: #23331f;
   --dim: #fff; --grain-opacity: .06; --grain-blend: soft-light;
   --viz-rgb: 106,168,79;
+  --big: rgb(var(--viz-rgb));
   --particles: leaves; --p1: #8bbf5a; --p2: #b5d68a; --p3: #6aa84f;
 }
 
@@ -200,5 +204,6 @@
   --msg: rgba(43,47,58,.6); --plain: #2b2f3a;
   --dim: #fff; --grain-opacity: .08; --grain-blend: soft-light;
   --viz-rgb: 138,143,216;
+  --big: rgb(var(--viz-rgb));
   --particles: glitter; --p1: #ffffff; --p2: #c9b6ff; --p3: #9fe8ff;
 }

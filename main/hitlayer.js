@@ -5,8 +5,10 @@
 // - Windows (and macOS without the helper): an invisible Electron window that catches the mouse only while
 //   the pointer is over a button. Where the pointer is comes from polling the cursor (20 times a second):
 //   a window that lets clicks through gets no mouse events at all.
-// Hovers and clicks are passed on to the wallpaper, which does the actual work.
-// Every click gets a request id (h1, h2…) that follows it through the log down to Spotify.
+// Hovers, clicks, drags (progress and volume bars) and the mouse wheel are passed on to the wallpaper,
+// which does the actual work. Events: { type: 'press' | 'drag' | 'release' | 'click', id, fx } and
+// { type: 'wheel', id, dy } (see renderer/hit.js). Every press and every scroll gets a request id (h1, h2…)
+// that follows it through the log down to Spotify.
 const { BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const adapter = require('../adapters');
@@ -23,6 +25,10 @@ let origin = { x: 0, y: 0 }; // top-left corner of the Electron layer on the scr
 let pollTimer = null;
 let hovered = null;
 let clicks = 0;
+let rid = null;        // request id of the current press / scroll
+let dragging = false;  // the mouse went down on a button and is not up yet: keep taking the mouse
+let dragMoved = false;
+let lastWheel = 0;
 // Diagnostics (Windows): a mouse press over a button that never reached the click layer is logged.
 let mouseWasDown = false;
 let layerDownAt = 0;   // last mouse press the Electron layer received
@@ -32,13 +38,40 @@ function toWallpaper(ev) {
   if (wallpaper && !wallpaper.isDestroyed()) wallpaper.send('hit:event', ev);
 }
 
-function onClick(ev) {
-  const rid = `h${++clicks}`;
-  log.info(`[${rid}] Click layer: click on "${ev.id}"${ev.fx != null ? ` at ${Math.round(ev.fx * 100)}%` : ''}`);
-  if (!wallpaper || wallpaper.isDestroyed()) log.warn(`[${rid}] Click layer: no wallpaper to pass the click to`);
-  toWallpaper({ type: 'click', id: ev.id, fx: ev.fx, rid });
-  // A click may bring the Electron layer in front of other windows: put it back.
-  if (win) adapter.placeHitLayer(win);
+const pct = fx => `${Math.round(fx * 100)}%`;
+
+// An event from either click layer.
+function onEvent(ev) {
+  if (!ev || typeof ev.id !== 'string') return;
+  const fx = Number(ev.fx) || 0;
+  switch (ev.type) {
+    case 'press':
+      rid = `h${++clicks}`;
+      dragging = true; dragMoved = false;
+      break;
+    case 'drag':
+      dragMoved = true;
+      break;
+    case 'release':
+      dragging = false;
+      if (dragMoved) log.info(`[${rid}] Click layer: dragged "${ev.id}" to ${pct(fx)}`);
+      break;
+    case 'click':
+      log.info(`[${rid}] Click layer: click on "${ev.id}" at ${pct(fx)}`);
+      if (!wallpaper || wallpaper.isDestroyed()) log.warn(`[${rid}] Click layer: no wallpaper to pass the click to`);
+      // A click may bring the Electron layer in front of other windows: put it back.
+      if (win) adapter.placeHitLayer(win);
+      break;
+    case 'wheel':
+      // Scrolls less than a second apart are one gesture with one id.
+      if (Date.now() - lastWheel > 1000) { rid = `h${++clicks}`; log.info(`[${rid}] Click layer: mouse wheel on "${ev.id}"`); }
+      lastWheel = Date.now();
+      toWallpaper({ type: 'wheel', id: ev.id, dy: Number(ev.dy) || 0, rid });
+      return;
+    default:
+      return;
+  }
+  toWallpaper({ type: ev.type, id: ev.id, fx, rid });
 }
 
 function layout() {
@@ -85,9 +118,15 @@ function watchPress() {
   mouseWasDown = down;
 }
 
-// Hover highlight on the wallpaper; for the Electron layer also when to take clicks.
+// Hover highlight on the wallpaper; for the Electron layer also when to take the mouse.
 function poll() {
   if (!rects.length) return;
+  // During a drag the layer keeps the mouse wherever it goes (the release may be lost if the
+  // button came up outside every window, so the mouse button itself is checked where possible).
+  if (dragging && win) {
+    if (!adapter.mouseDown || adapter.mouseDown()) return;
+    dragging = false;
+  }
   const id = buttonAt(screen.getCursorScreenPoint());
   if (win && hovered && adapter.mouseDown) watchPress();
   else mouseWasDown = false;
@@ -141,7 +180,7 @@ function create(wallpaperContents) {
   wallpaper = wallpaperContents;
   if (win || native) return;
   hovered = null;
-  if (adapter.createNativeHitLayer) native = adapter.createNativeHitLayer(onClick);
+  if (adapter.createNativeHitLayer) native = adapter.createNativeHitLayer(onEvent);
   if (native) {
     log.info('Click layer for the wallpaper buttons is on (native helper)');
     layout();
@@ -161,6 +200,7 @@ function destroy() {
   win = null;
   catching = false;
   hovered = null;
+  dragging = false;
 }
 
 // From the wallpaper: where the buttons are.
@@ -170,11 +210,14 @@ ipcMain.on('hit:rects', (e, items) => {
   layout();
 });
 
-// From the Electron click layer: { type: 'click', id, fx } or { type: 'down', id } (the press reached the layer).
+// From the Electron click layer (renderer/hit.js). A press with no id reached the layer outside the buttons.
 ipcMain.on('hit:event', (e, ev) => {
   if (!win || e.sender !== win.webContents || !ev) return;
-  if (ev.type === 'down') { layerDownAt = Date.now(); if (!ev.id) log.info('Click layer: mouse press outside the buttons'); return; }
-  if (ev.type === 'click') onClick(ev);
+  if (ev.type === 'press') {
+    layerDownAt = Date.now();
+    if (!ev.id) { log.info('Click layer: mouse press outside the buttons'); return; }
+  }
+  onEvent(ev);
 });
 
 module.exports = { create, destroy };

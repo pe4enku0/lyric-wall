@@ -95,7 +95,10 @@
 
   /* ---------- current track ---------- */
   let track = { id: null, tone: null, cover: NO_COVER, duration: 0, volume: null };
-  let volHold = 0;
+  let volHold = 0;       // until then our own volume wins over what Spotify reports (it reports with a delay)
+  let volShown = null;   // the big number counts towards track.volume
+  let preMute = null;    // volume before the speaker muted it
+  let seekPreview = null; // 0..1 while the progress bar is dragged
   let playing = false;
   const clock = LW.createClock();
 
@@ -314,13 +317,25 @@
   /* ---------- applying player updates ---------- */
   const PAUSE_ICON = '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>';
   const PLAY_ICON = '<path d="M2 1 17 12 2 23Z"/>';
+  // The bar slides to the new value (CSS), the big number counts to it (stepVolume in the main loop).
   function showVolume(v) {
     if (v === track.volume) return;
     track.volume = v;
-    if (v == null) { put($('volBox').style, 'visibility', 'hidden'); return; }
-    put($('volBar').style, 'width', v + '%');
+    if (v == null) { put($('volBox').style, 'visibility', 'hidden'); wake(); return; }
+    put($('volBar').style, 'transform', `scaleX(${v / 100})`);
     put($('volBox').style, 'visibility', '');
+    $('volBox').classList.toggle('muted', v === 0);
     wake();
+  }
+  // Returns true while the number is still moving.
+  function stepVolume(dt) {
+    const v = track.volume;
+    if (v == null) { volShown = null; setText('volNum', '–'); return false; }
+    if (volShown == null || reduce) volShown = v;
+    volShown += (v - volShown) * Math.min(1, dt * 10);
+    if (Math.abs(v - volShown) < .5) volShown = v;
+    setText('volNum', String(Math.round(volShown)));
+    return volShown !== v;
   }
   function setPlaying(on) {
     playing = on;
@@ -554,14 +569,15 @@
     if (frozen) return;
     lastFrame = now;
     const dt = Math.min(.1, (now - last) / 1000); last = now;
-    const d = track.duration, pos = d ? Math.min(d, clock.now()) : 0;
+    const d = track.duration, pos = d ? (seekPreview != null ? seekPreview * d : Math.min(d, clock.now())) : 0;
     const pct = d ? Math.round(pos / d * 1000) / 10 : 0;
     if (pct !== lastPct) { lastPct = pct; $('fill').style.width = pct + '%'; $('knob').style.left = pct + '%'; }
     setText('cur', fmt(pos)); setText('rem', '-' + fmt(d - pos)); setText('capR', hms(pos));
     updateLyrics(pos, d);
     drawParticles(dt);
     const vizMoving = drawViz();
-    if (playing || vizMoving) scheduleFrame();
+    const volMoving = stepVolume(dt);
+    if (playing || vizMoving || volMoving) scheduleFrame();
   }
   function setFrozen(st) {
     frozen = !!st.paused;
@@ -591,24 +607,62 @@
     document.querySelectorAll('[data-act].hover').forEach(el => el.classList.remove('hover'));
     if (id && actEl(id)) actEl(id).classList.add('hover');
   }
-  // rid: request id from the click layer, so one click can be followed through the log.
-  let ownClicks = 0;
-  function act(id, fx, rid = `w${++ownClicks}`) {
+  // Volume to Spotify at most 10 times a second; the last value always goes out.
+  let volSentAt = 0, volTimer = 0;
+  function sendVolume(v, rid) {
+    volHold = Date.now() + 2500;
+    clearTimeout(volTimer);
+    const send = () => { volTimer = 0; volSentAt = Date.now(); api.control('volume', v, rid); };
+    const wait = 100 - (Date.now() - volSentAt);
+    if (wait <= 0) send(); else volTimer = setTimeout(send, wait);
+  }
+  function userVolume(v, rid, instant) {
+    if (track.volume == null) return;
+    v = Math.round(Math.max(0, Math.min(100, v)));
+    if (instant) volShown = v;
+    if (v === track.volume) return;
+    showVolume(v);
+    sendVolume(v, rid);
+  }
+
+  // Bars that can be dragged: the value follows the mouse; the track position is sent when the mouse is let go.
+  const SLIDERS = ['progress', 'volume'];
+  let slide = null; // { id, rid }
+  function slideTo(fx, final) {
+    const f = Math.max(0, Math.min(1, fx));
+    if (slide.id === 'volume') { userVolume(f * 100, slide.rid, true); return; }
+    if (!track.id || !track.duration) return;
+    seekPreview = f;
+    if (final) {
+      const to = f * track.duration;
+      seekPreview = null;
+      clock.set(to, clock.playing); api.control('seek', to, slide.rid);
+    }
+    wake();
+  }
+
+  // The mouse wheel over the volume bar, the speaker or the big number: 5% per notch.
+  let wheelAcc = 0;
+  function wheel(dy, rid) {
+    if (track.volume == null) return;
+    wheelAcc += dy;
+    const steps = Math.trunc(wheelAcc);
+    if (!steps) return;
+    wheelAcc -= steps;
+    userVolume(Math.round(track.volume / 5) * 5 + steps * 5, rid);
+  }
+
+  function act(id, rid) {
     press(id);
-    const isTrack = !!(track.id && track.duration);
     const control = (cmd, value) => api.control(cmd, value, rid);
     switch (id) {
       case 'prev': case 'next': control(id); break;
       case 'pp': clock.toggle(); setPlaying(clock.playing); control('toggle'); wake(); break;
-      case 'progress':
-        if (isTrack) { const to = Math.max(0, Math.min(1, fx)) * track.duration; clock.set(to, clock.playing); control('seek', to); wake(); }
+      case 'mute':
+        if (track.volume == null) break;
+        if (track.volume > 0) { preMute = track.volume; showVolume(0); } else showVolume(preMute || 50);
+        volHold = Date.now() + 2500; control('mute');
         break;
-      case 'volume': {
-        const v = Math.round(Math.max(0, Math.min(1, fx)) * 100);
-        volHold = Date.now() + 2500; showVolume(v); control('volume', v);
-        break;
-      }
-      case 'mute': control('mute'); break;
       case 'shuffle': control('shuffle'); break;
       case 'cover': control('open'); break;
       case 'lyrics': api.setLook('showLyrics', !S.showLyrics); break;
@@ -627,16 +681,59 @@
       case 'login': api.openSettings('the "Sign in" link on the wallpaper'); break;
     }
   }
+
+  /* Mouse events, from the click layer (main/hitlayer.js) or, in "npm run window", from this page:
+     { type: 'hover' | 'press' | 'drag' | 'release' | 'click', id, fx, rid } and { type: 'wheel', id, dy, rid }.
+     fx: where in the element (0 = left edge, 1 = right edge); dy > 0: wheel away from you, 1 = one notch.
+     rid: request id, so one press can be followed through the log. */
+  function input(e) {
+    const rid = e.rid;
+    switch (e.type) {
+      case 'hover': hover(e.id); break;
+      case 'press':
+        if (!SLIDERS.includes(e.id)) break;
+        slide = { id: e.id, rid };
+        actEl(e.id).classList.add('drag');
+        slideTo(e.fx, false);
+        break;
+      case 'drag': if (slide && slide.id === e.id) slideTo(e.fx, false); break;
+      case 'release':
+        if (!slide || slide.id !== e.id) break;
+        slideTo(e.fx, true);
+        actEl(e.id).classList.remove('drag');
+        slide = null;
+        break;
+      case 'click': if (!SLIDERS.includes(e.id) && e.id !== 'volnum') act(e.id, rid); break;
+      case 'wheel': if (['volume', 'mute', 'volnum'].includes(e.id)) wheel(e.dy, rid); break;
+    }
+  }
+  api.onHit(input);
+
+  // "npm run window": the page gets the mouse itself.
+  let ownClicks = 0, ownRid = null, ownDrag = null;
+  const fxOf = (el, e) => { const r = el.getBoundingClientRect(); return (e.clientX - r.left) / r.width; };
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest('[data-act]');
+    ownRid = `w${++ownClicks}`;
+    if (!el || e.button || !SLIDERS.includes(el.dataset.act)) return;
+    el.setPointerCapture(e.pointerId);
+    ownDrag = el;
+    input({ type: 'press', id: el.dataset.act, fx: fxOf(el, e), rid: ownRid });
+  });
+  document.addEventListener('pointermove', e => { if (ownDrag) input({ type: 'drag', id: ownDrag.dataset.act, fx: fxOf(ownDrag, e), rid: ownRid }); });
+  document.addEventListener('pointerup', e => {
+    if (!ownDrag) return;
+    input({ type: 'release', id: ownDrag.dataset.act, fx: fxOf(ownDrag, e), rid: ownRid });
+    ownDrag = null;
+  });
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-act]');
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    act(el.dataset.act, (e.clientX - r.left) / r.width);
+    if (el) input({ type: 'click', id: el.dataset.act, fx: fxOf(el, e), rid: ownRid || `w${++ownClicks}` });
   });
-  api.onHit(e => {
-    if (e.type === 'hover') hover(e.id);
-    else if (e.type === 'click') act(e.id, e.fx, e.rid);
-  });
+  document.addEventListener('wheel', e => {
+    const el = e.target.closest('[data-act]');
+    if (el && e.deltaY) input({ type: 'wheel', id: el.dataset.act, dy: -e.deltaY / (e.deltaMode === 1 ? 3 : 100), rid: `w${++ownClicks}` });
+  }, { passive: true });
   // Tell the click layer where the buttons are (in this window's coordinates).
   let hitsTimer = null;
   function reportHits() {

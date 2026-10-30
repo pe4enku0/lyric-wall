@@ -42,8 +42,9 @@ The builds are not signed with a paid certificate:
 | Button | What it does |
 |---|---|
 | ⏮ ⏯ ⏭ | previous track, play / pause, next track |
-| progress bar | jump to that place in the song |
-| volume bar · speaker | Spotify's volume · mute / unmute Spotify (other sounds and the system volume are not touched) |
+| progress bar | click or drag: jump to that place in the song |
+| volume bar · speaker | Spotify's volume (click, drag or mouse wheel, 5% per notch) · mute / unmute Spotify (other sounds and the system volume are not touched) |
+| big number in the Sound card | Spotify's volume; the mouse wheel over it changes it too |
 | "Shuffle" | shuffle on / off |
 | cover | open Spotify |
 | white lyrics button | hide / show the lyrics |

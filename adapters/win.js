@@ -304,10 +304,10 @@ function watchHelper() {
 function onAck(a) {
   const w = waiting.get(a.ack);
   waiting.delete(a.ack);
-  if (w) clearTimeout(w.timer);
+  if (w) { clearTimeout(w.timer); w.resolve(); }
   const total = w ? Date.now() - w.sent : null;
   const text = `[${a.ack}] Spotify (win): ${a.cmd} ${a.ok ? 'done' : 'FAILED'} in ${total ?? '?'} ms (helper ${a.ms} ms)${a.note ? ': ' + a.note : ''}`;
-  if (a.ok) log.info(text); else log.warn(text);
+  if (!a.ok) log.warn(text); else if (!(w && w.quiet)) log.info(text);
 }
 
 function startHelper() {
@@ -349,7 +349,7 @@ function startHelper() {
     if (helper !== h) return;
     helper = null;
     if (waiting.size) log.warn(`Spotify (win): helper exited with ${waiting.size} command(s) unanswered: ${[...waiting.keys()].join(', ')}`);
-    for (const w of waiting.values()) clearTimeout(w.timer);
+    for (const w of waiting.values()) { clearTimeout(w.timer); w.resolve(); }
     waiting.clear();
     if (!running) return;
     log.warn('Spotify (win): helper exited with code', code, '- restarting in 10 s');
@@ -485,20 +485,24 @@ module.exports = {
     helper = null;
   },
 
-  // rid: request id for the log, the helper answers with it.
-  control(cmd, value, rid) {
+  // rid: request id for the log, the helper answers with it; quiet: log only failures (a volume drag sends many).
+  // The promise settles when the helper answers (or after 5 s without an answer).
+  control(cmd, value, rid, quiet = false) {
     if (cmd === 'open') { shell.openExternal('spotify:'); return Promise.resolve(); }
     if (!['toggle', 'next', 'prev', 'seek', 'volume', 'mute', 'shuffle'].includes(cmd)) return Promise.resolve();
     const id = String(rid || 'x').replace(/\W/g, '') || 'x';
     if (!helper) { log.warn(`[${id}] Spotify (win): helper is not running, ${cmd} dropped`); return Promise.resolve(); }
-    const sent = Date.now();
-    const timer = setTimeout(() => {
-      log.warn(`[${id}] Spotify (win): no answer to ${cmd} in ${ANSWER_MS / 1000} s; helper last spoke ${Math.round((Date.now() - lastOutput) / 1000)} s ago, ${waiting.size} command(s) waiting`);
-    }, ANSWER_MS);
-    if (waiting.has(id)) clearTimeout(waiting.get(id).timer);
-    waiting.set(id, { cmd, sent, timer });
-    helper.stdin.write(value == null ? `${id} ${cmd}\n` : `${id} ${cmd} ${Number(value)}\n`);
-    log.info(`[${id}] Spotify (win): ${cmd} sent to helper${waiting.size > 1 ? ` (${waiting.size} waiting)` : ''}, helper last spoke ${Date.now() - lastOutput} ms ago`);
-    return Promise.resolve();
+    return new Promise(resolve => {
+      const sent = Date.now();
+      const timer = setTimeout(() => {
+        log.warn(`[${id}] Spotify (win): no answer to ${cmd} in ${ANSWER_MS / 1000} s; helper last spoke ${Math.round((Date.now() - lastOutput) / 1000)} s ago, ${waiting.size} command(s) waiting`);
+        resolve();
+      }, ANSWER_MS);
+      // The same id again (the next value of one drag): the earlier one is answered first, so it is done.
+      if (waiting.has(id)) { clearTimeout(waiting.get(id).timer); waiting.get(id).resolve(); }
+      waiting.set(id, { cmd, sent, timer, quiet, resolve });
+      helper.stdin.write(value == null ? `${id} ${cmd}\n` : `${id} ${cmd} ${Number(value)}\n`);
+      if (!quiet) log.info(`[${id}] Spotify (win): ${cmd} sent to helper${waiting.size > 1 ? ` (${waiting.size} waiting)` : ''}, helper last spoke ${Date.now() - lastOutput} ms ago`);
+    });
   }
 };

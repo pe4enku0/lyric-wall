@@ -20,6 +20,7 @@
   "ui.nowPlaying": "Now playing",
   "ui.sound": "Sound",
   "ui.now": "Now",
+  "ui.volumeUnit": "% VOL.",
   "ui.upNext": "Up next",
   "ui.shuffleOn": "Shuffle: on",
   "ui.shuffleOff": "Shuffle: off",

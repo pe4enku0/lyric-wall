@@ -63,7 +63,14 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .ctrl { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; }
 .vol { display: flex; align-items: center; gap: 10px; }
 .vol .vb { position: relative; width: 62px; height: 3px; border-radius: 3px; background: var(--track); }
-.vol .vb i { position: absolute; left: 0; top: 0; bottom: 0; width: 64%; border-radius: 3px; background: var(--fill); }
+/* The fill follows the volume smoothly (scaleX); while the bar is dragged it follows the mouse at once. */
+.vol .vb i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 3px; background: var(--fill);
+  transform-origin: 0 50%; transform: scaleX(.64); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+.vol .vb.drag i { transition: none; }
+/* Speaker: sound waves, or a cross when muted. */
+.vol .w, .vol .x { transition: opacity .2s ease; }
+.vol .x, .vol.muted .w { opacity: 0; }
+.vol.muted .x { opacity: 1; }
 .mid { display: flex; justify-content: center; align-items: center; gap: 30px; }
 .mid svg { fill: var(--icon); cursor: pointer; }
 .ex .dev { display: flex; align-items: center; gap: 14px; }
@@ -77,6 +84,10 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .ch .k { display: flex; align-items: center; gap: 8px; }
 .ch small { font-size: 12px; font-weight: 500; color: var(--ink2); }
 #viz { width: 100%; flex: 1; min-height: 0; display: block; }
+/* Big volume number in the Sound card (the mouse wheel over it changes the volume). */
+.big { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; align-self: flex-start; }
+.big b { font-size: 58px; font-weight: 800; letter-spacing: -.04em; line-height: .95; font-variant-numeric: tabular-nums; color: var(--big); transition: color 2.4s; }
+.big span { font-size: 14px; font-weight: 600; color: var(--ink2); letter-spacing: .04em; }
 
 .q { display: flex; flex-direction: column; gap: 9px; flex: 1; }
 .qi { display: grid; grid-template-columns: 34px 1fr 22px; align-items: center; gap: 10px; transition: opacity .6s; }
@@ -122,7 +133,7 @@ body.frozen *, body.frozen *::before, body.frozen *::after { animation-play-stat
 #lines.plain li.gap { height: 18px; padding: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  #lines, #lines li, .art img, .stage { transition-duration: .01s !important; }
+  #lines, #lines li, .art img, .stage, .vol .vb i { transition-duration: .01s !important; }
 }
 
 /* Buttons (data-act): hover and press feedback. */

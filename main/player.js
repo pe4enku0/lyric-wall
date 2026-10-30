@@ -62,9 +62,34 @@ function subscribe(fn) {
 let seq = 0;
 const newId = prefix => `${prefix}${++seq}`;
 
+// Volume: one command at a time; values that come while one runs are merged into the newest
+// (dragging the bar sends up to 10 a second). Only the first and the last of one drag are logged.
+let volBusy = false, volNext = null, volGesture = { id: null, count: 0 }, volLogTimer = null;
+function setVolume(value, id) {
+  if (volBusy) { volNext = { value, id }; return Promise.resolve(); }
+  volBusy = true;
+  clearTimeout(volLogTimer);
+  const quiet = id === volGesture.id;
+  if (!quiet) {
+    volGesture = { id, count: 0 };
+    log.info(`[${id}] Player command: volume ${value} (Spotify: ${current.state})`);
+  }
+  volGesture.count++;
+  return adapter.control('volume', value, id, quiet).finally(() => {
+    volBusy = false;
+    if (volNext) { const n = volNext; volNext = null; setVolume(n.value, n.id); }
+    // The drag is over when no new value comes for a moment.
+    else if (volGesture.count > 1) {
+      const n = volGesture.count;
+      volLogTimer = setTimeout(() => log.info(`[${id}] Volume set to ${value} (${n} commands)`), 700);
+    }
+  });
+}
+
 // cmd: 'toggle' | 'next' | 'prev' | 'seek' (value: seconds) | 'volume' (value: 0-100) | 'mute' | 'shuffle' | 'open'
 function control(cmd, value, rid) {
   const id = rid || newId('x');
+  if (cmd === 'volume') return setVolume(Math.round(Math.max(0, Math.min(100, Number(value) || 0))), id);
   log.info(`[${id}] Player command: ${cmd}${value == null ? '' : ' ' + value} (Spotify: ${current.state})`);
   return adapter.control(cmd, value, id);
 }
