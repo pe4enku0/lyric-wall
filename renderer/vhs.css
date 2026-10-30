@@ -171,14 +171,11 @@
 .stage[data-theme="vhs"][data-layout="b"] .date { font-size: 28px; margin-top: 10px; }
 
 /* ---------- lyrics ---------- */
-/* The current line is a tape subtitle: a black plate under the words, a colour bleed; sung words white,
-   the rest faint. The other lines stay as in the default look (blurred, smaller), in #EDEDED. */
+/* The current line is a tape subtitle: white words on a black plate, a colour bleed.
+   The other lines stay as in the default look (blurred, smaller), in #EDEDED. */
 .stage[data-theme="vhs"] #lines li { letter-spacing: 0; font-stretch: 100%; }
 .stage[data-theme="vhs"] #lines li.on .lt { background: #000; padding: 0 .18em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
   text-shadow: -3px 0 rgba(63,224,232,.7), 3px 0 color-mix(in srgb, var(--accent) 75%, transparent); }
-.stage[data-theme="vhs"] #lines li.on .w { color: rgba(244,244,244,.42);
-  text-shadow: -3px 0 rgba(63,224,232,.3), 3px 0 color-mix(in srgb, var(--accent) 32%, transparent); }
-.stage[data-theme="vhs"] #lines li.on .w.sung { color: #F4F4F4; text-shadow: inherit; }
 .stage[data-theme="vhs"] #lines.msg li { font: 400 calc(var(--line) * .6)/1.1 var(--vt); text-transform: uppercase; color: rgba(237,237,237,.7); }
 
 /* No synced lyrics / nothing playing: the outlined title in capitals, a VT323 screen message under it. */
@@ -189,6 +186,10 @@
 /* Short message (after the star). */
 .stage[data-theme="vhs"] .toast { border-radius: 2px; border: 2px solid var(--vhs-white); background: #07070A; backdrop-filter: none;
   font: 20px/1.1 var(--vt); text-transform: uppercase; }
+
+/* ---------- tape fault (app.js, every 8–15 s for 150 ms while playing): the cover strip and the current line jump ---------- */
+.stage[data-theme="vhs"].fault .glitch { transform: translateX(var(--fault-x)); }
+.stage[data-theme="vhs"].fault #lines li.on .lt { position: relative; left: var(--fault-x); }
 
 /* ---------- system setting "reduce motion" (macOS) / "Animation effects" off (Windows): nothing moves ---------- */
 @media (prefers-reduced-motion: reduce) {

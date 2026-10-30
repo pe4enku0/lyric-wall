@@ -289,42 +289,20 @@
   let fadeTimer = null;
   let lastScroll = null;
 
-  // words: VHS with synced lyrics; every line is <span class="lt"> (the black subtitle plate) of
-  // <span class="w"> words, which light up one after another while the line is sung (see sungWords).
-  function renderLines(lines, words) {
-    const ul = $('lines'); ul.innerHTML = ''; heights = []; sungShown = -1;
+  // plate: VHS with synced lyrics, the text of every line in a <span class="lt"> (the black subtitle plate).
+  function renderLines(lines, plate) {
+    const ul = $('lines'); ul.innerHTML = ''; heights = [];
     lines.forEach(text => {
       const el = document.createElement('li');
       if (!text) el.className = 'gap';
-      else if (!words) el.textContent = text;
+      else if (!plate) el.textContent = text;
       else {
         const lt = document.createElement('span');
-        lt.className = 'lt';
-        text.split(/\s+/).forEach((w, i) => {
-          if (i) lt.appendChild(document.createTextNode(' '));
-          const s = document.createElement('span');
-          s.className = 'w'; s.textContent = w;
-          lt.appendChild(s);
-        });
+        lt.className = 'lt'; lt.textContent = text;
         el.appendChild(lt);
       }
       ul.appendChild(el);
     });
-  }
-  // VHS: how many words of the current line are sung by now. The line takes the time until the next one,
-  // but at most about half a second per word (a long instrumental gap does not stretch it).
-  let sungShown = -1;
-  function sungWords(pos) {
-    const el = $('lines').children[li];
-    if (!el || !el.firstChild || el.firstChild.className !== 'lt') return;
-    const words = el.firstChild.children, n = words.length;
-    const start = synced[li].t, next = synced[li + 1] ? synced[li + 1].t : start + 6;
-    const dur = Math.max(.5, Math.min(next - start, .45 * n + 1));
-    const sung = Math.max(0, Math.min(n, Math.ceil((pos - start) / dur * n)));
-    const mark = li * 1000 + sung;
-    if (mark === sungShown) return;
-    sungShown = mark;
-    for (let i = 0; i < n; i++) words[i].classList.toggle('sung', i < sung);
   }
   function focusLine(instant) {
     const ul = $('lines'), items = ul.children;
@@ -413,7 +391,6 @@
     if (lyr.status === 'synced' && synced.length) {
       const i = lineAt(pos);
       if (i !== li) { li = i; focusLine(false); }
-      if (S.theme === 'vhs') sungWords(pos);
     } else if (lyr.status === 'plain' && d) {
       // Plain lyrics have no timing: scroll them evenly through the song.
       const ul = $('lines'), vp = $('vp');
@@ -906,6 +883,15 @@
     const vizMoving = drawViz(now, dt);
     if (playing || vizMoving) scheduleFrame();
   }
+  /* VHS: a short tape fault every 8–15 s while the music plays: for 150 ms the shifted strip of the cover and
+     the current lyric line jump sideways by 4–8 px (vhs.css). Never with "reduce motion" or a paused wallpaper. */
+  function tapeFault() {
+    setTimeout(tapeFault, 8000 + Math.random() * 7000);
+    if (S.theme !== 'vhs' || !playing || frozen || reduce) return;
+    stage.style.setProperty('--fault-x', `${(Math.random() < .5 ? -1 : 1) * Math.round(4 + Math.random() * 4)}px`);
+    stage.classList.add('fault');
+    setTimeout(() => stage.classList.remove('fault'), 150);
+  }
   function setFrozen(st) {
     frozen = !!st.paused;
     heardAt = performance.now();
@@ -1191,7 +1177,7 @@
     applyLayout(layout, lookApplied);
     // VHS has other sizes (buttons, fonts): measure again, also once its font has loaded.
     if (themeChanged && lookApplied) {
-      // VHS words (English, the lyrics split into words) or the theme's own: draw them again.
+      // VHS words (English, the subtitle plate under the lyrics) or the theme's own: draw them again.
       showClock();
       if (track.idle) { const st = track.id; track.id = null; showMessage(st); } else if (lyr.id) showLyrics(lyr);
       relayout(); reportHits();
@@ -1217,4 +1203,5 @@
   if (document.fonts) document.fonts.ready.then(() => { relayout(); reportHits(); });
   reportHits();
   wake();
+  setTimeout(tapeFault, 8000 + Math.random() * 7000);
 })();
