@@ -141,6 +141,7 @@ cd ~/lyric-wall
 npm install      # один раз, после скачивания проекта
 npm start        # запустить обои (иконка появится в строке меню)
 npm run window   # показать обои в обычном окне — удобно смотреть на дизайн
+npm run install-app  # собрать приложение, поставить в ~/Applications и запустить (после git pull — обновить)
 ```
 
 На macOS `npm start` ещё собирает помощник для кнопок (`mac-helper/ClickLayer.swift`); для этого нужны

@@ -142,6 +142,7 @@ cd ~/lyric-wall
 npm install      # once, after downloading the project
 npm start        # start the wallpaper (an icon appears in the menu bar)
 npm run window   # show the wallpaper in a normal window to look at the design
+npm run install-app  # build the app, put it in ~/Applications and start it (after git pull: update)
 ```
 
 On macOS `npm start` also builds the click helper (`mac-helper/ClickLayer.swift`); it needs the
