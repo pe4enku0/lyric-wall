@@ -6,8 +6,13 @@ const isMac = process.platform === 'darwin';
 const ICON = path.join(__dirname, '..', 'assets', 'icon-win.png');
 const open = new Map(); // window -> its fixed width
 
+// Shown once, when it opens. Later fits (the control window refits every 2 s) must not show it again:
+// a minimized window counts as not visible and would pop up by itself.
+const revealed = new WeakSet();
 function reveal(win) {
-  if (!win.isDestroyed() && !win.isVisible()) { win.center(); win.show(); win.focus(); }
+  if (win.isDestroyed() || revealed.has(win)) return;
+  revealed.add(win);
+  win.center(); win.show(); win.focus();
 }
 
 function focus(win) {
