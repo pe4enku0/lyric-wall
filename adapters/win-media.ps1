@@ -1,7 +1,10 @@
 # Lyric Wall media helper for Windows (keep this file ASCII-only: PowerShell 5.1 reads it as ANSI).
 # Reads the Spotify session from Windows.Media.Control (the media controls in the volume flyout),
 # prints one JSON line per second while music plays (every 2 s otherwise)
-# and accepts commands on stdin: toggle, next, prev, seek <seconds>, shuffle, volume <0-100>, mute.
+# and accepts commands on stdin as "<request id> <command> [value]":
+# toggle, next, prev, seek <seconds>, shuffle, volume <0-100>, mute.
+# Every command is answered with {"ack": id, "ok": ..., "note": ..., "ms": ...} for the app log.
+# Lines like {"log": "..."} are notes for the app log.
 # No Spotify login is needed. "volume" and "mute" change only Spotify (its slider in the volume mixer).
 $ErrorActionPreference = 'Stop'
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -11,6 +14,8 @@ $stdout.AutoFlush = $true
 function Send($obj) {
   $stdout.WriteLine(($obj | ConvertTo-Json -Compress))
 }
+
+function Note($text) { Send @{ log = $text } }
 
 try {
   Add-Type -AssemblyName System.Runtime.WindowsRuntime
@@ -100,20 +105,24 @@ public static class LyricWallAudio {
     }
     return -1;
   }
-  public static void SetVolume(int percent) {
+  // Both return how many Spotify sound sessions were changed (0: Spotify has none yet).
+  public static int SetVolume(int percent) {
     Guid context = Guid.Empty;
-    foreach (var v in Spotify()) {
+    var all = Spotify();
+    foreach (var v in all) {
       v.SetMasterVolume(Math.Max(0, Math.Min(100, percent)) / 100f, ref context);
       v.SetMute(false, ref context);
     }
+    return all.Count;
   }
-  public static void ToggleMute() {
+  public static int ToggleMute() {
     Guid context = Guid.Empty;
     var all = Spotify();
-    if (all.Count == 0) return;
+    if (all.Count == 0) return 0;
     bool muted;
     all[0].GetMute(out muted);
     foreach (var v in all) v.SetMute(!muted, ref context);
+    return all.Count;
   }
 }
 '@
@@ -136,24 +145,42 @@ $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-O
   $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
 })[0]
 
-function Await($op, [Type]$type) {
+# Waits at most 8 s: a call Windows (or a sleeping Spotify) never answers must not freeze the helper.
+function Await($op, [Type]$type, [string]$what) {
   $task = $asTaskGeneric.MakeGenericMethod($type).Invoke($null, @($op))
-  [void]$task.Wait(-1)
+  if (-not $task.Wait(8000)) { throw "Windows did not answer '$what' in 8 s" }
   $task.Result
 }
 
-$manager = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+$manager = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]) 'media sessions'
 
+$script:sessionsSeen = $null
+
+# Spotify's session, picked by app id (the "current" session may be a browser or Discord).
+# The list of all media sessions goes to the log whenever it changes.
 function Get-Spotify {
+  $found = $null
+  $names = @()
   foreach ($s in $manager.GetSessions()) {
-    if ($s.SourceAppUserModelId -match 'spotify') { return $s }
+    $names += $s.SourceAppUserModelId
+    if ($null -eq $found -and $s.SourceAppUserModelId -match 'spotify') { $found = $s }
   }
-  return $null
+  $cur = $manager.GetCurrentSession()
+  $curName = '-'
+  if ($null -ne $cur) { $curName = $cur.SourceAppUserModelId }
+  $seen = ($names -join ', ') + ' | current: ' + $curName
+  if ($seen -ne $script:sessionsSeen) {
+    $script:sessionsSeen = $seen
+    $picked = '-'
+    if ($null -ne $found) { $picked = $found.SourceAppUserModelId }
+    Note "Media sessions: $seen | using: $picked"
+  }
+  return $found
 }
 
 function Get-Art($props) {
   if ($null -eq $props.Thumbnail) { throw 'Spotify gave no cover to Windows media controls' }
-  $stream = Await ($props.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
+  $stream = Await ($props.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType]) 'cover'
   $net = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
   $mem = New-Object System.IO.MemoryStream
   $net.CopyTo($mem)
@@ -167,13 +194,15 @@ $artNoteKey = ''
 $script:playing = $false
 
 function Send-State {
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  $artMs = 0
   $s = Get-Spotify
   $script:playing = $false
   if ($null -eq $s) { Send @{ state = 'not-running' }; return }
   $info = $s.GetPlaybackInfo()
   $status = [int]$info.PlaybackStatus  # 4 = Playing, 5 = Paused
   if ($status -ne 4 -and $status -ne 5) { Send @{ state = 'stopped' }; return }
-  $props = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+  $props = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties]) 'track info'
   $tl = $s.GetTimelineProperties()
   $playing = ($status -eq 4)
   $script:playing = $playing
@@ -197,39 +226,54 @@ function Send-State {
   }
   # The cover is sent only when the track changes (it is big).
   if ($key -ne $script:lastArtKey) {
+    $artStart = $sw.ElapsedMilliseconds
     try { $out.art = Get-Art $props } catch {
       $out.art = ''
       # Once per track: why there is no cover (goes to the app log).
       if ($key -ne $script:artNoteKey) { [Console]::Error.WriteLine("Cover: $($_.Exception.Message)"); $script:artNoteKey = $key }
     }
     if ($out.art) { $script:lastArtKey = $key }
+    $artMs = $sw.ElapsedMilliseconds - $artStart
   }
   Send $out
+  if ($sw.ElapsedMilliseconds -gt 1500) { Note "Slow update: $($sw.ElapsedMilliseconds) ms (cover $artMs ms)" }
 }
 
-function Send-MediaCommand($line) {
-  $parts = $line.Split(' ')
-  $cmd = $parts[0]
-  $arg = 0.0
-  if ($parts.Count -gt 1) { $arg = [double]::Parse($parts[1], [Globalization.CultureInfo]::InvariantCulture) }
+# Why Spotify may have said no: which buttons its media session allows right now.
+function Describe-Controls($s) {
+  $info = $s.GetPlaybackInfo()
+  $c = $info.Controls
+  return "status $($info.PlaybackStatus), allowed: play/pause $($c.IsPlayPauseToggleEnabled), next $($c.IsNextEnabled), prev $($c.IsPreviousEnabled), seek $($c.IsPlaybackPositionEnabled), shuffle $($c.IsShuffleEnabled)"
+}
+
+# Runs one command, returns @{ ok; note }.
+function Send-MediaCommand($cmd, [double]$arg) {
   # Spotify's sound session, found by its process; works without the media controls session too.
-  if ($cmd -eq 'volume') { if ($audioOk) { [LyricWallAudio]::SetVolume([int][math]::Round($arg)) }; return }
-  if ($cmd -eq 'mute') { if ($audioOk) { [LyricWallAudio]::ToggleMute() }; return }
+  if ($cmd -eq 'volume' -or $cmd -eq 'mute') {
+    if (-not $audioOk) { return @{ ok = $false; note = 'volume code is not available' } }
+    if ($cmd -eq 'volume') { $n = [LyricWallAudio]::SetVolume([int][math]::Round($arg)) } else { $n = [LyricWallAudio]::ToggleMute() }
+    if ($n -eq 0) { return @{ ok = $false; note = 'Spotify has no sound session yet' } }
+    return @{ ok = $true; note = "$n sound session(s)" }
+  }
   $s = Get-Spotify
-  if ($null -eq $s) { return }
+  if ($null -eq $s) { return @{ ok = $false; note = "no Spotify media session ($script:sessionsSeen)" } }
+  $ok = $false
   switch ($cmd) {
-    'toggle' { [void](Await ($s.TryTogglePlayPauseAsync()) ([bool])) }
-    'next' { [void](Await ($s.TrySkipNextAsync()) ([bool])) }
-    'prev' { [void](Await ($s.TrySkipPreviousAsync()) ([bool])) }
+    'toggle' { $ok = Await ($s.TryTogglePlayPauseAsync()) ([bool]) 'play/pause' }
+    'next' { $ok = Await ($s.TrySkipNextAsync()) ([bool]) 'next' }
+    'prev' { $ok = Await ($s.TrySkipPreviousAsync()) ([bool]) 'previous' }
     'seek' {
       $ticks = [long]($arg * 10000000) + $s.GetTimelineProperties().StartTime.Ticks
-      [void](Await ($s.TryChangePlaybackPositionAsync($ticks)) ([bool]))
+      $ok = Await ($s.TryChangePlaybackPositionAsync($ticks)) ([bool]) 'seek'
     }
     'shuffle' {
       $current = $s.GetPlaybackInfo().IsShuffleActive
-      [void](Await ($s.TryChangeShuffleActiveAsync(-not $current)) ([bool]))
+      $ok = Await ($s.TryChangeShuffleActiveAsync(-not $current)) ([bool]) 'shuffle'
     }
+    default { return @{ ok = $false; note = "unknown command '$cmd'" } }
   }
+  if ($ok) { return @{ ok = $true; note = '' } }
+  return @{ ok = $false; note = 'Spotify said no: ' + (Describe-Controls $s) }
 }
 
 $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), $utf8)
@@ -240,9 +284,16 @@ while ($true) {
   $waitMs = 2000
   if ($script:playing) { $waitMs = 1000 }
   if ($pending.Wait($waitMs)) {
-    $cmd = $pending.Result
-    if ($null -eq $cmd) { break }
-    try { Send-MediaCommand $cmd.Trim() } catch { Send @{ state = 'error'; message = $_.Exception.Message } }
+    $line = $pending.Result
+    if ($null -eq $line) { break }
+    $parts = $line.Trim().Split(' ')
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    try {
+      $arg = 0.0
+      if ($parts.Count -gt 2) { $arg = [double]::Parse($parts[2], [Globalization.CultureInfo]::InvariantCulture) }
+      $res = Send-MediaCommand $parts[1] $arg
+    } catch { $res = @{ ok = $false; note = $_.Exception.Message } }
+    Send @{ ack = $parts[0]; cmd = $parts[1]; ok = $res.ok; note = $res.note; ms = $sw.ElapsedMilliseconds }
     Start-Sleep -Milliseconds 300
     $pending = $reader.ReadLineAsync()
   }

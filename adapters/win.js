@@ -11,7 +11,8 @@ const WS_CHILD = 0x40000000, WS_POPUP = 0x80000000;
 const WS_EX_TRANSPARENT = 0x20, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
 const DWMWA_CLOAKED = 14, PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
-const HWND_BOTTOM = 1, GW_HWNDLAST = 1, GW_HWNDPREV = 3, GW_CHILD = 5, GA_PARENT = 1;
+const HWND_BOTTOM = 1, GW_HWNDLAST = 1, GW_HWNDNEXT = 2, GW_HWNDPREV = 3, GW_CHILD = 5, GA_PARENT = 1, GA_ROOT = 2;
+const VK_LBUTTON = 0x01;
 const SW_HIDE = 0, SW_SHOWNA = 8, LWA_ALPHA = 0x2, SMTO_NORMAL = 0;
 const MONITOR_DEFAULTTONEAREST = 2;
 // SHQueryUserNotificationState: busy (full-screen app) / Direct3D full screen / presentation mode
@@ -28,6 +29,7 @@ function user32() {
   const dwm = koffi.load('dwmapi.dll');
   const kernel = koffi.load('kernel32.dll');
   koffi.struct('RECT', { left: 'int32', top: 'int32', right: 'int32', bottom: 'int32' });
+  koffi.struct('POINT', { x: 'int32', y: 'int32' });
   koffi.struct('MONITORINFO', { cbSize: 'uint32', rcMonitor: 'RECT', rcWork: 'RECT', dwFlags: 'uint32' });
   const fn = sig => lib.func(sig);
   u = {
@@ -51,6 +53,9 @@ function user32() {
     GetMonitorInfoW: fn('int __stdcall GetMonitorInfoW(intptr_t monitor, _Inout_ MONITORINFO *info)'),
     SHQueryUserNotificationState: shell.func('int __stdcall SHQueryUserNotificationState(_Out_ int *state)'),
     IsWindowVisible: fn('int __stdcall IsWindowVisible(intptr_t hwnd)'),
+    GetCursorPos: fn('int __stdcall GetCursorPos(_Out_ POINT *point)'),
+    WindowFromPoint: fn('intptr_t __stdcall WindowFromPoint(POINT point)'),
+    GetAsyncKeyState: fn('int16_t __stdcall GetAsyncKeyState(int key)'),
     DwmGetWindowAttribute: dwm.func('int __stdcall DwmGetWindowAttribute(intptr_t hwnd, uint32_t attr, _Out_ int32_t *value, uint32_t size)'),
     OpenProcess: kernel.func('intptr_t __stdcall OpenProcess(uint32_t access, int inherit, uint32_t pid)'),
     QueryFullProcessImageNameW: kernel.func('int __stdcall QueryFullProcessImageNameW(intptr_t process, uint32_t flags, _Out_ uint8_t *name, _Inout_ uint32_t *size)'),
@@ -227,6 +232,49 @@ function fullscreenAppActive() {
 
 let fullscreenWarned = false;
 
+// ---------- Diagnostics for the log ----------
+
+// "Class (program.exe)" of a window.
+function describeWindow(w, hwnd) {
+  if (!hwnd) return 'none';
+  const pid = [0];
+  w.GetWindowThreadProcessId(hwnd, pid);
+  return `${windowClass(w, hwnd) || '?'} (${processName(w, pid[0])})`;
+}
+
+// Is `hwnd` above `ref` in the z-order? Walks down from hwnd (a few hundred windows at most).
+function isAbove(w, hwnd, ref) {
+  let cur = hwnd;
+  for (let i = 0; i < 2000 && cur; i++) {
+    cur = Number(w.GetWindow(cur, GW_HWNDNEXT));
+    if (cur === Number(ref)) return true;
+  }
+  return false;
+}
+
+// What the click layer looks like to Windows right now, and which window is under the cursor.
+function describeHitLayer(win) {
+  const w = user32(), hwnd = hwndOf(win), p = {};
+  w.GetCursorPos(p);
+  const under = Number(w.WindowFromPoint(p));
+  const root = under ? Number(w.GetAncestor(under, GA_ROOT)) : 0;
+  const ex = Number(w.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+  return `visible ${!!w.IsWindowVisible(hwnd)}, lets clicks through ${!!(ex & WS_EX_TRANSPARENT)}, ` +
+    `above desktop icons ${isAbove(w, hwnd, desktopHost())}, under the cursor: ${describeWindow(w, under)}` +
+    (root === hwnd ? ' = the click layer' : root && root !== under ? `, inside ${describeWindow(w, root)}` : '');
+}
+
+// Is the wallpaper still embedded where we put it?
+function describeWallpaper(win) {
+  const w = user32(), hwnd = hwndOf(win);
+  const parent = Number(w.GetAncestor(hwnd, GA_PARENT));
+  const parentOk = !state.parent || (parent === Number(state.parent) && !!w.IsWindow(state.parent));
+  const r = {};
+  w.GetWindowRect(hwnd, r);
+  return `mode ${state.mode}, parent ${parentOk ? 'ok' : `CHANGED (now ${hex(parent)} ${describeWindow(w, parent)}, was ${hex(state.parent)})`}, ` +
+    `visible ${!!w.IsWindowVisible(hwnd)}, rect ${r.left},${r.top} ${r.right - r.left}x${r.bottom - r.top}`;
+}
+
 // ---------- Spotify through the PowerShell helper ----------
 
 // PowerShell cannot read files inside app.asar, so the helper is unpacked next to it.
@@ -236,6 +284,31 @@ let helper = null;
 let onUpdate = null;
 let retryTimer = null;
 let running = false;
+let lastOutput = 0;       // when the helper last printed anything
+let silentSince = 0;      // set while the helper is quiet for too long (logged once)
+let watchTimer = null;
+const waiting = new Map(); // request id -> { cmd, sent, timer }: commands the helper has not answered yet
+
+const SILENT_MS = 10000, ANSWER_MS = 5000;
+
+// The helper prints every 1-2 s; a long silence means it is stuck waiting for Windows or Spotify.
+function watchHelper() {
+  if (!helper) return;
+  const quiet = Date.now() - lastOutput;
+  if (quiet > SILENT_MS && !silentSince) {
+    silentSince = lastOutput;
+    log.warn(`Spotify (win): helper silent for ${Math.round(quiet / 1000)} s, ${waiting.size} command(s) waiting`);
+  }
+}
+
+function onAck(a) {
+  const w = waiting.get(a.ack);
+  waiting.delete(a.ack);
+  if (w) clearTimeout(w.timer);
+  const total = w ? Date.now() - w.sent : null;
+  const text = `[${a.ack}] Spotify (win): ${a.cmd} ${a.ok ? 'done' : 'FAILED'} in ${total ?? '?'} ms (helper ${a.ms} ms)${a.note ? ': ' + a.note : ''}`;
+  if (a.ok) log.info(text); else log.warn(text);
+}
 
 function startHelper() {
   clearTimeout(retryTimer);
@@ -243,7 +316,14 @@ function startHelper() {
   const h = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', HELPER], { windowsHide: true });
   helper = h;
   h.stdout.setEncoding('utf8');
+  lastOutput = Date.now();
+  silentSince = 0;
   h.stdout.on('data', chunk => {
+    lastOutput = Date.now();
+    if (silentSince) {
+      log.info(`Spotify (win): helper talks again after ${Math.round((lastOutput - silentSince) / 1000)} s of silence`);
+      silentSince = 0;
+    }
     pending += chunk;
     let i;
     while ((i = pending.indexOf('\n')) >= 0) {
@@ -252,6 +332,8 @@ function startHelper() {
       if (!line) continue;
       try {
         const snap = JSON.parse(line);
+        if (snap.ack) { onAck(snap); continue; }
+        if (snap.log) { log.info('Spotify (win) helper:', snap.log); continue; }
         if (snap.position != null) snap.at = Date.now();
         onUpdate(snap);
       } catch (e) {
@@ -266,6 +348,9 @@ function startHelper() {
     // A helper we stopped ourselves (or an old one) must not touch the current state.
     if (helper !== h) return;
     helper = null;
+    if (waiting.size) log.warn(`Spotify (win): helper exited with ${waiting.size} command(s) unanswered: ${[...waiting.keys()].join(', ')}`);
+    for (const w of waiting.values()) clearTimeout(w.timer);
+    waiting.clear();
     if (!running) return;
     log.warn('Spotify (win): helper exited with code', code, '- restarting in 10 s');
     retryTimer = setTimeout(startHelper, 10000);
@@ -364,6 +449,17 @@ module.exports = {
 
   fullscreenReason: () => fullscreenWhy,
 
+  // Diagnostics: is the left mouse button down right now; text descriptions for the log.
+  mouseDown() {
+    try { return (user32().GetAsyncKeyState(VK_LBUTTON) & 0x8000) !== 0; } catch (_) { return false; }
+  },
+  describeHitLayer(win) {
+    try { return describeHitLayer(win); } catch (e) { return 'check failed: ' + e.message; }
+  },
+  describeWallpaper(win) {
+    try { return describeWallpaper(win); } catch (e) { return 'check failed: ' + e.message; }
+  },
+
   isFullscreenAppActive() {
     try {
       return fullscreenAppActive();
@@ -377,20 +473,32 @@ module.exports = {
     onUpdate = cb;
     running = true;
     if (!helper) startHelper();
+    if (!watchTimer) watchTimer = setInterval(watchHelper, 2000);
   },
 
   stopNowPlaying() {
     running = false;
     clearTimeout(retryTimer);
+    clearInterval(watchTimer);
+    watchTimer = null;
     if (helper) helper.kill();
     helper = null;
   },
 
-  control(cmd, value) {
-    if (cmd === 'open') shell.openExternal('spotify:');
-    else if (helper && ['toggle', 'next', 'prev', 'seek', 'volume', 'mute', 'shuffle'].includes(cmd)) {
-      helper.stdin.write(value == null ? `${cmd}\n` : `${cmd} ${Number(value)}\n`);
-    }
+  // rid: request id for the log, the helper answers with it.
+  control(cmd, value, rid) {
+    if (cmd === 'open') { shell.openExternal('spotify:'); return Promise.resolve(); }
+    if (!['toggle', 'next', 'prev', 'seek', 'volume', 'mute', 'shuffle'].includes(cmd)) return Promise.resolve();
+    const id = String(rid || 'x').replace(/\W/g, '') || 'x';
+    if (!helper) { log.warn(`[${id}] Spotify (win): helper is not running, ${cmd} dropped`); return Promise.resolve(); }
+    const sent = Date.now();
+    const timer = setTimeout(() => {
+      log.warn(`[${id}] Spotify (win): no answer to ${cmd} in ${ANSWER_MS / 1000} s; helper last spoke ${Math.round((Date.now() - lastOutput) / 1000)} s ago, ${waiting.size} command(s) waiting`);
+    }, ANSWER_MS);
+    if (waiting.has(id)) clearTimeout(waiting.get(id).timer);
+    waiting.set(id, { cmd, sent, timer });
+    helper.stdin.write(value == null ? `${id} ${cmd}\n` : `${id} ${cmd} ${Number(value)}\n`);
+    log.info(`[${id}] Spotify (win): ${cmd} sent to helper${waiting.size > 1 ? ` (${waiting.size} waiting)` : ''}, helper last spoke ${Date.now() - lastOutput} ms ago`);
     return Promise.resolve();
   }
 };

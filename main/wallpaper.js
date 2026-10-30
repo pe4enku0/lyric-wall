@@ -87,7 +87,12 @@ power.onChange(st => {
   // No click layer while paused (a game is full screen, the screen is locked…).
   if (windowed) return;
   if (st.paused) hitlayer.destroy();
-  else { hitlayer.create(win.webContents); send('layout:changed'); }
+  else {
+    // After sleep, a locked screen or a game: check the wallpaper is still where we put it.
+    if (adapter.describeWallpaper) log.info('Wallpaper check after pause:', adapter.describeWallpaper(win));
+    hitlayer.create(win.webContents);
+    send('layout:changed');
+  }
 });
 
 function destroy() {
@@ -106,6 +111,7 @@ function onDisplayChange() {
   if (!win || windowed) return;
   const display = screen.getPrimaryDisplay();
   log.info('Screen changed, new bounds:', display.bounds, 'scale', display.scaleFactor);
+  if (adapter.describeWallpaper) log.info('Wallpaper check before moving:', adapter.describeWallpaper(win));
   adapter.placeWallpaper(win, display);
   // The menu bar, Dock or taskbar may have moved: let the UI recalculate its margins.
   send('layout:changed');

@@ -232,7 +232,8 @@ module.exports = {
     proc = null;
   },
 
-  control(cmd, value) {
+  // rid: request id for the log.
+  control(cmd, value, rid = 'x') {
     let verb = VERBS[cmd];
     if (cmd === 'seek') verb = `set player position to ${Math.max(0, Number(value) || 0).toFixed(2)}`;
     if (cmd === 'volume') verb = `set sound volume to ${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}`;
@@ -243,9 +244,11 @@ module.exports = {
     const script = cmd === 'open' ? 'tell application "Spotify" to activate'
       : verb ? `if application "Spotify" is running then tell application "Spotify" to ${verb}` : null;
     if (!script) return Promise.resolve();
+    const sent = Date.now();
     return new Promise(resolve => {
       execFile('osascript', ['-e', script], { timeout: 5000 }, err => {
-        if (err) log.error('Spotify (mac): command', cmd, 'failed:', err.message.trim());
+        if (err) log.error(`[${rid}] Spotify (mac): ${cmd} failed in ${Date.now() - sent} ms:`, err.message.trim());
+        else log.info(`[${rid}] Spotify (mac): ${cmd} done in ${Date.now() - sent} ms`);
         resolve();
       });
     });

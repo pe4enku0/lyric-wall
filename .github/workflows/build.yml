@@ -43,11 +43,13 @@ jobs:
         if: runner.os == 'Windows'
         timeout-minutes: 2
         shell: pwsh
-        # Fails when the Spotify volume code (C# inside the script) does not compile.
+        # Fails when the Spotify volume code (C# inside the script) does not compile
+        # or when a command is not answered with its request id.
         run: |
-          $out = "" | powershell.exe -NoProfile -ExecutionPolicy Bypass -File adapters/win-media.ps1 2>&1 | Out-String
+          $out = @('t1 volume 50', 't2 toggle') | powershell.exe -NoProfile -ExecutionPolicy Bypass -File adapters/win-media.ps1 2>&1 | Out-String
           Write-Host $out
           if ($out -match 'volume is not available') { throw 'Spotify volume code did not compile' }
+          if ($out -notmatch '"ack":"t1"' -or $out -notmatch '"ack":"t2"') { throw 'Helper did not answer the test commands' }
       - name: Smoke test (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 3

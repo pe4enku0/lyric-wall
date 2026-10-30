@@ -57,10 +57,16 @@ function subscribe(fn) {
   };
 }
 
+// Request ids follow one command through the log: h = wallpaper click layer, w = wallpaper clicked directly
+// (npm run window), t = tray menu.
+let seq = 0;
+const newId = prefix => `${prefix}${++seq}`;
+
 // cmd: 'toggle' | 'next' | 'prev' | 'seek' (value: seconds) | 'volume' (value: 0-100) | 'mute' | 'shuffle' | 'open'
-function control(cmd, value) {
-  log.info('Player command:', cmd, value ?? '');
-  return adapter.control(cmd, value);
+function control(cmd, value, rid) {
+  const id = rid || newId('x');
+  log.info(`[${id}] Player command: ${cmd}${value == null ? '' : ' ' + value} (Spotify: ${current.state})`);
+  return adapter.control(cmd, value, id);
 }
 
-module.exports = { subscribe, control, get: () => current };
+module.exports = { subscribe, control, newId, get: () => current };

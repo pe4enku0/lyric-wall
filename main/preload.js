@@ -18,7 +18,8 @@ contextBridge.exposeInMainWorld('lyricWall', {
   // Player: snapshots and commands 'toggle' | 'next' | 'prev' | 'seek' (s) | 'volume' (0-100) | 'mute' | 'shuffle' | 'open'
   getPlayer: () => ipcRenderer.invoke('player:get'),
   onPlayer: cb => ipcRenderer.on('player:state', (_e, snap) => cb(snap)),
-  control: (cmd, value) => ipcRenderer.send('player:control', cmd, value),
+  // rid: request id for the log (from the click layer), optional
+  control: (cmd, value, rid) => ipcRenderer.send('player:control', cmd, value, rid),
   log: (level, text) => ipcRenderer.send('app:log', level, String(text).slice(0, 500)),
   openSoundSettings: () => ipcRenderer.send('app:openSoundSettings'),
   openControl: () => ipcRenderer.send('app:openControl'),

@@ -41,7 +41,7 @@ ipcMain.handle('app:info', () => ({
   deviceLabel: i18n.t(adapter.deviceKey)
 }));
 ipcMain.handle('player:get', () => player.get());
-ipcMain.on('player:control', (_e, cmd, value) => player.control(cmd, value));
+ipcMain.on('player:control', (_e, cmd, value, rid) => player.control(cmd, value, typeof rid === 'string' ? rid.slice(0, 16) : undefined));
 ipcMain.on('app:log', (_e, level, text) => (log[level] || log.info)('UI:', text));
 ipcMain.on('app:openSoundSettings', () => shell.openExternal(adapter.soundSettingsUrl));
 ipcMain.on('app:openControl', () => control.show('the "…" button on the wallpaper'));

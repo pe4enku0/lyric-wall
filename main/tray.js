@@ -16,8 +16,8 @@ function refresh() {
     { label: t('tray.open'), click: () => control.show('tray menu') },
     { type: 'separator' },
     { label: t('tray.wallpaper'), type: 'checkbox', checked: s.wallpaperEnabled, click: i => actions.set('wallpaperEnabled', i.checked) },
-    { label: t('tray.playPause'), enabled: s.wallpaperEnabled, click: () => player.control('toggle') },
-    { label: t('tray.next'), enabled: s.wallpaperEnabled, click: () => player.control('next') },
+    { label: t('tray.playPause'), enabled: s.wallpaperEnabled, click: () => player.control('toggle', null, player.newId('t')) },
+    { label: t('tray.next'), enabled: s.wallpaperEnabled, click: () => player.control('next', null, player.newId('t')) },
     { type: 'separator' },
     { label: t('tray.settings'), click: () => settingsWindow.show('tray menu') }
   ];

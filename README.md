@@ -105,6 +105,9 @@ the login is stored encrypted (macOS Keychain / Windows data protection) and nev
 Everything important goes to `lyric-wall.log` in the app data folder (tray → **Open log**):
 start (system, screen), how the wallpaper window was placed, Spotify tracks and commands, lyrics, pauses
 (locked screen, game, battery), button presses, errors in any window and crashed processes.
+Every button press gets a request id (`h1`, `h2`… from the wallpaper, `t1`… from the tray) that follows it
+through the log: click layer → wallpaper → main process → Windows helper → its answer with the time it took.
+A press that never reached the click layer is logged with the window Windows had under the cursor.
 The log stays on the computer; over 1 MB it is moved to `lyric-wall.log.old`.
 
 App data folder: Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPDATA%\Lyric Wall\`.

@@ -591,23 +591,26 @@
     document.querySelectorAll('[data-act].hover').forEach(el => el.classList.remove('hover'));
     if (id && actEl(id)) actEl(id).classList.add('hover');
   }
-  function act(id, fx) {
+  // rid: request id from the click layer, so one click can be followed through the log.
+  let ownClicks = 0;
+  function act(id, fx, rid = `w${++ownClicks}`) {
     press(id);
     const isTrack = !!(track.id && track.duration);
+    const control = (cmd, value) => api.control(cmd, value, rid);
     switch (id) {
-      case 'prev': case 'next': api.control(id); break;
-      case 'pp': clock.toggle(); setPlaying(clock.playing); api.control('toggle'); wake(); break;
+      case 'prev': case 'next': control(id); break;
+      case 'pp': clock.toggle(); setPlaying(clock.playing); control('toggle'); wake(); break;
       case 'progress':
-        if (isTrack) { const to = Math.max(0, Math.min(1, fx)) * track.duration; clock.set(to, clock.playing); api.control('seek', to); wake(); }
+        if (isTrack) { const to = Math.max(0, Math.min(1, fx)) * track.duration; clock.set(to, clock.playing); control('seek', to); wake(); }
         break;
       case 'volume': {
         const v = Math.round(Math.max(0, Math.min(1, fx)) * 100);
-        volHold = Date.now() + 2500; showVolume(v); api.control('volume', v);
+        volHold = Date.now() + 2500; showVolume(v); control('volume', v);
         break;
       }
-      case 'mute': api.control('mute'); break;
-      case 'shuffle': api.control('shuffle'); break;
-      case 'cover': api.control('open'); break;
+      case 'mute': control('mute'); break;
+      case 'shuffle': control('shuffle'); break;
+      case 'cover': control('open'); break;
       case 'lyrics': api.setLook('showLyrics', !S.showLyrics); break;
       case 'device': api.openSoundSettings(); break;
       case 'more': api.openControl(); break;
@@ -632,7 +635,7 @@
   });
   api.onHit(e => {
     if (e.type === 'hover') hover(e.id);
-    else if (e.type === 'click') act(e.id, e.fx);
+    else if (e.type === 'click') act(e.id, e.fx, e.rid);
   });
   // Tell the click layer where the buttons are (in this window's coordinates).
   let hitsTimer = null;
