@@ -27,6 +27,10 @@ let lastSnapshotAt = 0; // the wallpaper is showing music (it is not paused or o
 let localUri = null;    // macOS: the track URI straight from the Spotify app (the Web API may not know it yet)
 let queueTimer = null;
 let loginServer = null;
+let likedOf = null;     // the track whose "liked" mark is known (asked once per track, not every 30 s)
+let refreshTimer = null;
+// "Too many requests" (HTTP 429): Spotify says how long to wait; until then that kind of request is not sent.
+const blockedUntil = {};
 
 const b64url = buf => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -70,6 +74,8 @@ async function tokenRequest(params) {
 
 async function api(method, pathAndQuery, retried) {
   if (!token) return null;
+  const kind = `${method} ${pathAndQuery.split('?')[0]}`;
+  if (Date.now() < (blockedUntil[kind] || 0)) throw Object.assign(new Error(`${kind} waits after "too many requests"`), { waiting: true });
   if (Date.now() > token.expires - 60000) await tokenRequest({ grant_type: 'refresh_token', refresh_token: token.refresh });
   const res = await net.fetch('https://api.spotify.com/v1' + pathAndQuery, {
     method,
@@ -79,6 +85,11 @@ async function api(method, pathAndQuery, retried) {
   if (res.status === 401 && !retried) {
     await tokenRequest({ grant_type: 'refresh_token', refresh_token: token.refresh });
     return api(method, pathAndQuery, true);
+  }
+  if (res.status === 429) {
+    const wait = Math.min(3600, Math.max(30, Number(res.headers.get('retry-after')) || 60));
+    blockedUntil[kind] = Date.now() + wait * 1000;
+    throw new Error(`Spotify said "too many requests" for ${kind}; waiting ${wait} s before asking again`);
   }
   if (res.status === 204 || res.status === 202) return null;
   if (!res.ok) throw new Error(`Spotify answered HTTP ${res.status} for ${method} ${pathAndQuery.split('?')[0]}`);
@@ -150,6 +161,7 @@ function logout() {
   userName = '';
   saveToken();
   now = { uri: null, queue: [], liked: false };
+  likedOf = null;
   events.emit('change');
   events.emit('now', now);
 }
@@ -166,19 +178,29 @@ const trackInfo = t => ({
   art: ((t.album && t.album.images) || t.images || []).slice(-1)[0]?.url || ''
 });
 
+// The queue and the "liked" mark are asked separately: one failing does not lose the other.
 async function refreshNow() {
   if (!token) return;
+  let q;
   try {
-    const q = await api('GET', '/me/player/queue');
-    const current = q && q.currently_playing;
-    const uri = current ? current.uri : localUri;
-    let liked = false;
-    if (uri) liked = !!((await api('GET', '/me/library/contains?uris=' + encodeURIComponent(uri))) || [])[0];
-    now = { uri, queue: ((q && q.queue) || []).slice(0, 5).map(trackInfo), liked };
-    events.emit('now', now);
+    q = await api('GET', '/me/player/queue');
   } catch (e) {
-    log.warn('Spotify Web API:', e.message);
+    if (!e.waiting) log.warn('Spotify Web API:', e.message);
+    return;
   }
+  const current = q && q.currently_playing;
+  const uri = current ? current.uri : localUri;
+  now = { ...now, uri, queue: ((q && q.queue) || []).slice(0, 5).map(trackInfo) };
+  if (uri !== likedOf) {
+    now.liked = false;
+    try {
+      if (uri) now.liked = !!((await api('GET', '/me/library/contains?uris=' + encodeURIComponent(uri))) || [])[0];
+      likedOf = uri;
+    } catch (e) {
+      if (!e.waiting) log.warn('Spotify Web API:', e.message);
+    }
+  }
+  events.emit('now', now);
 }
 
 // Called with every player snapshot: reload the queue when the track changes.
@@ -187,7 +209,10 @@ function onSnapshot(s) {
   if (s && typeof s.id === 'string' && s.id.startsWith('spotify:track:')) localUri = s.id;
   if (!token || !s || !s.id || s.id === lastTrackId) return;
   lastTrackId = s.id;
-  setTimeout(refreshNow, 1500); // the Web API learns about the new track a moment later
+  // The Web API learns about the new track a moment later. Several quick changes (skipping to a track in
+  // "Up next") ask only once, after the last one.
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refreshNow, 1500);
 }
 
 async function setLiked(on) {
