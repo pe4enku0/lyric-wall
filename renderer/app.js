@@ -385,9 +385,10 @@
     if (!web.loggedIn) q.appendChild(emptyNote(t('ui.queueLoginTitle'), t('ui.queueLogin'), t('ui.queueLoginShort'), 'login'));
     else if (!list.length) q.appendChild(emptyNote(t('ui.queueEmpty'), t('ui.queueEmptyHint'), t('ui.queueEmptyShort')));
     else {
-      (S.layout === 'b' ? list.slice(0, 1) : list).forEach(it => {
+      (S.layout === 'b' ? list.slice(0, 1) : list).forEach((it, k) => {
         const row = document.createElement('div');
         row.className = 'qi';
+        row.dataset.act = `q${k}`; // a click plays this track (see act)
         row.innerHTML = '<img alt=""><div style="min-width:0"><div class="t"></div><div class="a"></div></div>';
         // no cover: an empty square instead of a broken image
         row.querySelector('img').src = it.art || BLANK;
@@ -937,6 +938,8 @@
     if (track.idle && ['like', 'prev', 'next', 'more', 'progress'].includes(id)) return;
     press(id);
     const control = (cmd, value) => api.control(cmd, value, rid);
+    // A track in "Up next": skip to it (the first one is simply the next track).
+    if (/^q\d$/.test(id)) { control('skip', Number(id.slice(1)) + 1); return; }
     switch (id) {
       case 'prev': case 'next': control(id); break;
       case 'pp': clock.toggle(); setPlaying(clock.playing); control('toggle'); wake(); break;

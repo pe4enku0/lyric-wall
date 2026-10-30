@@ -198,7 +198,13 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 #viz { width: 100%; flex: 1; min-height: 0; display: block; }
 
 .q { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: hidden; }
-.qi { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 10px; flex: none; }
+.qi { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 10px; flex: none;
+  margin: -4px; padding: 4px; border-radius: 10px; }
+.stage[data-platform="win"] .qi { border-radius: 6px; }
+.qi.hover { background: rgba(255,255,255,.08); }
+.qi img { transition: transform .22s cubic-bezier(.3, .7, .4, 1); }
+.qi.hover img { transform: scale(1.06); }
+.qi.pressed { transform: scale(.97); }
 .qi img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--soft); }
 .stage[data-platform="win"] .qi img { border-radius: 4px; }
 .qi .t { font-size: 14px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

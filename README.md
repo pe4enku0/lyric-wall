@@ -49,6 +49,7 @@ The builds are not signed with a paid certificate:
 | white lyrics button | hide / show the lyrics |
 | device ("MacBook" / "PC") | open the system sound settings |
 | "…" | open the control window |
+| a track in "Up next" | play it (skips forward to it, so the playlist and the queue stay) |
 | ★ | like / unlike the track (after signing in to Spotify; filled when the track is in Liked Songs) |
 
 The wallpaper lies under the desktop icons and gets no clicks itself. Invisible click areas sit over the buttons,

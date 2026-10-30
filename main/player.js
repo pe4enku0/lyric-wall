@@ -86,10 +86,25 @@ function setVolume(value, id) {
   });
 }
 
-// cmd: 'toggle' | 'next' | 'prev' | 'seek' (value: seconds) | 'volume' (value: 0-100) | 'mute' | 'shuffle' | 'open'
+// A track further down "Up next": "next" as many times as needed. This keeps the playlist and the queue
+// (playing the track directly would make Spotify forget them), like a click on the queue in Spotify itself.
+async function skip(n, id) {
+  for (let i = 0; i < n; i++) {
+    if (i) await new Promise(r => setTimeout(r, 250)); // Spotify needs a moment between switches
+    await adapter.control('next', null, `${id}n${i + 1}`);
+  }
+}
+
+// cmd: 'toggle' | 'next' | 'prev' | 'skip' (value: how many tracks) | 'seek' (value: seconds) | 'volume' (value: 0-100)
+//      | 'mute' | 'shuffle' | 'open'
 function control(cmd, value, rid) {
   const id = rid || newId('x');
   if (cmd === 'volume') return setVolume(Math.round(Math.max(0, Math.min(100, Number(value) || 0))), id);
+  if (cmd === 'skip') {
+    const n = Math.max(1, Math.min(10, Math.round(Number(value) || 1)));
+    log.info(`[${id}] Player command: skip ${n} track(s) (Spotify: ${current.state})`);
+    return skip(n, id);
+  }
   log.info(`[${id}] Player command: ${cmd}${value == null ? '' : ' ' + value} (Spotify: ${current.state})`);
   return adapter.control(cmd, value, id);
 }
