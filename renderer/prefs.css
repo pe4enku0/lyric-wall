@@ -56,6 +56,21 @@ body.plat-mac {
 .plat-mac.os-win .bar { padding-right: 140px; padding-left: 140px; }
 .btn:disabled, select:disabled { opacity: .45; cursor: default; }
 
+/* ---------- hover and press ---------- */
+/* Both systems, like the wallpaper buttons: under the mouse they come up a little and light up; pressed, they sink in. */
+.plat-mac :is(.np .ctrl button, .seg button, .btn, .sw, .swatches button, .tcard .mini) {
+  transition: transform .22s cubic-bezier(.3, .7, .4, 1), box-shadow .22s ease, background .2s ease; }
+.plat-mac :is(.np .ctrl button, .btn, .sw, .swatches button):not(:disabled):hover { transform: scale(1.08); }
+.plat-mac .seg button:hover { transform: scale(1.05); }
+.plat-mac .np .ctrl button:not(.pp):hover { background: rgba(255,255,255,.1); }
+.plat-mac .np .ctrl .pp:hover { box-shadow: 0 0 0 6px rgba(255,255,255,.16), 0 8px 22px rgba(0,0,0,.35); }
+.plat-mac .seg button:not([aria-pressed="true"]):hover { background: rgba(255,255,255,.08); }
+.plat-mac .btn:not(:disabled):hover { background: rgba(255,255,255,.2); }
+.plat-mac .tcard:hover .mini { transform: translateY(-3px) scale(1.02); }
+.plat-mac input[type="range"]::-webkit-slider-thumb { transition: transform .22s cubic-bezier(.3, .7, .4, 1); }
+.plat-mac input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.12); }
+.plat-mac :is(.np .ctrl button, .seg button, .btn, .sw, .swatches button):not(:disabled):active { transform: scale(.92); }
+
 /* ---------- sliders ---------- */
 input[type="range"] { appearance: none; -webkit-appearance: none; background: transparent; height: 22px; margin: 0; flex: 1; min-width: 0; cursor: pointer;
   --p: 50%; }
