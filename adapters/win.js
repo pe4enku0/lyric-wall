@@ -47,6 +47,7 @@ function user32() {
     ShowWindow: fn('int __stdcall ShowWindow(intptr_t hwnd, int cmd)'),
     IsWindow: fn('int __stdcall IsWindow(intptr_t hwnd)'),
     GetForegroundWindow: fn('intptr_t __stdcall GetForegroundWindow()'),
+    SetForegroundWindow: fn('int __stdcall SetForegroundWindow(intptr_t hwnd)'),
     GetClassNameW: fn('int __stdcall GetClassNameW(intptr_t hwnd, _Out_ uint8_t *buf, int max)'),
     GetWindowThreadProcessId: fn('uint32_t __stdcall GetWindowThreadProcessId(intptr_t hwnd, _Out_ uint32_t *pid)'),
     MonitorFromWindow: fn('intptr_t __stdcall MonitorFromWindow(intptr_t hwnd, uint32_t flags)'),
@@ -232,6 +233,9 @@ function fullscreenAppActive() {
 
 let fullscreenWarned = false;
 
+// The window that was active when the pointer came onto a wallpaper button (see hitLayerHover).
+let focusBefore = 0;
+
 // ---------- Diagnostics for the log ----------
 
 // "Class (program.exe)" of a window.
@@ -262,6 +266,15 @@ function describeHitLayer(win) {
   return `visible ${!!w.IsWindowVisible(hwnd)}, lets clicks through ${!!(ex & WS_EX_TRANSPARENT)}, ` +
     `above desktop icons ${isAbove(w, hwnd, desktopHost())}, under the cursor: ${describeWindow(w, under)}` +
     (root === hwnd ? ' = the click layer' : root && root !== under ? `, inside ${describeWindow(w, root)}` : '');
+}
+
+// Is another program's window under the cursor (covering the wallpaper there)?
+function coveredAtCursor(win) {
+  const w = user32(), p = {};
+  w.GetCursorPos(p);
+  const under = Number(w.WindowFromPoint(p));
+  const root = under ? Number(w.GetAncestor(under, GA_ROOT)) : 0;
+  return !!root && root !== hwndOf(win) && !['Progman', 'WorkerW'].includes(windowClass(w, root));
 }
 
 // Is the wallpaper still embedded where we put it?
@@ -433,6 +446,31 @@ module.exports = {
     }
   },
 
+  // The pointer came onto a button. "Show desktop" (Win+D) raises the desktop above the layer, so it is put
+  // back above the icons; the active window is remembered, since a press on the layer takes the focus.
+  hitLayerHover(win) {
+    try {
+      this.placeHitLayer(win);
+      const fg = Number(user32().GetForegroundWindow());
+      if (fg && fg !== hwndOf(win)) focusBefore = fg;
+    } catch (e) {
+      log.error('Click layer: could not get ready for a press:', e.message);
+    }
+  },
+
+  // A press is over: the window that was active before gets the focus back, the layer goes back down.
+  hitLayerDone(win) {
+    try {
+      const w = user32();
+      if (Number(w.GetForegroundWindow()) === hwndOf(win) && focusBefore && w.IsWindow(focusBefore)) {
+        if (!w.SetForegroundWindow(focusBefore)) log.warn('Click layer: could not give the focus back to', describeWindow(w, focusBefore));
+      }
+      this.placeHitLayer(win);
+    } catch (e) {
+      log.error('Click layer: could not give the focus back:', e.message);
+    }
+  },
+
   detachWallpaper(win) {
     try {
       if (win && !win.isDestroyed()) win.hide();
@@ -455,6 +493,9 @@ module.exports = {
   },
   describeHitLayer(win) {
     try { return describeHitLayer(win); } catch (e) { return 'check failed: ' + e.message; }
+  },
+  coveredAtCursor(win) {
+    try { return coveredAtCursor(win); } catch (_) { return false; }
   },
   describeWallpaper(win) {
     try { return describeWallpaper(win); } catch (e) { return 'check failed: ' + e.message; }

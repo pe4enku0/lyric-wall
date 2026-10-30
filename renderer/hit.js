@@ -12,7 +12,7 @@
   const fx = (r, e) => (e.clientX - r.x) / r.w;
 
   // The button the mouse went down on; moves are sent at most 30 times a second.
-  let down = null, dragTimer = 0, lastMove = null;
+  let down = null, downAt = null, dragTimer = 0, lastMove = null;
   addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     const r = at(e.clientX, e.clientY);
@@ -20,10 +20,13 @@
     api.hitEvent({ type: 'press', id: r ? r.id : null, fx: r ? fx(r, e) : 0 });
     if (!r) return;
     down = r;
+    downAt = { x: e.clientX, y: e.clientY };
     document.documentElement.setPointerCapture(e.pointerId); // keep getting moves outside the window
   });
   addEventListener('pointermove', e => {
     if (!down) return;
+    // Windows sends a "move" on the spot when the press activates the layer: not a drag.
+    if (e.clientX === downAt.x && e.clientY === downAt.y) return;
     lastMove = e;
     if (dragTimer) return;
     dragTimer = setTimeout(() => {

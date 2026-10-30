@@ -3,7 +3,7 @@
 // - macOS: a small native helper (mac-helper/ClickLayer.swift) with non-activating panels, so a click does
 //   not activate the app (that would bring back the windows macOS moved aside to show the desktop);
 // - Windows (and macOS without the helper): an invisible Electron window that catches the mouse only while
-//   the pointer is over a button. Where the pointer is comes from polling the cursor (20 times a second):
+//   the pointer is over a button. Where the pointer is comes from polling the cursor (50 times a second):
 //   a window that lets clicks through gets no mouse events at all.
 // Hovers, clicks, drags (progress and volume bars) and the mouse wheel are passed on to the wallpaper,
 // which does the actual work. Events: { type: 'press' | 'drag' | 'release' | 'click', id, fx } and
@@ -14,7 +14,8 @@ const path = require('path');
 const adapter = require('../adapters');
 const log = require('./log');
 
-const POLL_MS = 50;
+// A press that comes sooner than this after the pointer reached a button goes past the layer to the desktop.
+const POLL_MS = 20;
 
 let wallpaper = null;  // webContents of the wallpaper (reports button positions, gets the events)
 let rects = [];        // buttons, in wallpaper window coordinates
@@ -33,6 +34,11 @@ let lastWheel = 0;
 let mouseWasDown = false;
 let layerDownAt = 0;   // last mouse press the Electron layer received
 const MISSED_MS = 700;
+
+// A press on the Electron layer is over: give the focus back and put the layer back under all windows.
+function pressDone() {
+  if (win && adapter.hitLayerDone) adapter.hitLayerDone(win);
+}
 
 function toWallpaper(ev) {
   if (wallpaper && !wallpaper.isDestroyed()) wallpaper.send('hit:event', ev);
@@ -55,6 +61,7 @@ function onEvent(ev) {
     case 'release':
       dragging = false;
       if (dragMoved) log.info(`[${rid}] Click layer: dragged "${ev.id}" to ${pct(fx)}`);
+      pressDone();
       break;
     case 'click':
       log.info(`[${rid}] Click layer: click on "${ev.id}" at ${pct(fx)}`);
@@ -108,11 +115,13 @@ function buttonAt(p) {
 // The mouse went down over a button: did the click layer get it? If not, log what Windows had under the cursor.
 function watchPress() {
   const down = adapter.mouseDown();
-  if (down && !mouseWasDown) {
+  // A press on another app's window that covers the button was not meant for the wallpaper.
+  if (down && !mouseWasDown && !(adapter.coveredAtCursor && adapter.coveredAtCursor(win))) {
     const at = Date.now(), id = hovered;
+    const how = `catching ${catching}, ${adapter.describeHitLayer(win)}`; // as it was at the press
     setTimeout(() => {
       if (!win || layerDownAt >= at - 100) return;
-      log.warn(`Click layer: mouse pressed over "${id}", but the layer got nothing. Layer: catching ${catching}, ${adapter.describeHitLayer(win)}`);
+      log.warn(`Click layer: mouse pressed over "${id}", but the layer got nothing. Layer: ${how}`);
     }, MISSED_MS);
   }
   mouseWasDown = down;
@@ -126,6 +135,7 @@ function poll() {
   if (dragging && win) {
     if (!adapter.mouseDown || adapter.mouseDown()) return;
     dragging = false;
+    pressDone();
   }
   const id = buttonAt(screen.getCursorScreenPoint());
   if (win && hovered && adapter.mouseDown) watchPress();
@@ -133,6 +143,7 @@ function poll() {
   if (id === hovered) return;
   hovered = id;
   if (win) {
+    if (id && adapter.hitLayerHover) adapter.hitLayerHover(win);
     setCatching(!!id);
     win.webContents.send('hit:cursor', id);
   }
@@ -153,7 +164,10 @@ function createElectronLayer() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    focusable: false,
+    // Windows: a window that cannot take focus throws away every press it gets while another app is active
+    // (Chromium answers WM_MOUSEACTIVATE with "do not activate, eat the click"). So the layer may take focus;
+    // the adapter gives it back to the previous window when the press is over (hitLayerDone).
+    focusable: process.platform === 'win32',
     acceptFirstMouse: true,
     enableLargerThanScreen: true,
     roundedCorners: false,
