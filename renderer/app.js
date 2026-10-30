@@ -179,10 +179,13 @@
       applyBg(); applyAccent();
     });
   }
-  // The default look takes the accent from the cover; the other themes have their own colour.
+  // The default look takes the accent from the cover; VHS mixes 30% of it into its pink-red (#FF3D7F);
+  // the other themes have their own colour.
+  const VHS_PINK = [255, 61, 127];
   function applyAccent() {
     if (S.theme === 'default' && !track.idle && track.accent) stage.style.setProperty('--accent', `rgb(${track.accent.join(' ')})`);
     else if (S.theme === 'default' && !track.idle) stage.style.setProperty('--accent', 'var(--accent-idle)');
+    else if (S.theme === 'vhs' && !track.idle && track.accent) stage.style.setProperty('--accent', `rgb(${VHS_PINK.map((v, i) => Math.round(v * .7 + track.accent[i] * .3)).join(' ')})`);
     else stage.style.removeProperty('--accent');
     accentUntil = performance.now() + 700; // the visualizer follows the colour while it changes
     wake();

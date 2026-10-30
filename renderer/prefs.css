@@ -147,6 +147,13 @@ footer .btns { display: flex; gap: 8px; justify-content: flex-end; }
               radial-gradient(circle, var(--p2) 0 .5px, transparent .9px) 13px 11px / 31px 37px,
               radial-gradient(circle, var(--p3) 0 1px, transparent 1.5px) 29px 17px / 47px 41px; }
 .mini[data-theme="amoled"] .m-dots { display: none; }
+/* VHS: scan lines, square shapes, the clock in VT323. */
+.mini[data-theme="vhs"]::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(0,0,0,.35) 2px 3px); }
+.mini[data-theme="vhs"] .m-dots { opacity: .25; }
+.mini[data-theme="vhs"] :is(.m-player, .m-cover, .m-pp) { border-radius: 1px; }
+.mini[data-theme="vhs"] .m-player { border-width: 1px; box-shadow: 2px 2px 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+.mini[data-theme="vhs"] .m-clock { font: 13cqw/1 'VT323', monospace; letter-spacing: 0; text-shadow: -1px 0 rgba(63,224,232,.6), 1px 0 color-mix(in srgb, var(--accent) 75%, transparent); }
+.mini[data-theme="vhs"] .m-on { background: #000; box-shadow: inset 0 0 0 1px var(--line-active); }
 .m-player { left: 6%; top: 10%; bottom: 10%; width: 27%; border-radius: 5px; background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); }
 .m-cover { left: 9%; right: 9%; top: 6%; aspect-ratio: 1; border-radius: 3px; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 35%, #1a1020)); }
 .m-t { left: 9%; width: 62%; top: 68%; height: 6%; border-radius: 2px; background: var(--text); }

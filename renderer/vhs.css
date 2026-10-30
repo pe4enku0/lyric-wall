@@ -1,0 +1,10 @@
+/* VHS theme: shapes, fonts and effects on top of the default look (colours: themes.css).
+   Every rule starts with [data-theme="vhs"], so the other themes never see this file.
+   VT323 is the recorder's screen menu: clock, date, tape counter, button labels, the artist, numbers.
+   The track title and the lyrics keep the display font, bold. All words in capitals. */
+
+/* ---------- sizes: square corners ---------- */
+.stage[data-theme="vhs"] {
+  --card-r: 4px; --small-r: 4px; --strip-r: 4px;
+  --cover-r: 0px; --b-cover-r: 0px;
+}

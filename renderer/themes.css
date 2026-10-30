@@ -242,6 +242,33 @@
   --particles: glitter; --p1: #ffffff; --p2: #c9b6ff; --p3: #9fe8ff;
 }
 
+/* VHS: the screen menu of a video recorder. Near black, white "screen" text in VT323, a pink-red accent
+   (app.js mixes the cover's colour into it), cyan and the accent for the colour bleed.
+   Shapes and effects (scan lines, tracking, noise): vhs.css. */
+.themed[data-theme="vhs"] {
+  --vhs-white: #EDEDED; --vhs-cyan: #3FE0E8;
+  --vhs-on-accent: color-mix(in srgb, var(--accent) 75%, #fff);
+  --vhs-yellow: color-mix(in srgb, #F2C14E 75%, var(--accent));
+  --vt: 'VT323', ui-monospace, Menlo, Consolas, monospace;
+  --stage-bg:
+    radial-gradient(900px 900px at 12% 46%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+    radial-gradient(800px 700px at 92% 4%, rgba(63,224,232,.06), transparent 70%),
+    #07070A;
+  --glass-bg: rgba(9,9,13,.86);
+  --glass-border: rgba(237,237,237,.5);
+  --glass-filter: none;
+  --glass-shadow: none;
+  --ink: #EDEDED; --ink2: rgba(237,237,237,.7); --ink3: rgba(237,237,237,.5);
+  --icon: #EDEDED; --icon-inv: #07070A; --btn-light: #EDEDED;
+  --soft: rgba(237,237,237,.08); --track: rgba(237,237,237,.14); --fill: #EDEDED;
+  --knob: #EDEDED; --knob-glow: transparent;
+  --line: #EDEDED; --line-on: #F4F4F4; --line-on-bg: none; --line-on-shadow: none; --line-on-filter: none;
+  --msg: rgba(237,237,237,.7); --plain: #EDEDED;
+  --grain-opacity: 0;
+  --viz-rgb: 255,61,127;
+  --particles: vhs; --p1: #fff; --p2: #fff; --p3: #fff;
+}
+
 /* Bridge: the theme variables above become the wallpaper's tokens. The accent is the theme's own colour. */
 .themed:not([data-theme="default"]) {
   --bg-fill: var(--stage-bg);

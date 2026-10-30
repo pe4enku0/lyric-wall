@@ -12,7 +12,7 @@ const log = require('./log');
 const IMAGE = path.join(app.getPath('userData'), 'background.jpg');
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
-const THEMES = ['default', 'dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'];
+const THEMES = ['default', 'dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome', 'vhs'];
 // 'color' = a plain colour (bgColor), the default look only. 'theme' = the theme's own background.
 // The colour presets belong to the dusty-glass theme only.
 const BACKGROUNDS = ['color', 'theme', 'dusk', 'photo', 'cover', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];

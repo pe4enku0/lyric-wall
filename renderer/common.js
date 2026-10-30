@@ -15,7 +15,7 @@ window.LW = {
     { id: 'pine', hue: 30, sat: 1.2, sw: 'linear-gradient(160deg, #3f4844, #1f4a36)' },
     { id: 'sunset', hue: 265, sat: 1.5, sw: 'linear-gradient(160deg, #4d4545, #6a3420)' }
   ],
-  THEMES: ['default', 'dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'],
+  THEMES: ['default', 'dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome', 'vhs'],
   // Swatches of the "Color" background.
   COLORS: [['ink', '#0C0B10'], ['midnight', '#0E1622'], ['plum', '#1A0F1F'], ['pine', '#0F1A16'], ['umber', '#1C1712'], ['graphite', '#202024']],
   // Backgrounds offered with a theme (the same rules as main/appearance.js).
