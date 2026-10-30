@@ -520,21 +520,33 @@
     dust:        { speed: -.3, sway: 8,  size: [.8, 2.6] }, // floats up slowly
     leaves:      { speed: .8,  sway: 16, size: [5, 8] },
     glitter:     { speed: .4,  sway: 4,  size: [1.5, 3.5] },
+    vhs:         { speed: 0,   sway: 0,  size: [2, 11] },   // tape noise: short strokes that flicker in place
     none:        { speed: 0,   sway: 0,  size: [0, 0] }
   };
+  // Tape noise lives 1–3 frames (at 60 per second; faster "snow" = shorter), then shows up somewhere else.
+  const noiseLife = () => rnd(1, 3) / 60 / Math.max(.2, S.snowSpeed);
+  function respawnNoise(f) {
+    f.x = Math.random() * W; f.y = Math.random() * H;
+    f.s = rnd(2, 11); f.h = Math.random() < .5 ? 1 : 2; f.a = rnd(.08, .48);
+    f.life = noiseLife();
+  }
+  // VHS: a third as many noise strokes as snowflakes (300 strokes would make the picture dirty).
+  const particleCount = () => (S.snowOn === false ? 0 : pKind === 'vhs' ? Math.round(S.snowCount / 3) : S.snowCount);
   let pKind = 'snow', pColors = ['#fff'];
   const rnd = (a, b) => a + Math.random() * (b - a);
   let made = 0;
   const mk = () => {
     const kind = KINDS[pKind] || KINDS.snow;
     const big = pKind === 'snow' && made++ % 5 === 0;
-    return {
+    const f = {
       x: Math.random() * W, y: Math.random() * H, s: big ? rnd(1.5, 2.75) : rnd(kind.size[0], kind.size[1]), big,
       v: 5 + Math.random() * 14, w: Math.random() * 6.3, a: .12 + Math.random() * .5,
       rot: Math.random() * 6.3, spin: rnd(-1.2, 1.2),
       c: pColors[Math.floor(Math.random() * pColors.length)],
       fly: pKind === 'butterflies' && Math.random() < .35 // a butterfly, not a sparkle
     };
+    if (pKind === 'vhs') respawnNoise(f);
+    return f;
   };
   let flakes = [];
   function setCount(n) { while (flakes.length < n) flakes.push(mk()); flakes.length = n; }
@@ -571,6 +583,7 @@
         sx.beginPath(); sx.arc(f.x, f.y, s, 0, Math.PI * 2); sx.fill();
         break;
       case 'dust': sx.globalAlpha = f.a * .7; sx.beginPath(); sx.arc(f.x, f.y, s, 0, Math.PI * 2); sx.fill(); break;
+      case 'vhs': sx.globalAlpha = f.a; sx.fillRect(Math.round(f.x), Math.round(f.y), Math.round(s), f.h); break;
       case 'rain':
         sx.globalAlpha = .25 + f.a * .5; sx.lineWidth = 1;
         sx.beginPath(); sx.moveTo(f.x, f.y); sx.lineTo(f.x - s * .18, f.y + s); sx.stroke();
@@ -607,6 +620,15 @@
     sx.clearRect(0, 0, W, H);
     if (pKind === 'none') return;
     const m = Math.max(.4, speed);
+    // Tape noise does not fall: it flickers (still with "reduce motion" on, or while paused).
+    if (pKind === 'vhs') {
+      for (const f of flakes) {
+        if (playing && speed > 0 && !reduce && (f.life -= dt) <= 0) respawnNoise(f);
+        drawOne(f);
+      }
+      sx.globalAlpha = 1;
+      return;
+    }
     for (const f of flakes) {
       if (playing && speed > 0) {
         f.y += f.v * dt * speed * kind.speed;
@@ -1066,7 +1088,7 @@
     S = { ...look, layout: S.layout };
     stage.dataset.theme = S.theme || 'default';
     readTheme();
-    setCount(S.snowOn === false ? 0 : S.snowCount);
+    setCount(particleCount());
     applyBg(); applyAccent();
     $('lyr').classList.toggle('off', !S.showLyrics);
     applyLayout(layout, lookApplied);

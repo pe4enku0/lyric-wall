@@ -8,3 +8,29 @@
   --card-r: 4px; --small-r: 4px; --strip-r: 4px;
   --cover-r: 0px; --b-cover-r: 0px;
 }
+
+/* ---------- over the whole screen: scan lines, the tracking band, the vignette ---------- */
+/* The only rule for the other themes: the layer is not there. */
+.vhsfx { display: none; }
+.stage[data-theme="vhs"] .vhsfx { display: block; position: absolute; inset: 0; pointer-events: none; overflow: hidden; container-type: size; }
+/* A dark 1 px line every 3 px. */
+.stage[data-theme="vhs"] .vhsfx::before { content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
+.stage[data-theme="vhs"] .vhsfx::after { content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,.55)); }
+/* Tracking: a faint 20 px band with a few white strokes, drifting up and down in the bottom third. */
+.stage[data-theme="vhs"] .tracking { position: absolute; left: 0; right: 0; top: 66%; height: 20px; display: block;
+  background:
+    linear-gradient(rgba(255,255,255,.35), rgba(255,255,255,.35)) 8% 6px / 46px 1px no-repeat,
+    linear-gradient(rgba(255,255,255,.22), rgba(255,255,255,.22)) 27% 13px / 90px 2px no-repeat,
+    linear-gradient(rgba(255,255,255,.4), rgba(255,255,255,.4)) 49% 4px / 18px 1px no-repeat,
+    linear-gradient(rgba(255,255,255,.18), rgba(255,255,255,.18)) 63% 15px / 130px 1px no-repeat,
+    linear-gradient(rgba(255,255,255,.3), rgba(255,255,255,.3)) 86% 9px / 34px 2px no-repeat,
+    rgba(255,255,255,.04);
+  animation: vhs-tracking 19s ease-in-out infinite alternate; }
+@keyframes vhs-tracking { from { transform: translateY(0); } to { transform: translateY(calc(34cqh - 20px)); } }
+
+/* ---------- system setting "reduce motion" (macOS) / "Animation effects" off (Windows): nothing moves ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .stage[data-theme="vhs"] .tracking { animation: none; transform: translateY(12cqh); }
+}
