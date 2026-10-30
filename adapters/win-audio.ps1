@@ -1,7 +1,7 @@
 # Lyric Wall sound helper for Windows (keep this file ASCII-only: PowerShell 5.1 reads it as ANSI).
 # Listens to what the default output device plays (WASAPI loopback) in the device's own format, so
 # 5.1 / 7.1 headsets work too (the loopback built into Electron opens the device in stereo and is
-# refused by such devices). The sound is mixed down to mono, made about 8 dB louder (GAIN) and turned
+# refused by such devices). The sound is mixed down to mono, made about 12 dB louder (GAIN) and turned
 # into a spectrum the same way the browser's AnalyserNode does it (fftSize 4096, smoothing 0.5,
 # -80..-22 dB). Nothing is recorded, saved or sent anywhere.
 # Output, one line each:
@@ -61,8 +61,8 @@ public static class LwLoopback {
   const int FFT = 4096;
   const double MIN_DB = -80, MAX_DB = -22, SMOOTHING = 0.5, TOP_HZ = 16000;
   const int TICK_MS = 20;
-  // The sound is taken after Spotify's own volume, so the bars were low: about +8 dB makes them livelier.
-  const float GAIN = 2.5f;
+  // The sound is taken after Spotify's own volume, so the bars were low: about +12 dB makes them livelier.
+  const float GAIN = 4f;
   static readonly Guid FLOAT = new Guid("00000003-0000-0010-8000-00AA00389B71");
 
   static StreamWriter output;
