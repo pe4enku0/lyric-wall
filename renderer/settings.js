@@ -10,7 +10,18 @@
   const layoutC = choice($('layout'), [['a', t('look.layoutA')], ['b', t('look.layoutB')]], v => set('layout', v));
   const styleC = choice($('bgStyle'), [['color', t('bgStyle.color')], ['picture', t('bgStyle.picture')], ['cover', t('bgStyle.cover')]], pickStyle);
   const fpsC = choice($('fps'), [['30', '30'], ['20', '20'], ['15', '15']], v => set('fps', +v));
-  const themeC = choice($('theme'), LW.THEMES.map(id => [id, t(`theme.${id}`)]), v => set('theme', v), true);
+
+  /* ---------- themes: a small copy of the wallpaper in each theme's colours ---------- */
+  for (const id of LW.THEMES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tcard'; b.dataset.id = id; b.setAttribute('role', 'radio');
+    b.innerHTML = `<span class="mini themed" data-theme="${id}" data-platform="${plat}"><i class="m-dots"></i>` +
+      '<i class="m-player"><i class="m-cover"></i><i class="m-t"></i><i class="m-a"></i><i class="m-pp"></i></i>' +
+      '<b class="m-clock">09:41</b><i class="m-line m-near"></i><i class="m-line m-on"></i><i class="m-line m-near"></i><i class="m-line m-far"></i></span><span class="tname"></span>';
+    b.querySelector('.tname').textContent = t(`theme.${id}`);
+    b.onclick = () => set('theme', id);
+    $('themes').appendChild(b);
+  }
   $('pickText').textContent = t(plat === 'mac' ? 'pic.choose.mac' : 'pic.choose.win');
 
   /* ---------- background ----------
@@ -89,7 +100,9 @@
   /* ---------- everything on screen ---------- */
   function render() {
     layoutC.set(look.layout);
-    themeC.set(look.theme);
+    for (const b of $('themes').children) b.setAttribute('aria-checked', String(b.dataset.id === look.theme));
+    // The default look shows the background colour chosen above.
+    $('themes').querySelector('[data-theme="default"]').style.setProperty('--bg', look.bgColor || '#0C0B10');
     fpsC.set(look.fps);
     const style = styleOf(look.bg);
     styleC.set(style);

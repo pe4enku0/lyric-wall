@@ -610,7 +610,7 @@
     sx.globalAlpha = 1;
   }
 
-  /* ---------- Sound card: the bars jump to the beat ----------
+  /* ---------- Sound card: the bars move to the beat ----------
      The tempo (BPM) comes from the public Deezer catalog (main/tempo.js) and the beats are counted from the
      song position, so nothing listens to the computer's sound. Paused or nothing playing: a flat, faint line. */
   const vc = $('viz'), vx = vc.getContext('2d'), lv = new Array(48).fill(.05);
@@ -623,6 +623,12 @@
   }
   // The same "random" number for the same beat and bar: every beat gets its own pattern.
   const noise = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const smooth = x => x * x * (3 - 2 * x);
+  // A soft pattern: neighbouring bars get similar heights (one random point every 3 bars, blended between).
+  function pattern(beat, i) {
+    const x = i / 3, j = Math.floor(x), f = smooth(x - j);
+    return noise(beat, j) * (1 - f) + noise(beat, j + 1) * f;
+  }
 
   function heightsFor(n) {
     // Bars on the left (bass) are a bit taller, like a spectrum.
@@ -634,14 +640,19 @@
       const tm = performance.now() / 1000;
       return i => .14 + .1 * shape(i) * (1 + Math.sin(tm * 2.2 + i * .55));
     }
-    const beats = clock.now() * bpm / 60, b = Math.floor(beats);
-    const hit = Math.exp(-(beats - b) * 3.2);              // jump on the beat, fall until the next one
-    const half = Math.exp(-((beats * 2) % 1) * 6) * .35;  // a smaller jump between the beats
-    const accent = b % 4 === 0 ? 1 : .8;                 // the first beat of a bar is a bit stronger
-    return i => .1 + .9 * shape(i) * accent * (hit * (.5 + .5 * noise(b, i)) + half * noise(b + .5, i));
+    // Counted a moment early, so the bars are up right on the beat.
+    const beats = clock.now() * bpm / 60 + .1, b = Math.floor(beats), ph = beats - b;
+    // A soft pulse: the bars rise over the first sixth of the beat, then sink slowly until the next one.
+    const pulse = ph < .16 ? smooth(ph / .16) : Math.exp(-(ph - .16) * 2.4);
+    const accent = b % 4 === 0 ? 1 : .85;               // the first beat of a bar is a bit stronger
+    const mix = smooth(ph);                              // this beat's pattern melts into the next one's
+    return i => {
+      const p = pattern(b, i) * (1 - mix) + pattern(b + 1, i) * mix;
+      return .12 + .72 * shape(i) * accent * pulse * (.45 + .55 * p);
+    };
   }
 
-  function drawViz(now) {
+  function drawViz(now, dt) {
     const VW = vc.width, VH = vc.height;
     if (!VW || !VH) return false;
     // The accent colour, also while it changes (CSS animates it over 600 ms).
@@ -659,7 +670,8 @@
     let moving = vizAlpha !== alpha || now < accentUntil;
     for (let i = 0; i < n; i++) {
       const tgt = Math.min(1, target(i));
-      lv[i] += (tgt - lv[i]) * (tgt > lv[i] ? .85 : .3);  // up fast, down slower
+      // Follow the target smoothly (the same speed at 15, 20 or 30 frames per second): up a bit faster than down.
+      lv[i] += (tgt - lv[i]) * (1 - Math.exp(-dt * (tgt > lv[i] ? 12 : 6)));
       const h = Math.max(3, lv[i] * VH), x = i * step + (step - bw) / 2;
       vx.beginPath();
       vx.roundRect(x, VH - h, bw, h, Math.min(2, bw / 2));
@@ -705,7 +717,7 @@
     setText('rem', !d ? DASH : plat === 'mac' ? '−' + fmt(d - pos) : fmt(d));
     updateLyrics(pos, d);
     drawParticles(dt);
-    const vizMoving = drawViz(now);
+    const vizMoving = drawViz(now, dt);
     if (playing || vizMoving) scheduleFrame();
   }
   function setFrozen(st) {

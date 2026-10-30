@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https:">
 <title>Lyric Wall</title>
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/archivo/wdth.css">
 <link rel="stylesheet" href="../node_modules/@fontsource-variable/onest/index.css">
+<link rel="stylesheet" href="themes.css">
 <link rel="stylesheet" href="prefs.css">
 </head>
 <body>
@@ -53,7 +55,10 @@
     <section>
       <h3 data-i18n="look.theme"></h3>
       <div class="group">
-        <div class="row"><span class="ri" data-icon="palette"></span><div class="rt"><b data-i18n="look.theme"></b><small data-i18n="desc.theme"></small></div><select id="theme"></select></div>
+        <div class="row col">
+          <div class="rhead"><span class="ri" data-icon="palette"></span><div class="rt"><b data-i18n="look.theme"></b><small data-i18n="desc.theme"></small></div></div>
+          <div class="themes" id="themes" role="radiogroup"></div>
+        </div>
       </div>
     </section>
 
