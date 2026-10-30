@@ -17,8 +17,9 @@ function focus(win) {
 }
 
 // The window is shown once its page reports its height (window:fit), or after 2 s at the latest.
-// The title bar is drawn by the page: macOS keeps its traffic lights, Windows 11 its own
-// minimize / maximize (disabled) / close buttons on the right.
+// The title bar is drawn by the page (the same Mac look on both systems): macOS keeps its traffic
+// lights, Windows 11 its own minimize / maximize (disabled) / close buttons on the right, in the bar's colour.
+// On Windows an open window has a taskbar button, so a minimized window can be found again.
 function createAppWindow(file, width) {
   nativeTheme.themeSource = 'dark';
   const win = new BrowserWindow({
@@ -31,10 +32,10 @@ function createAppWindow(file, width) {
     show: false,
     title: 'Lyric Wall',
     icon: ICON,
-    backgroundColor: isMac ? '#1E1E20' : '#202020',
-    skipTaskbar: true, // the app lives in the tray only, also while a window is open
+    backgroundColor: '#1E1E20',
+    skipTaskbar: isMac, // macOS: the app lives in the menu bar only, also while a window is open
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
-    ...(isMac ? { trafficLightPosition: { x: 20, y: 19 } } : { titleBarOverlay: { color: '#202020', symbolColor: '#ffffff', height: 44 } }),
+    ...(isMac ? { trafficLightPosition: { x: 20, y: 19 } } : { titleBarOverlay: { color: '#1E1E20', symbolColor: '#F2F1F4', height: 52 } }),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

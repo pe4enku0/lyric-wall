@@ -4,15 +4,16 @@ LW.initPrefs = async () => {
   const { info, t } = await LW.initI18n();
   const plat = info.ui || (info.platform === 'darwin' ? 'mac' : 'win');
   LW.platform = plat;
-  document.body.classList.add('plat-' + plat);
+  // Both systems get the Mac look; Windows adds its font and room for its window buttons.
+  document.body.classList.add('plat-mac');
+  if (plat === 'win') document.body.classList.add('os-win');
   if (info.accent) document.documentElement.style.setProperty('--sys-accent', info.accent);
   LW.fillIcons();
 
-  // A choice of a few values: segmented buttons on the Mac, a drop-down list on Windows (as each system does it).
-  // forceSelect: a drop-down on both. Returns { set(value) }.
+  // A choice of a few values: segmented buttons; forceSelect: a drop-down list. Returns { set(value) }.
   function choice(host, options, onChange, forceSelect) {
     host.innerHTML = '';
-    if (plat === 'mac' && !forceSelect) {
+    if (!forceSelect) {
       const seg = document.createElement('div');
       seg.className = 'seg';
       for (const [v, label] of options) {
@@ -30,7 +31,7 @@ LW.initPrefs = async () => {
     return { set: value => { sel.value = String(value); } };
   }
 
-  // A switch (Windows shows "On" / "Off" next to it).
+  // A switch (its "On" / "Off" label is hidden in the Mac look).
   function toggle(el, on) {
     el.setAttribute('aria-checked', String(!!on));
     const label = el.querySelector('b');

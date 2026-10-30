@@ -22,7 +22,7 @@
     b.onclick = () => set('theme', id);
     $('themes').appendChild(b);
   }
-  $('pickText').textContent = t(plat === 'mac' ? 'pic.choose.mac' : 'pic.choose.win');
+  $('pickText').textContent = t('pic.choose');
 
   /* ---------- background ----------
      Style "Color": the default look has six colours and an own one; dusty glass has its tinted presets;

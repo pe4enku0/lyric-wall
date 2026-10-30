@@ -20,7 +20,7 @@ function send(channel, ...args) {
 function show(reason) {
   log.info('Control window requested by:', reason || 'unknown');
   if (win) { focus(win); return; }
-  win = createAppWindow('control.html', process.platform === 'darwin' ? 440 : 560);
+  win = createAppWindow('control.html', 440);
   win.on('closed', () => {
     win = null;
     clearInterval(statusTimer);

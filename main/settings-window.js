@@ -11,7 +11,7 @@ let win = null;
 function show(reason) {
   log.info('Settings window requested by:', reason || 'unknown');
   if (win) { focus(win); return; }
-  win = createAppWindow('settings.html', process.platform === 'darwin' ? 620 : 880);
+  win = createAppWindow('settings.html', 620);
   win.on('closed', () => { win = null; });
   log.info('Settings window opened');
 }
