@@ -77,6 +77,11 @@
       </div>
     </div>
   </div>
+
+  <!-- Menu of the sound output button (app.js, openOutputs). Under it, while it is open, a layer over the whole
+       screen: a click anywhere else closes the menu. It comes last, so the menu rows win over it. -->
+  <div class="outs glass" id="outs" hidden><div class="oh" id="outsHead"></div><div id="outsList"></div></div>
+  <div class="outsbg" data-act="outClose" hidden></div>
 </div>
 
 <script src="common.js"></script>

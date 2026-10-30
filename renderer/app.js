@@ -827,6 +827,7 @@
   function applyLayout(name, animate) {
     if (name !== 'a' && name !== 'b') name = 'a';
     if (stage.dataset.layout === name) return;
+    closeOutputs(); // its button moves
     // A switch during a switch: finish the old one at once.
     stage.getAnimations({ subtree: true }).forEach(a => { if (a.id === 'lw') a.finish(); });
     ghosts.forEach(g => g.remove()); ghosts = [];
@@ -944,6 +945,52 @@
     userVolume(Math.round(track.volume / 5) * 5 + steps * 5, rid);
   }
 
+  /* ---------- menu of the sound output button ----------
+     The devices come from the main process (Windows: the sound helper, Mac: Core Audio); a row switches the
+     default output. Without a list the button opens the system sound settings, as before. */
+  const outsEl = $('outs'), outsBg = document.querySelector('.outsbg');
+  let outputs = null; // the devices in the open menu
+  async function openOutputs() {
+    const list = await api.listOutputs();
+    if (!list || !list.length) { api.openSoundSettings(); return; }
+    outputs = list;
+    $('outsHead').textContent = t('ui.output');
+    const rows = $('outsList');
+    rows.textContent = '';
+    const row = (act, name, cls) => {
+      const r = document.createElement('div');
+      r.className = 'orow' + (cls ? ' ' + cls : '');
+      r.dataset.act = act;
+      r.innerHTML = cls === 'more' ? '<span></span>' : LW.icon('check', 16) + '<span></span>';
+      r.querySelector('span').textContent = name;
+      rows.appendChild(r);
+    };
+    list.forEach((d, i) => row(`out:${i}`, d.name, d.default ? 'on' : ''));
+    rows.appendChild(Object.assign(document.createElement('div'), { className: 'osep' }));
+    row('outSettings', t('ui.soundSettings'), 'more');
+    outsEl.hidden = false; outsBg.hidden = false;
+    // Above the button, its right edge on the button's right edge, inside the screen.
+    const dev = box(actEl('device')), w = outsEl.offsetWidth, h = outsEl.offsetHeight;
+    outsEl.style.left = Math.max(16, Math.min(W - w - 16, dev.x + dev.w - w)) + 'px';
+    outsEl.style.top = Math.max(16, dev.y - h - 10) + 'px';
+    requestAnimationFrame(() => outsEl.classList.add('show'));
+    reportHits(); wake();
+  }
+  function closeOutputs() {
+    if (!outputs) return;
+    outputs = null;
+    outsEl.classList.remove('show');
+    outsBg.hidden = true;
+    setTimeout(() => { if (!outputs) { outsEl.hidden = true; reportHits(); } }, 220);
+    reportHits(); wake();
+  }
+  async function chooseOutput(i) {
+    const d = outputs && outputs[i];
+    closeOutputs();
+    if (!d || d.default) return;
+    if (!(await api.setOutput(d.id, d.name))) toast(t('ui.outputFailed'));
+  }
+
   function act(id, rid) {
     // Nothing playing: only Play (and the links) work.
     if (track.idle && ['like', 'prev', 'next', 'more', 'progress'].includes(id)) return;
@@ -951,6 +998,7 @@
     const control = (cmd, value) => api.control(cmd, value, rid);
     // A track in "Up next": skip to it (the first one is simply the next track).
     if (/^q\d$/.test(id)) { control('skip', Number(id.slice(1)) + 1); return; }
+    if (/^out:\d+$/.test(id)) { chooseOutput(Number(id.slice(4))); return; }
     switch (id) {
       case 'prev': case 'next': control(id); break;
       case 'pp': clock.toggle(); setPlaying(clock.playing); control('toggle'); wake(); break;
@@ -962,7 +1010,9 @@
       case 'shuffle': control('shuffle'); break;
       case 'cover': control('open'); break;
       case 'lyrics': api.setLook('showLyrics', !S.showLyrics); break;
-      case 'device': api.openSoundSettings(); break;
+      case 'device': if (outputs) closeOutputs(); else openOutputs(); break;
+      case 'outClose': closeOutputs(); break;
+      case 'outSettings': closeOutputs(); api.openSoundSettings(); break;
       case 'more': api.openControl(); break;
       case 'like': {
         if (!web.loggedIn) { toast(t('ui.likeLogin')); break; }
@@ -1049,7 +1099,7 @@
   }
 
   /* ---------- start ---------- */
-  const refit = () => { fit(); relayout(); wake(); reportHits(); };
+  const refit = () => { closeOutputs(); fit(); relayout(); wake(); reportHits(); };
   addEventListener('resize', refit); api.onLayoutChanged(refit); fit(); sizeViz();
   api.onRender(setFrozen);
   setFrozen(await api.getRender());

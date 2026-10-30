@@ -3,6 +3,7 @@
    LW.icon(name, size) gives the SVG for the current platform (LW.platform, set by app.js). */
 (() => {
   const MAC = {
+    check: '<path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/>',
     note: '<path fill="currentColor" d="M9 18a3 3 0 1 1-2-2.8V4.6a1 1 0 0 1 .8-1l10-1.9A1 1 0 0 1 19 2.7V15a3 3 0 1 1-2-2.8V6.3l-8 1.5Z"/>',
     noteOutline: '<path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" d="M9 18a3 3 0 1 1-2-2.8V4.6l12-2.3V15a3 3 0 1 1-2-2.8V6.6L9 8"/>',
     star: '<path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="m12 3.2 2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.6l-5.2 2.8 1-5.9L3.5 9.4l5.9-.8Z"/>',

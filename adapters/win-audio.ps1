@@ -8,6 +8,9 @@
 #   F <sample rate> <fft size> <channels> <bits>   the device was opened (again)
 #   S <base64 bytes>                               the spectrum, bins 0..up to 16 kHz, 50 times a second
 #   E <text>                                       a problem (no output device, the device went away...)
+#   R <request id> <base64 of UTF-8 JSON>          the answer to a command
+# Commands on stdin, "<request id> <command> [value]": "list" (the output devices: [{id, name, default}]),
+# "set <device id>" (make it the default output, like the sound settings do).
 # The helper exits when stdin closes (the app quit).
 $ErrorActionPreference = 'Stop'
 try {
@@ -23,15 +26,46 @@ class LwDeviceEnumerator {}
 
 [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface ILwDeviceEnumerator {
-  void EnumAudioEndpoints(int flow, int mask, out IntPtr devices);
+  void EnumAudioEndpoints(int flow, int mask, out ILwDeviceCollection devices);
   void GetDefaultAudioEndpoint(int flow, int role, out ILwDevice device);
+}
+
+[ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface ILwDeviceCollection {
+  void GetCount(out uint count);
+  void Item(uint index, out ILwDevice device);
 }
 
 [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface ILwDevice {
   void Activate(ref Guid iid, int context, IntPtr prms, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
-  void OpenPropertyStore(int access, out IntPtr store);
+  void OpenPropertyStore(int access, out ILwPropertyStore store);
   void GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
+}
+
+[StructLayout(LayoutKind.Sequential)]
+struct LwPropKey { public Guid fmtid; public uint pid; }
+
+[StructLayout(LayoutKind.Sequential)]
+struct LwPropVariant { public ushort vt, r1, r2, r3; public IntPtr p, p2; }
+
+[ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface ILwPropertyStore {
+  void GetCount(out uint count);
+  void GetAt(uint index, out LwPropKey key);
+  void GetValue(ref LwPropKey key, out LwPropVariant value);
+}
+
+// Not documented, but what the Windows sound settings use (and EarTrumpet, SoundSwitch...) to change the
+// default device. Only SetDefaultEndpoint is called; the methods before it keep their places in the table.
+[ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+class LwPolicyConfig {}
+
+[ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface ILwPolicyConfig {
+  void GetMixFormat(); void GetDeviceFormat(); void ResetDeviceFormat(); void SetDeviceFormat(); void GetProcessingPeriod();
+  void SetProcessingPeriod(); void GetShareMode(); void SetShareMode(); void GetPropertyValue(); void SetPropertyValue();
+  void SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string id, int role);
 }
 
 [ComImport, Guid("1CB9AD4C-DBFA-4C32-B178-C2F568A703B2"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -80,10 +114,11 @@ public static class LwLoopback {
 
     output = new StreamWriter(Console.OpenStandardOutput());
     output.AutoFlush = true;
-    // stdin closes when the app exits: then this helper exits too.
+    // Commands come on stdin; it closes when the app exits: then this helper exits too.
     var stdin = new Thread(() => {
-      var r = new StreamReader(Console.OpenStandardInput());
-      while (r.ReadLine() != null) {}
+      var r = new StreamReader(Console.OpenStandardInput(), new System.Text.UTF8Encoding(false));
+      string line;
+      while ((line = r.ReadLine()) != null) Command(line.Trim());
       Environment.Exit(0);
     });
     stdin.IsBackground = true;
@@ -98,12 +133,81 @@ public static class LwLoopback {
       } catch (Exception e) {
         string text = e is COMException ? string.Format("0x{0:X8} {1}", ((COMException)e).ErrorCode, e.Message) : e.Message;
         // The same problem again and again is reported once.
-        if (text != lastError) output.WriteLine("E " + text.Replace("\r", " ").Replace("\n", " "));
+        if (text != lastError) Emit("E " + text.Replace("\r", " ").Replace("\n", " "));
         lastError = text;
       }
       Thread.Sleep(1000);
     }
   }
+
+  // Both threads write lines: one at a time.
+  static void Emit(string line) {
+    lock (output) output.WriteLine(line);
+  }
+
+  // "<request id> list" or "<request id> set <device id>"; answered with "R <request id> <base64 JSON>".
+  static void Command(string line) {
+    string[] parts = line.Split(new[] { ' ' }, 3);
+    if (parts.Length < 2) return;
+    string json;
+    try {
+      if (parts[1] == "list") json = "{\"ok\":true,\"devices\":" + ListOutputs() + "}";
+      else if (parts[1] == "set" && parts.Length == 3) { SetOutput(parts[2]); json = "{\"ok\":true}"; }
+      else json = "{\"ok\":false,\"error\":\"unknown command\"}";
+    } catch (Exception e) {
+      json = "{\"ok\":false,\"error\":" + Json(e.Message) + "}";
+    }
+    Emit("R " + parts[0] + " " + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json)));
+  }
+
+  // The active output devices with their names as Windows shows them, the default one marked.
+  static string ListOutputs() {
+    var devices = (ILwDeviceEnumerator)new LwDeviceEnumerator();
+    ILwDevice def;
+    string defId;
+    devices.GetDefaultAudioEndpoint(0, 1, out def);
+    def.GetId(out defId);
+    ILwDeviceCollection all;
+    devices.EnumAudioEndpoints(0, 1, out all); // render, active
+    uint count;
+    all.GetCount(out count);
+    var sb = new System.Text.StringBuilder("[");
+    var nameKey = new LwPropKey { fmtid = new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"), pid = 14 }; // PKEY_Device_FriendlyName
+    for (uint i = 0; i < count; i++) {
+      ILwDevice d;
+      string id, name = "";
+      all.Item(i, out d);
+      d.GetId(out id);
+      ILwPropertyStore store;
+      d.OpenPropertyStore(0, out store);
+      LwPropVariant v;
+      store.GetValue(ref nameKey, out v);
+      if (v.vt == 31) name = Marshal.PtrToStringUni(v.p); // VT_LPWSTR
+      PropVariantClear(ref v);
+      if (i > 0) sb.Append(",");
+      sb.Append("{\"id\":" + Json(id) + ",\"name\":" + Json(name) + ",\"default\":" + (id == defId ? "true" : "false") + "}");
+    }
+    return sb.Append("]").ToString();
+  }
+
+  // The same as choosing the device in the Windows sound settings: default for media and for the console role.
+  static void SetOutput(string id) {
+    var policy = (ILwPolicyConfig)new LwPolicyConfig();
+    policy.SetDefaultEndpoint(id, 0);
+    policy.SetDefaultEndpoint(id, 1);
+  }
+
+  static string Json(string s) {
+    var sb = new System.Text.StringBuilder("\"");
+    foreach (char c in s ?? "") {
+      if (c == '"' || c == '\\') sb.Append('\\').Append(c);
+      else if (c < ' ') sb.Append(string.Format("\\u{0:x4}", (int)c));
+      else sb.Append(c);
+    }
+    return sb.Append("\"").ToString();
+  }
+
+  [DllImport("ole32.dll")] static extern int PropVariantClear(ref LwPropVariant v);
 
   // Opens the default output device and sends spectra until it changes or goes away.
   static void Listen() {
@@ -134,7 +238,7 @@ public static class LwLoopback {
     client.GetService(ref cid, out o);
     var capture = (ILwCaptureClient)o;
     client.Start();
-    output.WriteLine(string.Format("F {0} {1} {2} {3}", rate, FFT, channels, bits));
+    Emit(string.Format("F {0} {1} {2} {3}", rate, FFT, channels, bits));
 
     Array.Clear(ring, 0, FFT);
     Array.Clear(smooth, 0, smooth.Length);
@@ -165,7 +269,7 @@ public static class LwLoopback {
           long due = now * rate / 1000;
           if (due - received > rate / 25) while (received < due) Put(0f);
           Spectrum(bytes);
-          output.WriteLine("S " + Convert.ToBase64String(bytes));
+          Emit("S " + Convert.ToBase64String(bytes));
           nextTick = now + TICK_MS;
         }
         if (now >= nextCheck) {

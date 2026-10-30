@@ -522,6 +522,10 @@ module.exports = {
     require('./win-audio').start(contents);
   },
 
+  // The menu of the sound output button: [{ id, name, default }] and switching the default device.
+  listOutputs: () => require('./win-audio').listOutputs(),
+  setOutput: id => require('./win-audio').setOutput(id),
+
   stopNowPlaying() {
     running = false;
     clearTimeout(retryTimer);

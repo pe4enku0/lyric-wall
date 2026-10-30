@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('lyricWall', {
   control: (cmd, value, rid) => ipcRenderer.send('player:control', cmd, value, rid),
   log: (level, text) => ipcRenderer.send('app:log', level, String(text).slice(0, 500)),
   openSoundSettings: () => ipcRenderer.send('app:openSoundSettings'),
+  // Output devices for the menu of the sound output button: [{ id, name, default }] or null
+  listOutputs: () => ipcRenderer.invoke('outputs:list'),
+  setOutput: (id, name) => ipcRenderer.invoke('outputs:set', id, name),
   openControl: () => ipcRenderer.send('app:openControl'),
 
   // Spotify Web API: queue and likes (wallpaper), sign-in (settings window)

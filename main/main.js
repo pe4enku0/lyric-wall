@@ -60,6 +60,21 @@ ipcMain.handle('player:get', () => player.get());
 ipcMain.on('player:control', (_e, cmd, value, rid) => player.control(cmd, value, typeof rid === 'string' ? rid.slice(0, 16) : undefined));
 ipcMain.on('app:log', (_e, level, text) => (log[level] || log.info)('UI:', text));
 ipcMain.on('app:openSoundSettings', () => shell.openExternal(adapter.soundSettingsUrl));
+// The menu of the sound output button. null: no list (the button opens the sound settings instead).
+ipcMain.handle('outputs:list', async () => {
+  if (!adapter.listOutputs) return null;
+  try { return await adapter.listOutputs(); } catch (e) { log.warn('Sound output: no device list:', e.message); return null; }
+});
+ipcMain.handle('outputs:set', async (_e, id, name) => {
+  try {
+    await adapter.setOutput(String(id));
+    log.info('Sound output: switched to', String(name || id).slice(0, 120));
+    return true;
+  } catch (e) {
+    log.warn('Sound output: could not switch:', e.message);
+    return false;
+  }
+});
 ipcMain.on('app:openControl', () => control.show('the "…" button on the wallpaper'));
 ipcMain.handle('lyrics:get', () => lyrics.get());
 ipcMain.handle('web:getNow', () => ({ ...spotifyWeb.getNow(), loggedIn: spotifyWeb.state().loggedIn }));
