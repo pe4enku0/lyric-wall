@@ -632,6 +632,26 @@
     return noise(beat, j) * (1 - f) + noise(beat, j + 1) * f;
   }
 
+  /* Where the beats are. The tempo says how often; the synced lyrics say where: lines start on a beat far more
+     often than between beats, so the average place of the line starts inside a beat marks the beat.
+     (Counting from 0:00 misses the beat whenever the song does not start exactly on one.) */
+  let grid = { key: '', offset: 0 };
+  function beatOffset(bpm) {
+    const key = `${track.id}|${bpm}|${synced.length}`;
+    if (grid.key === key) return grid.offset;
+    let x = 0, y = 0, n = 0;
+    for (const l of synced) {
+      if (!l.t || l.text === '♪') continue;
+      const a = (l.t * bpm / 60) % 1 * 2 * Math.PI;
+      x += Math.cos(a); y += Math.sin(a); n++;
+    }
+    // Too few lines, or they do not agree on a place: count from the start of the song.
+    const agree = n ? Math.hypot(x, y) / n : 0, sure = n >= 6 && agree > .3;
+    grid = { key, offset: sure ? (Math.atan2(y, x) / (2 * Math.PI) + 1) % 1 : 0 };
+    if (n) api.log('info', `Sound bars: ${bpm} BPM, beat ${sure ? `at ${(grid.offset * 60 / bpm).toFixed(2)} s from the lyrics` : 'from 0:00'} (${n} lines agree ${Math.round(agree * 100)}%)`);
+    return grid.offset;
+  }
+
   function heightsFor(n) {
     // Bars on the left (bass) are a bit taller, like a spectrum.
     const shape = i => 1 - .4 * i / (n - 1);
@@ -642,15 +662,15 @@
       const tm = performance.now() / 1000;
       return i => .14 + .1 * shape(i) * (1 + Math.sin(tm * 2.2 + i * .55));
     }
-    // Counted a moment early, so the bars are up right on the beat.
-    const beats = clock.now() * bpm / 60 + .1, b = Math.floor(beats), ph = beats - b;
-    // A soft pulse: the bars rise over the first sixth of the beat, then sink slowly until the next one.
-    const pulse = ph < .16 ? smooth(ph / .16) : Math.exp(-(ph - .16) * 2.4);
-    const accent = b % 4 === 0 ? 1 : .85;               // the first beat of a bar is a bit stronger
+    // Counted 50 ms early, so the bars (which take a frame or two to rise) are at the top right on the beat.
+    const beats = (clock.now() + .05) * bpm / 60 - beatOffset(bpm), b = Math.floor(beats), ph = beats - b;
+    // The bars jump on the beat, stay up for a moment and sink smoothly until the next one.
+    const pulse = ph < .08 ? 1 : Math.exp(-(ph - .08) * 3.4);
+    const accent = b % 4 === 0 ? 1 : .82;               // the first beat of a bar is a bit stronger
     const mix = smooth(ph);                              // this beat's pattern melts into the next one's
     return i => {
       const p = pattern(b, i) * (1 - mix) + pattern(b + 1, i) * mix;
-      return .12 + .72 * shape(i) * accent * pulse * (.45 + .55 * p);
+      return .1 + .82 * shape(i) * accent * pulse * (.45 + .55 * p);
     };
   }
 
@@ -672,8 +692,8 @@
     let moving = vizAlpha !== alpha || now < accentUntil;
     for (let i = 0; i < n; i++) {
       const tgt = Math.min(1, target(i));
-      // Follow the target smoothly (the same speed at 15, 20 or 30 frames per second): up a bit faster than down.
-      lv[i] += (tgt - lv[i]) * (1 - Math.exp(-dt * (tgt > lv[i] ? 12 : 6)));
+      // Follow the target (the same speed at any frame rate): up within a frame or two, down smoothly.
+      lv[i] += (tgt - lv[i]) * (1 - Math.exp(-dt * (tgt > lv[i] ? 45 : 9)));
       const h = Math.max(3 * vizK, lv[i] * VH), x = i * step + (step - bw) / 2;
       vx.beginPath();
       vx.roundRect(x, VH - h, bw, h, Math.min(2 * vizK, bw / 2));
