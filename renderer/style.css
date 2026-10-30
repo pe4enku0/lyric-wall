@@ -91,7 +91,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 
 /* cover */
 .cover { width: var(--cover); height: var(--cover); border-radius: var(--cover-r); overflow: hidden; flex: none; transition: opacity .4s ease; }
-.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .45s ease; }
 .cover img.out { opacity: 0; }
 .cover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); pointer-events: none; }
 .cover .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); background: rgba(255,255,255,.04); opacity: 0; transition: opacity .4s ease; }
@@ -159,8 +159,9 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .vb { flex: 1; min-width: 0; }
 .stage[data-layout="b"] .vb { flex: none; width: 80px; }
 .stage[data-platform="mac"] .vb i { background: var(--fill-plain); }
-.slider i, .slider b { transition: transform .35s cubic-bezier(.2,.8,.2,1); }
-.bar i, .bar b, .slider.drag i, .slider.drag b { transition: none; }
+.slider i, .slider b { transition: transform .35s cubic-bezier(.2,.8,.2,1), scale .2s ease; }
+.bar i, .slider.drag i { transition: none; }
+.bar b, .slider.drag b { transition: scale .2s ease; }
 .vol .w, .vol .x { transition: opacity .2s ease; }
 .vol .x, .vol.muted .w { opacity: 0; }
 .vol.muted .x { opacity: 1; }
@@ -272,8 +273,25 @@ body.frozen *, body.frozen *::before, body.frozen *::after { animation-play-stat
   #lines, #lines li, .cover img, .stage, .slider i, .slider b, .glow { transition-duration: .01s !important; }
 }
 
-/* Buttons (data-act): hover and press feedback. */
-[data-act] { cursor: pointer; transition: transform .15s ease, filter .15s ease, opacity .25s ease, background .25s ease, color .25s ease; }
-[data-act].hover { filter: brightness(1.25); }
-[data-act].pressed { transform: scale(.9); }
-.cover[data-act].pressed, .bar[data-act].pressed, .vb[data-act].pressed { transform: scale(.98); }
+/* Buttons (data-act): under the mouse they come up a little and light up; pressed, they sink in.
+   (The wallpaper gets no mouse itself: the click layer reports the hover, app.js sets .hover.) */
+[data-act] { cursor: pointer; transition: transform .22s cubic-bezier(.3, .7, .4, 1), scale .22s cubic-bezier(.3, .7, .4, 1), box-shadow .22s ease,
+  filter .2s ease, opacity .25s ease, background .2s ease, color .25s ease; }
+.tb.hover, .lyb.hover, .dev.hover, .spk.hover, .shuf.hover { transform: scale(1.08); }
+.tb.hover:not(.pp), .spk.hover, .shuf.hover { background: rgba(255,255,255,.1); }
+.stage[data-platform="win"] .tb.skip.hover { background: rgba(255,255,255,.12); }
+.tb.pp.hover { box-shadow: 0 0 0 6px color-mix(in srgb, var(--btn-light) 16%, transparent), 0 8px 22px rgba(0,0,0,.35); }
+.stage[data-platform="win"] .tb.pp.hover { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent), 0 8px 22px rgba(0,0,0,.35); }
+.lyb.hover:not(.on), .dev.hover { background: rgba(255,255,255,.14); }
+.lyb.on.hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--btn-light) 18%, transparent); }
+.stage[data-platform="win"] .lyb.on.hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent); }
+.cover.hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 14px 34px rgba(0,0,0,.45); }
+.qe.link.hover { filter: brightness(1.25); }
+/* Sliders get thicker under the mouse (Mac) or their thumb grows (Windows). */
+.stage[data-platform="mac"] .slider.hover, .stage[data-platform="mac"] .slider.drag { scale: 1 1.7; }
+.stage[data-platform="win"] .slider.hover b, .stage[data-platform="win"] .slider.drag b { scale: 1.15; }
+[data-act].pressed { transform: scale(.92); }
+.cover[data-act].pressed { transform: scale(.98); }
+.slider[data-act].pressed { transform: none; }
+/* Nothing playing: the inactive buttons do not react. */
+.stage[data-state="idle"] .tb:not(.pp).hover { transform: none; background: none; }

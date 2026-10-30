@@ -7,11 +7,12 @@ const log = require('../main/log');
 
 const SEP = '\x1f';
 
-// One long-running osascript process: it prints the Spotify state as one line every second while
-// music plays and every 2 seconds otherwise.
+// One long-running osascript process: it prints the Spotify state as one line twice a second while
+// music plays and every second otherwise. After a button press one more state is asked for right away
+// (SNAPSHOT_ONCE), so a new track shows at once.
 // Fields are separated by character 31 so titles with tabs or commas are safe.
 // "is running" is checked first so the script never launches Spotify by itself.
-const LOOP_SCRIPT = `
+const SNAPSHOT = `
 on snapshot()
   if application "Spotify" is not running then return "not-running"
   tell application "Spotify"
@@ -26,15 +27,17 @@ on snapshot()
     return ps & d & (name of t) & d & (artist of t) & d & (album of t) & d & au & d & (duration of t) & d & (player position) & d & (sound volume) & d & (shuffling) & d & (id of t)
   end tell
 end snapshot
-
+`;
+const SNAPSHOT_ONCE = SNAPSHOT + 'return snapshot()';
+const LOOP_SCRIPT = SNAPSHOT + `
 repeat
   try
     set s to snapshot()
     log s
     if s starts with "playing" then
-      delay 1
+      delay 0.5
     else
-      delay 2
+      delay 1
     end if
   on error msg number num
     log "error" & (character id 31) & num & (character id 31) & msg
@@ -99,6 +102,15 @@ function parseLine(line) {
     id,
     at: Date.now()
   };
+}
+
+// One extra state, outside the loop.
+function snapshotNow() {
+  if (!running || !onUpdate) return;
+  execFile('osascript', ['-e', SNAPSHOT_ONCE], { timeout: 3000 }, (err, out) => {
+    const snap = !err && running && parseLine(String(out).trim());
+    if (snap) { if (snap.volume != null) lastVolume = snap.volume; onUpdate(snap); }
+  });
 }
 
 function startLoop() {
@@ -249,6 +261,8 @@ module.exports = {
       execFile('osascript', ['-e', script], { timeout: 5000 }, err => {
         if (err) log.error(`[${rid}] Spotify (mac): ${cmd} failed in ${Date.now() - sent} ms:`, err.message.trim());
         else if (!quiet) log.info(`[${rid}] Spotify (mac): ${cmd} done in ${Date.now() - sent} ms`);
+        // Show the result at once instead of waiting for the loop (Spotify needs a moment to switch tracks).
+        if (!err && ['toggle', 'next', 'prev', 'seek', 'shuffle'].includes(cmd)) { setTimeout(snapshotNow, 120); setTimeout(snapshotNow, 500); }
         resolve();
       });
     });

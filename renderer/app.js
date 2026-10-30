@@ -440,8 +440,8 @@
     put($('volKnob').style, 'transform', `translateX(${($('volBar').parentElement.clientWidth * v / 100).toFixed(1)}px)`);
   }
   function setPlaying(on) {
+    if (on && !playing) heardAt = performance.now(); // give the sound a moment after Play
     playing = on;
-    audioActive(on && !frozen);
     const pp = $('pp'), icon = `${LW.platform}-${on ? 'pause' : 'play'}`;
     if (pp.dataset.icon !== icon) { pp.dataset.icon = icon; pp.innerHTML = LW.icon(on ? 'pause' : 'play'); }
     applyState();
@@ -647,19 +647,25 @@
         if (++audioTries < 5) setTimeout(() => api.startAudio(), 5000);
       };
       audioTries = 0;
+      heardAt = performance.now();
       api.log('info', `Sound card: listening to the system sound (${actx.sampleRate} Hz)`);
-      if (!playing || frozen) actx.suspend();
       wake();
     } catch (e) {
       analyser = null;
       api.log('warn', `Sound card: no system sound (${e.name}: ${e.message}); the bars move in a calm wave`);
     }
   };
-  // The analyser works only while there is something to show.
-  function audioActive(on) {
-    if (!actx) return;
-    if (on && actx.state === 'suspended') actx.resume().catch(() => {});
-    else if (!on && actx.state === 'running') actx.suspend().catch(() => {});
+  // The analyser keeps running (on macOS the system sound did not come back after pausing it); it costs little.
+  // If Spotify plays with its volume up and nothing is heard for 5 s, the sound got lost: listen again
+  // (at most every 20 s, and up to 3 times in a row).
+  let heardAt = 0, relistenAt = 0, relistens = 0;
+  function checkHeard(levels, now) {
+    if (levels.some(v => v > .02)) { heardAt = now; relistens = 0; return; }
+    if (!(track.volume > 0) || now - heardAt < 5000 || now - relistenAt < 20000 || relistens >= 3) return;
+    relistenAt = now; relistens++;
+    api.log('warn', 'Sound card: no sound for 5 s while Spotify plays, listening again');
+    analyser = null; if (actx) actx.close().catch(() => {}); actx = null;
+    api.startAudio();
   }
 
   // n bands from 40 Hz to 14 kHz, evenly spread over the octaves (as we hear them).
@@ -680,8 +686,9 @@
 
   function heightsFor(n) {
     if (!playing) return () => .05;
-    if (analyser && actx.state === 'running') {
+    if (analyser) {
       const b = bands(n);
+      checkHeard(b, performance.now());
       return i => .04 + .96 * b[i];
     }
     // No sound to listen to: a calm wave, bass a bit taller.
@@ -764,7 +771,7 @@
   }
   function setFrozen(st) {
     frozen = !!st.paused;
-    audioActive(playing && !frozen);
+    heardAt = performance.now();
     document.body.classList.toggle('frozen', frozen);
     if (!frozen) wake();
   }
