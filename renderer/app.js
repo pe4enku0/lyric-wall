@@ -289,14 +289,14 @@
   let fadeTimer = null;
   let lastScroll = null;
 
-  // plate: VHS with synced lyrics, the text of every line in a <span class="lt"> (the black subtitle plate);
-  // not for the "♪" of the intro and the breaks.
-  function renderLines(lines, plate) {
+  // wrap: VHS with synced lyrics, the text of every line in a <span class="lt"> (its colour bleed and the
+  // sideways jump of a tape fault, vhs.css).
+  function renderLines(lines, wrap) {
     const ul = $('lines'); ul.innerHTML = ''; heights = [];
     lines.forEach(text => {
       const el = document.createElement('li');
       if (!text) el.className = 'gap';
-      else if (!plate || text === '♪') el.textContent = text;
+      else if (!wrap) el.textContent = text;
       else {
         const lt = document.createElement('span');
         lt.className = 'lt'; lt.textContent = text;
@@ -1178,7 +1178,7 @@
     applyLayout(layout, lookApplied);
     // VHS has other sizes (buttons, fonts): measure again, also once its font has loaded.
     if (themeChanged && lookApplied) {
-      // VHS words (English, the subtitle plate under the lyrics) or the theme's own: draw them again.
+      // VHS words (English, the lyric lines wrapped for vhs.css) or the theme's own: draw them again.
       showClock();
       if (track.idle) { const st = track.id; track.id = null; showMessage(st); } else if (lyr.id) showLyrics(lyr);
       relayout(); reportHits();

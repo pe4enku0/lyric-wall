@@ -171,11 +171,10 @@
 .stage[data-theme="vhs"][data-layout="b"] .date { font-size: 28px; margin-top: 10px; }
 
 /* ---------- lyrics ---------- */
-/* The current line is a tape subtitle: white words on a black plate, a colour bleed.
+/* The current line: white words with a colour bleed, no background (the black subtitle plate was dropped).
    The other lines stay as in the default look (blurred, smaller), in #EDEDED. */
 .stage[data-theme="vhs"] #lines li { letter-spacing: 0; font-stretch: 100%; }
-.stage[data-theme="vhs"] #lines li.on .lt { background: #000; padding: 0 .18em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
-  text-shadow: -3px 0 rgba(63,224,232,.7), 3px 0 color-mix(in srgb, var(--accent) 75%, transparent); }
+.stage[data-theme="vhs"] #lines li.on .lt { text-shadow: -3px 0 rgba(63,224,232,.7), 3px 0 color-mix(in srgb, var(--accent) 75%, transparent); }
 .stage[data-theme="vhs"] #lines.msg li { font: 400 calc(var(--line) * .6)/1.1 var(--vt); text-transform: uppercase; color: rgba(237,237,237,.7); }
 
 /* No synced lyrics / nothing playing: the outlined title in capitals, a VT323 screen message under it. */

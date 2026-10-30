@@ -34,8 +34,8 @@ The builds are not signed with a paid certificate:
   and the particles (snow, butterflies, petals, rain, stars, dust, leaves or glitter). Your picture and the blurred cover
   work with every theme; the colour backgrounds belong to Dusty glass.
 - **VHS theme**: the wallpaper as a video recorder's screen menu. VT323 pixel font, PLAY / PAUSE and a tape counter,
-  rectangular REW / PLAY / FF buttons, segmented progress and volume, a brick level meter, the current lyric line as
-  a tape subtitle, scan lines, flickering tape noise instead of snow (the snow sliders set how fast and how much),
+  rectangular REW / PLAY / FF buttons, segmented progress and volume, a brick level meter, the current lyric line with
+  a colour bleed, scan lines, flickering tape noise instead of snow (the snow sliders set how fast and how much),
   a tracking band and a short tape fault every few seconds. The accent is pink-red with the cover's colour mixed in.
   Always in English (the font has no Cyrillic). With the system's "reduce motion" nothing moves.
 - **Settings** (tray → Settings…, or "Background and snow…" in the control window): theme, background preset,
