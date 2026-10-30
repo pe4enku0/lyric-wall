@@ -14,7 +14,8 @@ const API = 'https://lrclib.net/api';
 const CLIENT = `Lyric Wall v${app.getVersion()} (https://github.com/pe4enku0/lyric-wall)`;
 const CACHE_DIR = path.join(app.getPath('userData'), 'lyrics-cache');
 const NOT_FOUND_TTL = 7 * 24 * 3600 * 1000; // look again for missing lyrics after a week
-const RETRY_MS = 60 * 1000; // after a network error or a busy server
+// After a network error or a busy server: try again soon, then less and less often (at most once a minute).
+const RETRY_S = [5, 10, 20, 40, 60];
 const OFFLINE = /ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|ERR_NETWORK_CHANGED|ERR_CONNECTION|ERR_ADDRESS_UNREACHABLE|ERR_TIMED_OUT|ERR_PROXY/;
 
 let current = { id: null, status: 'none' };
@@ -149,7 +150,9 @@ function publish(r) {
   if (sink) sink(r);
 }
 
-async function load(s) {
+// attempt: how many times this track already failed (a busy server says "Looking for the lyrics…" twice
+// before it says it is busy).
+async function load(s, attempt = 0) {
   clearTimeout(retryTimer);
   const id = s.id, file = cacheFile(s), name = `${s.artist} - ${s.title}`;
   const cached = readCache(file);
@@ -158,7 +161,7 @@ async function load(s) {
     publish({ id, ...cached });
     return;
   }
-  publish({ id, status: 'loading' });
+  if (!attempt) publish({ id, status: 'loading' });
   try {
     const result = toResult(await lookup(s));
     writeCache(file, result);
@@ -166,10 +169,11 @@ async function load(s) {
     if (current.id === id) publish({ id, ...result });
   } catch (e) {
     const status = e.busy ? 'busy' : OFFLINE.test(e.message) || e.name === 'TimeoutError' ? 'offline' : 'error';
-    log.warn(`Lyrics: ${status} for ${name}:`, e.message);
+    const wait = RETRY_S[Math.min(attempt, RETRY_S.length - 1)];
+    log.warn(`Lyrics: ${status} for ${name}: ${e.message}; trying again in ${wait} s`);
     if (current.id !== id) return;
-    publish({ id, status });
-    retryTimer = setTimeout(() => { if (current.id === id) load(s); }, RETRY_MS);
+    publish({ id, status: status === 'busy' && attempt < 2 ? 'loading' : status });
+    retryTimer = setTimeout(() => { if (current.id === id) load(s, attempt + 1); }, wait * 1000);
   }
 }
 

@@ -332,6 +332,8 @@
   // New lyrics fade out the old ones first.
   function setLyrics(r) {
     if (!r || r.id !== track.id) return;
+    // The same message again (another try while LRCLIB is busy): nothing to redraw.
+    if (r.id === lyr.id && r.status === lyr.status && !r.lines && !r.plain) return;
     const ul = $('lines');
     clearTimeout(fadeTimer);
     if (!lyr.id) { showLyrics(r); return; }
