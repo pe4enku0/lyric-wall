@@ -82,6 +82,13 @@ function welcome() {
 app.on('render-process-gone', (_e, wc, d) => log.error('A window crashed:', d.reason, d.exitCode, wc.getURL().split('/').pop()));
 app.on('child-process-gone', (_e, d) => { if (d.reason !== 'clean-exit') log.error('App process gone:', d.type, d.reason, d.exitCode); });
 
+// The app's windows show only its own pages: a link or file dropped on a window must not replace the page
+// (a web page there would get the app's bridge, preload.js), and no page may open new windows.
+app.on('web-contents-created', (_e, wc) => {
+  wc.on('will-navigate', (e, url) => { e.preventDefault(); log.warn('Blocked navigation to', url.slice(0, 80)); });
+  wc.setWindowOpenHandler(({ url }) => { log.warn('Blocked a new window for', url.slice(0, 80)); return { action: 'deny' }; });
+});
+
 app.on('second-instance', (_e, argv) => control.show(`the app was started again (${argv.slice(1).join(' ') || 'no arguments'})`));
 // macOS sends "activate" when the app is opened again from Finder / Launchpad / Dock.
 // It also fires right at start, so the first seconds are ignored.
