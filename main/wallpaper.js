@@ -121,7 +121,7 @@ function onDisplayChange() {
 
 lyrics.setSink(r => send('lyrics:state', r));
 appearance.onChange(() => send('look:changed', appearance.get()));
-spotifyWeb.onNow(now => send('web:now', now));
+spotifyWeb.onNow(now => { send('web:now', now); player.sharperCover(now.playing); });
 spotifyWeb.onChange(() => send('web:state', spotifyWeb.state()));
 
 function watchDisplays() {

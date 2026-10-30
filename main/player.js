@@ -29,6 +29,14 @@ function coverFallback(snap) {
     if (url && current.id === snap.id && !current.art) onUpdate({ ...current, art: url, at: current.at });
   }).catch(e => log.warn('Cover: iTunes search failed:', e.message));
 }
+// Windows: the media controls give a 300×300 cover; when the Spotify Web API (signed in) reports the same
+// track, its 640×640 cover is shown instead. macOS gets a big cover from the Spotify app already.
+function sharperCover(playing) {
+  if (adapter.name !== 'win' || !playing || !playing.art || !current.title) return;
+  if (playing.title !== current.title || current.art === playing.art) return;
+  log.info(`Cover: 640 px from the Spotify Web API for ${current.artist} - ${current.title}`);
+  onUpdate({ ...current, art: playing.art, at: current.at });
+}
 let lastLogged = '';
 const listeners = new Set();
 
@@ -109,4 +117,4 @@ function control(cmd, value, rid) {
   return adapter.control(cmd, value, id);
 }
 
-module.exports = { subscribe, control, newId, get: () => current };
+module.exports = { subscribe, control, newId, sharperCover, get: () => current };

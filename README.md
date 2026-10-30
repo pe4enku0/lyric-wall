@@ -87,6 +87,7 @@ the login is stored encrypted (macOS Keychain / Windows data protection) and nev
 - **Windows:** Spotify is read through Windows media controls (the same as the volume flyout).
   No Spotify login is needed. The volume bar is Spotify's slider in the Windows volume mixer; it appears once
   Spotify has played some sound.
+  The cover comes from Windows too (300×300); signed in to Spotify, it is swapped for the 640×640 one a moment later.
   If Windows gives no cover, it is looked up in the public iTunes catalog by artist and title.
 
 ## Lyrics and performance

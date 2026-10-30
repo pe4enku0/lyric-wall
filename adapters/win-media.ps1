@@ -178,19 +178,26 @@ function Get-Spotify {
   return $found
 }
 
+# PowerShell cannot pick this method for a WinRT stream itself ("Cannot find an overload"), so it is called
+# through reflection, which casts the stream to the interface the method takes.
+$asStreamForRead = [System.IO.WindowsRuntimeStreamExtensions].GetMethod('AsStreamForRead', [Type[]]@([Windows.Storage.Streams.IInputStream]))
+
 function Get-Art($props) {
   if ($null -eq $props.Thumbnail) { throw 'Spotify gave no cover to Windows media controls' }
   $stream = Await ($props.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType]) 'cover'
-  $net = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
+  $net = $asStreamForRead.Invoke($null, @($stream))
   $mem = New-Object System.IO.MemoryStream
   $net.CopyTo($mem)
-  $type = $stream.ContentType
-  if (-not $type) { $type = 'image/jpeg' }
-  return 'data:' + $type + ';base64,' + [Convert]::ToBase64String($mem.ToArray())
+  $bytes = $mem.ToArray()
+  if ($bytes.Length -lt 4) { throw 'the cover from Windows media controls is empty' }
+  # The content type does not come through either: PNG or JPEG by the first bytes.
+  $type = if ($bytes[0] -eq 0x89 -and $bytes[1] -eq 0x50) { 'image/png' } else { 'image/jpeg' }
+  return 'data:' + $type + ';base64,' + [Convert]::ToBase64String($bytes)
 }
 
 $lastArtKey = ''
 $artNoteKey = ''
+$artFails = 0
 $script:playing = $false
 
 function Send-State {
@@ -224,13 +231,15 @@ function Send-State {
     volume = (Get-Volume)
     shuffle = $info.IsShuffleActive
   }
-  # The cover is sent only when the track changes (it is big).
-  if ($key -ne $script:lastArtKey) {
+  # The cover is sent only when the track changes (it is big). Without one it is tried 3 times per track
+  # (the app then looks for it elsewhere), not on every update.
+  if ($key -ne $script:lastArtKey -and ($key -ne $script:artNoteKey -or $script:artFails -lt 3)) {
     $artStart = $sw.ElapsedMilliseconds
     try { $out.art = Get-Art $props } catch {
       $out.art = ''
       # Once per track: why there is no cover (goes to the app log).
-      if ($key -ne $script:artNoteKey) { [Console]::Error.WriteLine("Cover: $($_.Exception.Message)"); $script:artNoteKey = $key }
+      if ($key -ne $script:artNoteKey) { [Console]::Error.WriteLine("Cover: $($_.Exception.Message)"); $script:artNoteKey = $key; $script:artFails = 0 }
+      $script:artFails++
     }
     if ($out.art) { $script:lastArtKey = $key }
     $artMs = $sw.ElapsedMilliseconds - $artStart
