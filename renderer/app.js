@@ -399,18 +399,24 @@
     el.querySelector('.short').textContent = short;
     return el;
   }
+  // VHS speaks English in any language (its font, VT323, has no Cyrillic); capitals come from vhs.css.
+  const VHS_TEXT = { loginTitle: 'Connect Spotify', login: 'Sign in in the settings', empty: 'Queue is empty', emptyHint: 'Add songs in Spotify', more: '+{n} more' };
   function renderQueue() {
     const q = $('queue'); q.innerHTML = '';
     const list = web.loggedIn && !track.idle ? web.queue : [];
+    const vhs = S.theme === 'vhs';
     stage.dataset.queue = list.length ? 'ok' : 'empty';
-    if (!web.loggedIn) q.appendChild(emptyNote(t('ui.queueLoginTitle'), t('ui.queueLogin'), t('ui.queueLoginShort'), 'login'));
+    if (!web.loggedIn && vhs) q.appendChild(emptyNote(VHS_TEXT.loginTitle, VHS_TEXT.login, VHS_TEXT.login, 'login'));
+    else if (!web.loggedIn) q.appendChild(emptyNote(t('ui.queueLoginTitle'), t('ui.queueLogin'), t('ui.queueLoginShort'), 'login'));
+    else if (!list.length && vhs) q.appendChild(emptyNote(VHS_TEXT.empty, VHS_TEXT.emptyHint, VHS_TEXT.emptyHint));
     else if (!list.length) q.appendChild(emptyNote(t('ui.queueEmpty'), t('ui.queueEmptyHint'), t('ui.queueEmptyShort')));
     else {
       (S.layout === 'b' ? list.slice(0, 1) : list).forEach((it, k) => {
         const row = document.createElement('div');
         row.className = 'qi';
         row.dataset.act = `q${k}`; // a click plays this track (see act)
-        row.innerHTML = '<img alt=""><div style="min-width:0"><div class="t"></div><div class="a"></div></div>';
+        // .qnum: the number (01, 02…) shown in VHS only.
+        row.innerHTML = `<b class="qnum">${String(k + 1).padStart(2, '0')}</b><img alt=""><div style="min-width:0"><div class="t"></div><div class="a"></div></div>`;
         // no cover: an empty square instead of a broken image
         row.querySelector('img').src = it.art || BLANK;
         row.querySelector('.t').textContent = it.title; row.querySelector('.a').textContent = it.artist;
@@ -420,7 +426,7 @@
       const room = q.clientHeight;
       for (const row of q.children) if (row.offsetTop - q.offsetTop + row.offsetHeight > room + 1) row.hidden = true;
     }
-    const more = S.layout === 'b' && list.length > 1 ? t('ui.more').replace('{n}', list.length - 1) : '';
+    const more = S.layout === 'b' && list.length > 1 ? (vhs ? VHS_TEXT.more : t('ui.more')).replace('{n}', list.length - 1) : '';
     put($('qn'), 'textContent', more);
     renderStar();
     reportHits();
@@ -763,6 +769,7 @@
       const m = getComputedStyle(stage).getPropertyValue('--accent').match(/[\d.]+/g);
       if (m && m.length >= 3) accentRgb = m.slice(0, 3).join(',');
     }
+    if (S.theme === 'vhs') return drawBricks(now, dt);
     const n = Math.max(10, Math.min(48, Math.round(VW / vizK / 10))), step = VW / n, bw = step * .6, target = heightsFor(n);
     const alpha = playing ? 1 : .35;
     vizAlpha += (alpha - vizAlpha) * .2;
@@ -782,6 +789,28 @@
       if (Math.abs(tgt - lv[i]) > .003) moving = true;
     }
     vx.globalAlpha = 1;
+    return moving;
+  }
+  // VHS: 14 columns of 5 px bricks with 2 px gaps, like a recorder's level meter. Bricks above 60% of the height
+  // are yellow, above 80% in the accent. Paused: one brick per column.
+  function drawBricks(now, dt) {
+    const VW = vc.width, VH = vc.height, n = 14, step = VW / n, bw = Math.round(step * .62);
+    const brick = 5 * vizK, pitch = 7 * vizK, rows = Math.max(1, Math.floor((VH + 2 * vizK) / pitch));
+    const target = heightsFor(n), acc = accentRgb.split(',').map(Number);
+    const yellow = `rgb(${[242, 193, 78].map((v, i) => Math.round(v * .75 + acc[i] * .25)).join(',')})`;
+    vx.clearRect(0, 0, VW, VH);
+    let moving = now < accentUntil;
+    for (let i = 0; i < n; i++) {
+      const tgt = playing ? Math.min(1, target(i)) : 0;
+      lv[i] += (tgt - lv[i]) * (1 - Math.exp(-dt * (tgt > lv[i] ? 45 : 9)));
+      if (Math.abs(tgt - lv[i]) > .003) moving = true;
+      const count = Math.max(1, Math.round(lv[i] * rows)), x = Math.round(i * step + (step - bw) / 2);
+      for (let r = 0; r < count; r++) {
+        const level = (r + 1) / rows;
+        vx.fillStyle = level > .8 ? `rgb(${accentRgb})` : level > .6 ? yellow : '#EDEDED';
+        vx.fillRect(x, Math.round(VH - r * pitch - brick), bw, Math.round(brick));
+      }
+    }
     return moving;
   }
 

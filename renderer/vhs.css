@@ -128,6 +128,40 @@
 .stage[data-theme="vhs"] :is(.lyb, .dev).hover { transform: none; box-shadow: none; border-color: var(--vhs-white); }
 .stage[data-theme="vhs"] .lyb.hover:not(.on), .stage[data-theme="vhs"] .dev.hover { background: rgba(237,237,237,.1); }
 
+/* ---------- Sound and Up next ---------- */
+.lr, .qnum { display: none; }
+.stage[data-theme="vhs"] .card { border-width: 2px; }
+.stage[data-theme="vhs"] .ch { font: 22px/1 var(--vt); font-stretch: normal; text-transform: uppercase; }
+.stage[data-theme="vhs"] .ch .k .ic { display: none; }
+.stage[data-theme="vhs"] .ch .k [data-i18n] { display: none; }
+.stage[data-theme="vhs"] .sound .ch .k::after { content: "Sound"; }
+.stage[data-theme="vhs"] .upnext .ch .k::after { content: "Up next"; }
+/* ● LIVE in the accent (● PAUSE / ● STOP fainter). */
+.stage[data-theme="vhs"] #live { font: 20px/1 var(--vt); color: var(--accent); font-size: 0; display: flex; align-items: center; gap: 6px; }
+.stage[data-theme="vhs"] #live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.stage[data-theme="vhs"] #live::after { content: "STOP"; font-size: 20px; }
+.stage[data-theme="vhs"][data-state="playing"] #live::after { content: "LIVE"; }
+.stage[data-theme="vhs"][data-state="paused"] #live::after { content: "PAUSE"; }
+.stage[data-theme="vhs"]:not([data-state="playing"]) #live { color: rgba(237,237,237,.45); }
+.stage[data-theme="vhs"] #qn { font: 18px/1 var(--vt); color: rgba(237,237,237,.6); }
+/* L and R under the level meter. */
+.stage[data-theme="vhs"] .lr { display: flex; justify-content: space-between; margin-top: -6px; padding: 0 2px; font: 16px/1 var(--vt); color: rgba(237,237,237,.55); }
+.stage[data-theme="vhs"][data-layout="b"] .lr { display: none; }
+
+/* Queue: 01, 02 in the accent, the cover, the title in capitals, the artist in VT323. */
+.stage[data-theme="vhs"] .qi { grid-template-columns: 22px 40px minmax(0, 1fr); border-radius: 2px; }
+.stage[data-theme="vhs"][data-layout="b"] .qi { grid-template-columns: 22px 48px minmax(0, 1fr); }
+.stage[data-theme="vhs"] .qnum { display: block; font: 400 20px/1 var(--vt); color: var(--accent); }
+.stage[data-theme="vhs"] .qi img { border-radius: 0; }
+.stage[data-theme="vhs"] .qi .t { font-family: var(--display); font-weight: 800; font-size: 14px; text-transform: uppercase; }
+.stage[data-theme="vhs"] .qi .a { font: 18px/1.05 var(--vt); text-transform: uppercase; color: rgba(237,237,237,.6); }
+.stage[data-theme="vhs"] .qi.hover { background: rgba(237,237,237,.1); }
+/* Empty queue / not signed in: the same style, no dashed squares. */
+.stage[data-theme="vhs"] .qe .sq { display: none; }
+.stage[data-theme="vhs"][data-layout="b"] .qe { display: flex; }
+.stage[data-theme="vhs"] .qe b { font-family: var(--display); font-weight: 800; font-size: 14px; text-transform: uppercase; }
+.stage[data-theme="vhs"] .qe span { font: 18px/1.05 var(--vt); text-transform: uppercase; color: rgba(237,237,237,.6); }
+
 /* Short message (after the star). */
 .stage[data-theme="vhs"] .toast { border-radius: 2px; border: 2px solid var(--vhs-white); background: #07070A; backdrop-filter: none;
   font: 20px/1.1 var(--vt); text-transform: uppercase; }
