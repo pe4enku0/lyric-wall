@@ -1,7 +1,7 @@
 {
   "name": "lyric-wall",
   "productName": "Lyric Wall",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Music wallpaper: the current Spotify track and synced lyrics right on your desktop",
   "main": "main/main.js",
   "author": "pe4enku0",
