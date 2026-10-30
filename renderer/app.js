@@ -289,13 +289,14 @@
   let fadeTimer = null;
   let lastScroll = null;
 
-  // plate: VHS with synced lyrics, the text of every line in a <span class="lt"> (the black subtitle plate).
+  // plate: VHS with synced lyrics, the text of every line in a <span class="lt"> (the black subtitle plate);
+  // not for the "♪" of the intro and the breaks.
   function renderLines(lines, plate) {
     const ul = $('lines'); ul.innerHTML = ''; heights = [];
     lines.forEach(text => {
       const el = document.createElement('li');
       if (!text) el.className = 'gap';
-      else if (!plate) el.textContent = text;
+      else if (!plate || text === '♪') el.textContent = text;
       else {
         const lt = document.createElement('span');
         lt.className = 'lt'; lt.textContent = text;
