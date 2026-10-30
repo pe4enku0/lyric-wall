@@ -22,7 +22,8 @@ The builds are not signed with a paid certificate:
 ## Using the app
 
 - **Starting it** turns the wallpaper on and opens no window: the app lives only in the **tray**
-  (Windows, next to the clock — maybe under the **^** arrow) or the **menu bar** (Mac). No taskbar or Dock icon.
+  (Windows, next to the clock — maybe under the **^** arrow) or the **menu bar** (Mac). No taskbar or Dock icon
+  (on Windows only an open settings or control window shows one, so a minimized window can be found again).
   The first start shows a short notification saying so.
 - **The tray / menu bar icon:** open Lyric Wall, wallpaper on/off, play/pause, next track, settings,
   wallpaper mode (Windows), language, start at login, open log, quit.
@@ -61,7 +62,9 @@ usual; on the free desktop the buttons work. Clicks next to the buttons still go
   which makes macOS bring back the windows it moved aside to show the desktop. These panels do not activate
   anything, stay in place when the desktop is shown and are left out of window cycling.
 - **Windows:** an invisible window above the desktop icons takes clicks only while the pointer is over a button
-  (the app checks the pointer position 20 times a second). It is removed while a game or another app is full screen.
+  (the app checks the pointer position 50 times a second). A press gives it the focus for a moment (Windows throws
+  away clicks on windows that cannot take it); right after, the focus goes back to the window that had it.
+  It is removed while a game or another app is full screen.
 
 ## Spotify account (optional): "Up next" and likes
 
