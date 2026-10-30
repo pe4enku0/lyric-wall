@@ -64,7 +64,7 @@ contextBridge.exposeInMainWorld('lyricWall', {
   // Look of the wallpaper (settings window)
   getLook: () => ipcRenderer.invoke('look:get'),
   setLook: (key, value) => ipcRenderer.invoke('look:set', key, value),
-  saveImage: dataUrl => ipcRenderer.invoke('look:saveImage', dataUrl),
+  saveImage: (dataUrl, name) => ipcRenderer.invoke('look:saveImage', dataUrl, name),
   getImage: () => ipcRenderer.invoke('look:image'),
   onLook: cb => ipcRenderer.on('look:changed', (_e, look) => cb(look))
 });

@@ -1,0 +1,157 @@
+/* The app's normal windows (settings, control) in the look of the system:
+   body.plat-mac — macOS System Settings (grouped rows, segmented controls, white slider thumbs);
+   body.plat-win — Windows 11 Settings (a card per option, drop-downs, toggles with On / Off).
+   --sys-accent is the system accent colour (set by the page from the main process). */
+:root { color-scheme: dark; --sys-accent: #0A84FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; overflow: hidden auto; user-select: none; cursor: default; -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+main { padding-bottom: 24px; }
+
+/* ---------- macOS ---------- */
+body.plat-mac {
+  --text: #F2F1F4; --text-2: rgba(242,241,244,.6); --sep: rgba(255,255,255,.07);
+  background: #1E1E20; color: var(--text);
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Onest Variable', sans-serif;
+}
+.plat-mac .bar { position: sticky; top: 0; z-index: 5; height: 52px; display: grid; place-items: center; -webkit-app-region: drag;
+  background: rgba(30,30,32,.86); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,.06); }
+.plat-mac .bar h1 { margin: 0; font-size: 13px; font-weight: 600; }
+.plat-mac .bar img { display: none; }
+.plat-mac .page-title { display: none; }
+.plat-mac .content { padding: 4px 20px 0; }
+.plat-mac section > h3 { margin: 20px 0 7px 10px; font-size: 13px; font-weight: 600; color: var(--text); }
+.plat-mac .group { background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.06); border-radius: 10px; }
+.plat-mac .row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; position: relative; }
+.plat-mac .row + .row::before { content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px; background: var(--sep); }
+.plat-mac .row .ri, .plat-mac .row .rt small { display: none; }
+.plat-mac .rt { flex: 1; min-width: 0; }
+.plat-mac .rt b { font-weight: 400; }
+.plat-mac .row.col { flex-direction: column; align-items: stretch; }
+.plat-mac .note { margin: 7px 10px 0; font-size: 11.5px; color: var(--text-2); }
+
+/* segmented control */
+.seg { display: inline-flex; padding: 2px; border-radius: 7px; background: rgba(255,255,255,.09); gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 3px 12px; border-radius: 5px; font-size: 12px; font-weight: 500; color: var(--text); }
+.seg button[aria-pressed="true"] { background: #6A6A70; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+/* switch */
+.plat-mac .sw { width: 38px; height: 22px; border-radius: 11px; border: 0; padding: 0; background: rgba(255,255,255,.16); position: relative; transition: background .2s ease; flex: none; }
+.plat-mac .sw i { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .2s ease; }
+.plat-mac .sw[aria-checked="true"] { background: var(--sys-accent); }
+.plat-mac .sw[aria-checked="true"] i { transform: translateX(16px); }
+.plat-mac .sw b { display: none; }
+/* push buttons and pop-ups */
+.plat-mac .btn, .plat-mac select, .plat-mac input[type="text"] { height: 24px; padding: 0 10px; border-radius: 6px; border: 0; background: rgba(255,255,255,.13);
+  box-shadow: inset 0 .5px 0 rgba(255,255,255,.12), 0 .5px 1px rgba(0,0,0,.3); font-size: 13px; }
+.plat-mac select { appearance: none; padding-right: 26px; background: rgba(255,255,255,.13) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' fill='none' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1.5 4.5 2.5-2.5 2.5 2.5M1.5 7.5 4 10l2.5-2.5'/%3E%3C/svg%3E") no-repeat right 8px center; }
+.plat-mac .btn.primary { background: var(--sys-accent); }
+.plat-mac input[type="text"] { background: rgba(0,0,0,.25); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); cursor: text; user-select: text; }
+
+/* ---------- Windows 11 ---------- */
+body.plat-win {
+  --text: #FFFFFF; --text-2: rgba(255,255,255,.66);
+  background: #202020; color: var(--text);
+  font: 14px/1.4 'Segoe UI Variable Text', 'Segoe UI', 'Onest Variable', sans-serif;
+}
+.plat-win .bar { position: sticky; top: 0; z-index: 5; height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 16px; -webkit-app-region: drag; background: #202020; }
+.plat-win .bar img { width: 16px; height: 16px; }
+.plat-win .bar h1 { margin: 0; font-size: 12px; font-weight: 400; }
+.plat-win .content { padding: 0 32px; }
+.plat-win .page-title { margin: 12px 0 20px; font: 600 28px/1.2 'Segoe UI Variable Display', 'Segoe UI', 'Onest Variable', sans-serif; }
+.plat-win section > h3 { margin: 22px 0 8px; font-size: 14px; font-weight: 600; }
+.plat-win .group { display: flex; flex-direction: column; gap: 4px; }
+.plat-win .row { display: flex; align-items: center; gap: 16px; min-height: 68px; padding: 14px 18px; border-radius: 6px; background: rgba(255,255,255,.045); border: 1px solid rgba(0,0,0,.1); }
+.plat-win .row.col { flex-direction: column; align-items: stretch; }
+.plat-win .ri { width: 20px; height: 20px; flex: none; color: var(--text); }
+.plat-win .rt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.plat-win .rt b { font-weight: 400; }
+.plat-win .rt small { font-size: 12px; color: var(--text-2); }
+.plat-win .note { margin: 8px 2px 0; font-size: 12px; color: var(--text-2); }
+.plat-win .seg { display: none; }
+/* toggle with "On" / "Off" */
+.plat-win .sw { display: flex; align-items: center; gap: 12px; border: 0; background: transparent; padding: 0; }
+.plat-win .sw i { width: 40px; height: 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,.6); position: relative; flex: none; }
+.plat-win .sw i::after { content: ""; position: absolute; top: 4px; left: 4px; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.8); transition: transform .15s ease; }
+.plat-win .sw[aria-checked="true"] i { background: var(--sys-accent); border-color: var(--sys-accent); }
+.plat-win .sw[aria-checked="true"] i::after { transform: translateX(20px); background: #000; }
+.plat-win .sw b { font-weight: 400; min-width: 28px; text-align: right; }
+/* drop-downs and buttons */
+.plat-win .btn, .plat-win select, .plat-win input[type="text"] { height: 32px; padding: 0 12px; border-radius: 4px; background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08); border-bottom-color: rgba(255,255,255,.04); font-size: 14px; }
+.plat-win select { appearance: none; min-width: 180px; padding-right: 34px; background: rgba(255,255,255,.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23fff' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1.5 1.5 4.5 4.5 4.5-4.5'/%3E%3C/svg%3E") no-repeat right 12px center; }
+.plat-win select option { background: #2C2C2C; }
+.plat-win .btn.primary { background: var(--sys-accent); color: #000; border-color: transparent; }
+.plat-win input[type="text"] { background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.5); cursor: text; user-select: text; min-width: 0; }
+.btn:disabled, select:disabled { opacity: .45; cursor: default; }
+
+/* ---------- sliders ---------- */
+input[type="range"] { appearance: none; -webkit-appearance: none; background: transparent; height: 22px; margin: 0; flex: 1; min-width: 0; cursor: pointer;
+  --p: 50%; }
+input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--sys-accent) var(--p), rgba(255,255,255,.18) var(--p)); }
+.plat-mac input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4), 0 0 0 .5px rgba(0,0,0,.2); }
+.plat-win input[type="range"]::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--sys-accent) var(--p), rgba(255,255,255,.55) var(--p)); }
+.plat-win input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%;
+  background: radial-gradient(circle, var(--sys-accent) 0 5px, #454545 5.5px); box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 1px 3px rgba(0,0,0,.4); }
+.range { display: flex; align-items: center; gap: 10px; width: 300px; max-width: 100%; font-size: 11px; color: var(--text-2); }
+.plat-win .range { font-size: 12px; }
+.off { opacity: .4; pointer-events: none; transition: opacity .2s ease; }
+
+/* ---------- background swatches and picture ---------- */
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px 0; }
+.swatches button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,.14); padding: 0; position: relative; background-size: cover; }
+.plat-win .swatches button { width: 44px; height: 44px; border-radius: 4px; }
+.swatches button[aria-checked="true"] { box-shadow: 0 0 0 2px #1E1E20, 0 0 0 4px var(--sys-accent); }
+.plat-win .swatches button[aria-checked="true"] { box-shadow: 0 0 0 2px #2A2A2A, 0 0 0 4px var(--sys-accent); }
+.swatches .custom { background: conic-gradient(#ff5f6d, #ffc371, #7cf29a, #4fc3f7, #b388ff, #ff5f6d); }
+.swatches .custom::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.swatches .custom.set::after { content: ""; }
+.pic { display: flex; align-items: center; gap: 12px; width: 100%; }
+.pic .thumb { width: 72px; height: 45px; border-radius: 6px; background: rgba(255,255,255,.06) center / cover; border: 1px solid rgba(255,255,255,.1); flex: none; }
+.plat-win .pic .thumb { width: 96px; height: 54px; border-radius: 4px; }
+.pic span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.err { margin: 6px 0 0; color: #ff8a80; font-size: 12px; }
+
+/* ---------- Spotify account ---------- */
+.steps { margin: 6px 0 4px; padding-left: 20px; font-size: 12px; color: var(--text-2); }
+.steps li { margin: 3px 0; }
+.steps code { user-select: text; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--text); }
+.link { border: 0; background: none; padding: 0; color: var(--sys-accent); text-decoration: underline; text-underline-offset: 2px; }
+.webrow { display: flex; gap: 8px; align-items: center; }
+.webrow input { flex: 1; }
+.webrow span { flex: 1; }
+
+/* ---------- control window: now playing ---------- */
+.np { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.np .top { display: flex; gap: 12px; align-items: center; }
+.np img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: rgba(255,255,255,.06); flex: none; }
+.plat-win .np img { border-radius: 4px; }
+.np .meta { min-width: 0; flex: 1; }
+.np #title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np #artist { font-size: 12px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.np .prog { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.np .track { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.16); position: relative; overflow: hidden; }
+.np .track i { position: absolute; inset: 0; background: var(--sys-accent); transform-origin: 0 50%; transform: scaleX(0); }
+.np .ctrl { display: flex; justify-content: center; gap: 14px; }
+.np .ctrl button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; display: grid; place-items: center; color: var(--text); }
+.np .ctrl .pp { background: #fff; color: #121016; }
+.plat-win .np .ctrl button { border-radius: 4px; background: rgba(255,255,255,.06); }
+.plat-win .np .ctrl .pp { background: var(--sys-accent); color: #000; border-radius: 6px; }
+.np .ctrl svg { width: 18px; height: 18px; }
+.np .ctrl.idle button:not(.pp) { opacity: .35; pointer-events: none; }
+.plat-mac .content > section:first-child { padding-top: 16px; }
+.chev { color: var(--text-2); }
+.row.click { cursor: pointer; }
+.row.click:hover { background: rgba(255,255,255,.03); }
+.plat-win .row.click:hover { background: rgba(255,255,255,.07); }
+footer { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+footer p { margin: 0 4px; font-size: 12px; color: var(--text-2); }
+footer .btns { display: flex; gap: 8px; justify-content: flex-end; }
+.plat-mac .rt small.plain { display: block; font-size: 11.5px; color: var(--text-2); }
+.plat-win .rt small.plain { font-size: 12px; }
+.ver { font-weight: 400; color: var(--text-2); margin-left: 4px; }
+.sw:disabled { opacity: .45; cursor: default; }
+.btn { display: inline-flex; align-items: center; justify-content: center; color: var(--text); white-space: nowrap; flex: none; }

@@ -2,16 +2,13 @@
 (async () => {
   const api = window.lyricWall;
   const $ = id => document.getElementById(id);
-  const { info, t } = await LW.initI18n();
-  document.body.classList.add('plat-' + info.platform);
-  $('grain').style.backgroundImage = `url(${LW.grain()})`;
+  const { info, t, choice, toggle, fit } = await LW.initPrefs();
   $('hint').textContent = t(info.platform === 'darwin' ? 'control.hint.mac' : 'control.hint.win');
 
   /* ---------- now playing ---------- */
-  const PAUSE_ICON = '<svg width="18" height="24" viewBox="0 0 18 24"><rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/></svg>';
-  const PLAY_ICON = '<svg width="18" height="24" viewBox="0 0 18 24"><path d="M2 1 17 12 2 23Z"/></svg>';
   const clock = LW.createClock();
   let track = { id: null, duration: 0 };
+  const setPP = () => { $('pp').innerHTML = LW.icon(clock.playing ? 'pause' : 'play'); };
 
   function setCover(src) {
     const img = $('cover');
@@ -21,9 +18,9 @@
   $('cover').onerror = () => setCover('');
 
   function tick() {
-    const d = track.duration, pos = d ? Math.min(d, clock.now()) : 0, p = d ? pos / d * 100 : 0;
-    $('fill').style.width = p + '%'; $('knob').style.left = p + '%';
-    $('cur').textContent = LW.fmt(pos); $('dur').textContent = LW.fmt(d);
+    const d = track.duration, pos = d ? Math.min(d, clock.now()) : 0;
+    $('fill').style.transform = `scaleX(${d ? pos / d : 0})`;
+    $('cur').textContent = d ? LW.fmt(pos) : '–:––'; $('dur').textContent = d ? LW.fmt(d) : '–:––';
   }
 
   function onPlayer(s) {
@@ -42,41 +39,40 @@
       setCover('');
       clock.set(0, false);
     }
-    $('pp').innerHTML = clock.playing ? PAUSE_ICON : PLAY_ICON;
-    $('ctrl').classList.toggle('off', !isTrack);
+    setPP();
+    $('ctrl').classList.toggle('idle', !isTrack);
     tick();
   }
 
   $('bPrev').onclick = () => api.control('prev');
   $('bNext').onclick = () => api.control('next');
-  $('pp').onclick = () => { clock.toggle(); $('pp').innerHTML = clock.playing ? PAUSE_ICON : PLAY_ICON; api.control('toggle'); };
+  $('pp').onclick = () => { clock.toggle(); setPP(); api.control('toggle'); };
   setInterval(tick, 250);
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());
 
   /* ---------- switches ---------- */
   let wallOn = true;
-  function seg(id, value) {
-    for (const b of $(id).children) b.setAttribute('aria-pressed', String(b.dataset.v === value));
-  }
+  const set = (key, value) => api.controlSet(key, value).then(render);
+  const lang = choice($('optLang'), [['auto', t('control.langAuto')], ['en', 'English'], ['ru', 'Русский']], v => set('language', v));
+  const mode = choice($('optMode'), [['auto', t('control.modeAuto')], ['bottom', t('control.modeBottom')]], v => set('winMode', v));
+  let state = null;
   function render(st) {
+    state = st;
     wallOn = st.wallpaperEnabled;
     $('ver').textContent = 'v' + st.version;
-    $('optWall').setAttribute('aria-checked', String(st.wallpaperEnabled));
-    seg('optLang', st.language === 'en' || st.language === 'ru' ? st.language : 'auto');
+    toggle($('optWall'), st.wallpaperEnabled);
+    lang.set(st.language === 'en' || st.language === 'ru' ? st.language : 'auto');
     $('rowMode').hidden = st.platform !== 'win32';
-    seg('optMode', st.winMode === 'bottom' ? 'bottom' : 'auto');
-    $('optLogin').setAttribute('aria-checked', String(st.loginItem.enabled));
+    mode.set(st.winMode === 'bottom' ? 'bottom' : 'auto');
+    toggle($('optLogin'), st.loginItem.enabled);
     $('optLogin').disabled = !st.loginItem.available;
     $('loginHint').hidden = st.loginItem.available;
+    fit();
   }
-  const set = (key, value) => api.controlSet(key, value).then(render);
-  const isOn = el => el.getAttribute('aria-checked') === 'true';
 
-  $('optWall').onclick = e => set('wallpaperEnabled', !isOn(e.currentTarget));
-  $('optLogin').onclick = e => set('loginItem', !isOn(e.currentTarget));
-  $('optLang').onclick = e => { const b = e.target.closest('button'); if (b) set('language', b.dataset.v); };
-  $('optMode').onclick = e => { const b = e.target.closest('button'); if (b) set('winMode', b.dataset.v); };
+  $('optWall').onclick = () => set('wallpaperEnabled', !state.wallpaperEnabled);
+  $('optLogin').onclick = () => set('loginItem', !state.loginItem.enabled);
   $('bLook').onclick = () => api.openSettings('the control window');
   $('bLog').onclick = () => api.openLog();
   $('bQuit').onclick = () => api.quit();
@@ -87,15 +83,13 @@
 
   /* ---------- wallpaper state and CPU use ---------- */
   api.onStatus(st => {
-    const state = !wallOn ? t('control.status.off')
+    const s = !wallOn ? t('control.status.off')
       : st.paused ? `${t('control.status.paused')}: ${st.reasons.map(r => t('pause.' + r)).join(', ')}`
       : t('control.status.running');
-    $('wallState').textContent = `${state} · ${t('control.cpu')} ${st.cpu.toFixed(1)}%`;
+    $('wallState').textContent = `${s} · ${t('control.cpu')} ${st.cpu.toFixed(1)}%`;
     fit(); // the text may take two lines
   });
 
-  // Make the window exactly as tall as its content (it differs per language and system).
-  const fit = () => api.fitWindow(Math.ceil(document.querySelector('main').getBoundingClientRect().height));
   if (document.fonts) await document.fonts.ready;
   fit();
 })();

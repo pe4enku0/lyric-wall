@@ -21,7 +21,7 @@ window.LW = {
   // Backgrounds offered with a theme (the same rules as main/appearance.js).
   backgroundsFor(theme) {
     const dustyOnly = ['dusk', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
-    if (theme === 'default') return LW.BACKGROUNDS.filter(b => ['color', 'photo', 'cover', 'dusk'].includes(b.id));
+    if (theme === 'default') return LW.BACKGROUNDS.filter(b => ['color', 'photo', 'cover'].includes(b.id));
     return LW.BACKGROUNDS.filter(b => b.id !== 'color' && (theme === 'dusty' ? b.id !== 'theme' : !dustyOnly.includes(b.id)));
   },
 

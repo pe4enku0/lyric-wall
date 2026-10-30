@@ -21,6 +21,7 @@ const defaults = {
   snowSpeed: 1,
   snowCount: 90,
   imageVersion: 0, // changes every time a new own picture is chosen
+  imageName: '', // file name of the own picture, shown in the settings
   pauseOnBattery: false, // stop the wallpaper while running on battery (main/power.js)
   showLyrics: true,
   fps: 30, // wallpaper frames per second: 30, 20 or 15

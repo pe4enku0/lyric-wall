@@ -5,68 +5,90 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https:">
 <title>Lyric Wall</title>
 <link rel="stylesheet" href="../node_modules/@fontsource-variable/onest/index.css">
-<link rel="stylesheet" href="../node_modules/@fontsource-variable/jetbrains-mono/index.css">
-<link rel="stylesheet" href="themes.css">
-<link rel="stylesheet" href="settings.css">
+<link rel="stylesheet" href="prefs.css">
 </head>
 <body>
+<!-- Every option is a row: icon (Windows only), name and hint, control. app chooses the control per system:
+     segmented buttons on the Mac, drop-down lists on Windows (see settings.js). -->
 <main>
-  <header class="top">
-    <h1 data-i18n="look.title"></h1>
-    <p data-i18n="look.subtitle"></p>
-  </header>
+  <header class="bar"><img src="../assets/icon-win.png" alt=""><h1 data-i18n="settings.title"></h1></header>
+  <div class="content">
+    <h2 class="page-title" data-i18n="settings.page"></h2>
 
-  <div class="set">
-    <section class="wide">
-      <div class="fps"><h3 data-i18n="look.layout"></h3><div class="seg" id="layout"><button type="button" data-v="a" data-i18n="look.layoutA"></button><button type="button" data-v="b" data-i18n="look.layoutB"></button></div></div>
+    <section>
+      <h3 data-i18n="sec.layout"></h3>
+      <div class="group">
+        <div class="row"><span class="ri" data-icon="layout"></span><div class="rt"><b data-i18n="look.layout"></b><small data-i18n="desc.layout"></small></div><div id="layout"></div></div>
+      </div>
     </section>
-    <section class="wide">
-      <h3 data-i18n="look.theme"></h3>
-      <div class="themes" id="themes" role="radiogroup"></div>
-    </section>
+
     <section>
       <h3 data-i18n="look.background"></h3>
-      <div class="sw" id="sw" role="radiogroup"></div>
-    </section>
-    <section class="imgset" id="imgset">
-      <h3 data-i18n="look.picture"></h3>
-      <label class="pick"><span data-i18n="look.choose"></span><input class="vh" id="pick" type="file" accept="image/*"></label>
+      <div class="group">
+        <div class="row"><span class="ri" data-icon="image"></span><div class="rt"><b data-i18n="look.style"></b><small data-i18n="desc.bg"></small></div><div id="bgStyle"></div></div>
+        <div class="row" id="rowColor"><div class="swatches" id="swatches" role="radiogroup"></div><input type="color" id="customColor" hidden></div>
+        <div class="row" id="rowThemeBg"><div class="rt"><small class="plain" data-i18n="look.themeBg"></small></div></div>
+        <div class="row" id="rowPic">
+          <div class="pic"><i class="thumb" id="thumb"></i><span id="picName"></span>
+            <label class="btn" id="pickBtn"><span id="pickText"></span><input id="pick" type="file" accept="image/*" hidden></label></div>
+        </div>
+        <div class="row" id="rowBlur"><span class="ri" data-icon="blur"></span><div class="rt"><b data-i18n="look.blur"></b></div><div class="range"><input id="blur" type="range" min="0" max="40" step="1"></div></div>
+        <div class="row" id="rowDim"><span class="ri" data-icon="sun"></span><div class="rt"><b data-i18n="look.dim"></b></div><div class="range"><input id="dimR" type="range" min="0" max="80" step="1"></div></div>
+      </div>
       <p class="err" id="pickErr" data-i18n="look.badImage" hidden></p>
-      <div class="sl"><div><label for="blur" data-i18n="look.blur"></label><output id="blurO"></output></div><input id="blur" type="range" min="0" max="40" step="1"></div>
-      <div class="sl"><div><label for="dimR" data-i18n="look.dim"></label><output id="dimO"></output></div><input id="dimR" type="range" min="0" max="80" step="1"></div>
     </section>
+
     <section>
-      <h3><label for="spd" data-i18n="look.snowSpeed"></label><output id="spdO"></output></h3>
-      <input id="spd" type="range" min="0" max="3" step="0.1">
-      <div class="hint"><span data-i18n="look.still"></span><span data-i18n="look.blizzard"></span></div>
+      <h3 data-i18n="sec.snow"></h3>
+      <div class="group">
+        <div class="row"><span class="ri" data-icon="snow"></span><div class="rt"><b data-i18n="snow.show"></b><small data-i18n="desc.snow"></small></div>
+          <button type="button" class="sw" id="snowOn" role="switch" aria-checked="true"><b></b><i></i></button></div>
+        <div class="row snowdep"><span class="ri" data-icon="speed"></span><div class="rt"><b data-i18n="snow.speed"></b></div>
+          <div class="range"><span data-i18n="snow.slow"></span><input id="spd" type="range" min="0.2" max="3" step="0.1"><span data-i18n="snow.fast"></span></div></div>
+        <div class="row snowdep"><span class="ri" data-icon="amount"></span><div class="rt"><b data-i18n="snow.amount"></b></div>
+          <div class="range"><span data-i18n="snow.few"></span><input id="cnt" type="range" min="10" max="300" step="10"><span data-i18n="snow.many"></span></div></div>
+      </div>
     </section>
+
     <section>
-      <h3><label for="cnt" data-i18n="look.snowCount"></label><output id="cntO"></output></h3>
-      <input id="cnt" type="range" min="0" max="300" step="10">
-      <div class="hint"><span data-i18n="look.none"></span><span>300</span></div>
+      <h3 data-i18n="look.theme"></h3>
+      <div class="group">
+        <div class="row"><span class="ri" data-icon="palette"></span><div class="rt"><b data-i18n="look.theme"></b><small data-i18n="desc.theme"></small></div><select id="theme"></select></div>
+      </div>
     </section>
-    <section class="wide">
+
+    <section>
       <h3 data-i18n="web.title"></h3>
-      <p class="note" data-i18n="web.intro"></p>
-      <ol class="steps">
-        <li><span data-i18n="web.step1"></span> <button type="button" class="link" id="webDash">developer.spotify.com</button></li>
-        <li><span data-i18n="web.step2"></span> <code id="webRedirect"></code></li>
-        <li data-i18n="web.step3"></li>
-        <li data-i18n="web.step4"></li>
-      </ol>
-      <div class="webrow" id="webOut"><input id="webId" placeholder="Client ID" spellcheck="false" autocomplete="off"><button type="button" class="pick" id="webLogin" data-i18n="web.login"></button></div>
-      <div class="webrow" id="webIn" hidden><span id="webUser"></span><button type="button" class="pick" id="webLogout" data-i18n="web.logout"></button></div>
-      <p class="err" id="webErr" hidden></p>
+      <div class="group">
+        <div class="row col">
+          <div class="rt"><small class="plain" data-i18n="web.intro"></small></div>
+          <ol class="steps">
+            <li><span data-i18n="web.step1"></span> <button type="button" class="link" id="webDash">developer.spotify.com</button></li>
+            <li><span data-i18n="web.step2"></span> <code id="webRedirect"></code></li>
+            <li data-i18n="web.step3"></li>
+            <li data-i18n="web.step4"></li>
+          </ol>
+          <div class="webrow" id="webOut"><input type="text" id="webId" placeholder="Client ID" spellcheck="false" autocomplete="off"><button type="button" class="btn primary" id="webLogin" data-i18n="web.login"></button></div>
+          <div class="webrow" id="webIn" hidden><span id="webUser"></span><button type="button" class="btn" id="webLogout" data-i18n="web.logout"></button></div>
+          <p class="err" id="webErr" hidden></p>
+        </div>
+      </div>
     </section>
-    <section class="wide">
+
+    <section>
       <h3 data-i18n="look.power"></h3>
-      <div class="fps"><span data-i18n="look.fps"></span><div class="seg" id="fps"><button type="button" data-v="30">30</button><button type="button" data-v="20">20</button><button type="button" data-v="15">15</button></div></div>
-      <label class="chk"><input type="checkbox" id="battery"><span data-i18n="look.pauseOnBattery"></span></label>
+      <div class="group">
+        <div class="row"><span class="ri" data-icon="speed"></span><div class="rt"><b data-i18n="look.fps"></b></div><div id="fps"></div></div>
+        <div class="row"><span class="ri" data-icon="battery"></span><div class="rt"><b data-i18n="look.pauseOnBattery"></b></div>
+          <button type="button" class="sw" id="battery" role="switch" aria-checked="false"><b></b><i></i></button></div>
+      </div>
       <p class="note" data-i18n="look.pauseHint"></p>
     </section>
   </div>
 </main>
 <script src="common.js"></script>
+<script src="icons.js"></script>
+<script src="prefs.js"></script>
 <script src="settings.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // Main process: windows, tray, system integration.
-const { app, ipcMain, shell, Notification, screen } = require('electron');
+const { app, ipcMain, shell, Notification, screen, systemPreferences } = require('electron');
 const os = require('os');
 const log = require('./log');
 
@@ -41,6 +41,10 @@ const modelName = new Promise(resolve => {
   });
 });
 
+// The system accent colour (blue on a Mac by default, the chosen colour on Windows) for the app's windows.
+function sysAccent() {
+  try { return '#' + systemPreferences.getAccentColor().slice(0, 6); } catch (_) { return null; }
+}
 ipcMain.handle('app:info', async () => ({
   version: app.getVersion(),
   platform: process.platform,
@@ -48,6 +52,7 @@ ipcMain.handle('app:info', async () => ({
   ui: ['mac', 'win'].includes(process.env.LW_UI) ? process.env.LW_UI : process.platform === 'darwin' ? 'mac' : 'win',
   lang: i18n.lang(),
   strings: i18n.uiStrings(),
+  accent: sysAccent(),
   deviceLabel: (await Promise.race([modelName, new Promise(r => setTimeout(r, 1500, null))])) || i18n.t(adapter.deviceKey)
 }));
 ipcMain.handle('player:get', () => player.get());

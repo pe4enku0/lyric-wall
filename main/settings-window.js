@@ -11,7 +11,7 @@ let win = null;
 function show(reason) {
   log.info('Settings window requested by:', reason || 'unknown');
   if (win) { focus(win); return; }
-  win = createAppWindow('settings.html', 700);
+  win = createAppWindow('settings.html', process.platform === 'darwin' ? 620 : 880);
   win.on('closed', () => { win = null; });
   log.info('Settings window opened');
 }
@@ -19,7 +19,7 @@ function show(reason) {
 ipcMain.on('settings:open', (_e, reason) => show(reason || 'a button in the app'));
 ipcMain.handle('look:get', () => appearance.get());
 ipcMain.handle('look:set', (_e, key, value) => appearance.set(key, value));
-ipcMain.handle('look:saveImage', (_e, dataUrl) => appearance.saveImage(dataUrl));
+ipcMain.handle('look:saveImage', (_e, dataUrl, name) => appearance.saveImage(dataUrl, name));
 ipcMain.handle('look:image', () => appearance.imageDataUrl());
 
 // Spotify sign-in (main/spotify-web.js)

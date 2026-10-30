@@ -18,7 +18,7 @@ const THEMES = ['default', 'dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled'
 const BACKGROUNDS = ['color', 'theme', 'dusk', 'photo', 'cover', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
 const DUSTY_ONLY = ['dusk', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
 const DEFAULT_ONLY = ['color'];
-const allowedBg = (theme, bg) => (theme === 'default' ? ['color', 'photo', 'cover', 'dusk'].includes(bg)
+const allowedBg = (theme, bg) => (theme === 'default' ? ['color', 'photo', 'cover'].includes(bg)
   : theme === 'dusty' ? bg !== 'theme' && !DEFAULT_ONLY.includes(bg) : !DUSTY_ONLY.includes(bg) && !DEFAULT_ONLY.includes(bg));
 const LIMITS = { imgBlur: [0, 40], imgDim: [0, 80], snowSpeed: [0, 3], snowCount: [0, 300] };
 
@@ -39,6 +39,7 @@ function get() {
     snowCount: settings.get('snowCount'),
     hasImage: hasImage(),
     imageVersion: settings.get('imageVersion'),
+    imageName: settings.get('imageName'),
     pauseOnBattery: settings.get('pauseOnBattery'),
     showLyrics: settings.get('showLyrics'),
     fps: settings.get('fps')
@@ -73,8 +74,8 @@ function set(key, value) {
   return get();
 }
 
-// dataUrl: "data:image/jpeg;base64,..." prepared by the settings window.
-function saveImage(dataUrl) {
+// dataUrl: "data:image/jpeg;base64,..." prepared by the settings window; name: the original file name.
+function saveImage(dataUrl, name) {
   const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl));
   if (!m) return { ...get(), error: 'bad-image' };
   const bytes = Buffer.from(m[1], 'base64');
@@ -87,6 +88,7 @@ function saveImage(dataUrl) {
   }
   log.info(`Background: own picture saved (${Math.round(bytes.length / 1024)} KB)`);
   settings.set('imageVersion', Date.now());
+  settings.set('imageName', path.basename(String(name || '')).slice(0, 120));
   settings.set('bg', 'photo');
   events.emit('change');
   return get();
