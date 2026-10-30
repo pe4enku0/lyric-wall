@@ -46,7 +46,10 @@ function create() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // The wallpaper lies below every window, so the browser would treat it as hidden and slow its frames
+      // and timers down (choppy bars and snow). It pauses itself when it should (main/power.js).
+      backgroundThrottling: false
     }
   });
 

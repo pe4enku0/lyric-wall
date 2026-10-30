@@ -61,7 +61,7 @@ function set(key, value) {
   } else if (['pauseOnBattery', 'showLyrics', 'snowOn'].includes(key)) {
     value = !!value;
   } else if (key === 'fps') {
-    if (![15, 20, 30].includes(Number(value))) return get();
+    if (![15, 20, 30, 45, 60].includes(Number(value))) return get();
     value = Number(value);
   } else if (LIMITS[key]) {
     const [lo, hi] = LIMITS[key];

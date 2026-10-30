@@ -19,7 +19,7 @@
 
   // Look from the settings window (main/appearance.js); the own picture is loaded separately.
   let S = { theme: 'default', bg: 'color', bgColor: '#0C0B10', layout: 'a', imgBlur: 0, imgDim: 30, snowOn: true, snowSpeed: reduce ? 0 : 1, snowCount: 90,
-    imageVersion: 0, showLyrics: true, fps: 30 };
+    imageVersion: 0, showLyrics: true, fps: 60 };
   let userImg = null;
 
   /* ---------- size and safe area ----------
@@ -616,9 +616,11 @@
   const vc = $('viz'), vx = vc.getContext('2d'), lv = new Array(48).fill(.05);
   let tempo = { id: null, bpm: 0 }, vizAlpha = 1, accentUntil = 0, accentRgb = '163,157,173';
   function onTempo(r) { tempo = r; wake(); }
-  // The canvas gets as many pixels as it has room in the card.
+  // The canvas gets as many pixels as the screen has there (twice as many on a Retina screen), so the bars stay sharp.
+  let vizK = 1;
   function sizeViz() {
-    const w = vc.clientWidth, h = vc.clientHeight;
+    vizK = (window.devicePixelRatio || 1) * k;
+    const w = Math.round(vc.clientWidth * vizK), h = Math.round(vc.clientHeight * vizK);
     if (w && h && (vc.width !== w || vc.height !== h)) { vc.width = w; vc.height = h; }
   }
   // The same "random" number for the same beat and bar: every beat gets its own pattern.
@@ -660,7 +662,7 @@
       const m = getComputedStyle(stage).getPropertyValue('--accent').match(/[\d.]+/g);
       if (m && m.length >= 3) accentRgb = m.slice(0, 3).join(',');
     }
-    const n = Math.max(10, Math.min(48, Math.round(VW / 10))), step = VW / n, bw = step * .6, target = heightsFor(n);
+    const n = Math.max(10, Math.min(48, Math.round(VW / vizK / 10))), step = VW / n, bw = step * .6, target = heightsFor(n);
     const alpha = playing ? 1 : .35;
     vizAlpha += (alpha - vizAlpha) * .2;
     if (Math.abs(alpha - vizAlpha) < .01) vizAlpha = alpha;
@@ -672,9 +674,9 @@
       const tgt = Math.min(1, target(i));
       // Follow the target smoothly (the same speed at 15, 20 or 30 frames per second): up a bit faster than down.
       lv[i] += (tgt - lv[i]) * (1 - Math.exp(-dt * (tgt > lv[i] ? 12 : 6)));
-      const h = Math.max(3, lv[i] * VH), x = i * step + (step - bw) / 2;
+      const h = Math.max(3 * vizK, lv[i] * VH), x = i * step + (step - bw) / 2;
       vx.beginPath();
-      vx.roundRect(x, VH - h, bw, h, Math.min(2, bw / 2));
+      vx.roundRect(x, VH - h, bw, h, Math.min(2 * vizK, bw / 2));
       vx.fill();
       if (Math.abs(tgt - lv[i]) > .003) moving = true;
     }
@@ -683,7 +685,7 @@
   }
 
   /* ---------- main loop ----------
-     At most 30 frames per second (or 20 / 15, chosen in the settings). When nothing moves (music paused, visualizer settled) it sleeps until
+     Up to 60 frames per second (45, 30, 20 or 15, chosen in the settings). When nothing moves (music paused, visualizer settled) it sleeps until
      something changes, and while the wallpaper is paused (locked screen, game, battery) it stops completely. */
   let last = performance.now(), lastFrame = 0, raf = 0, frameTimer = 0, frozen = false, lastPct = -1;
   const shown = {};
@@ -693,16 +695,21 @@
     last = performance.now();
     raf = requestAnimationFrame(loop);
   }
-  // The next frame is asked for with a timer: asking on every screen refresh would wake the browser and
-  // the GPU at the display rate (120 Hz on a MacBook) even when most of those frames are skipped.
+  // Frames follow the screen refresh, and screen refreshes that come too early for the chosen rate are skipped.
+  // (Waiting with a timer and then for the next refresh gave uneven gaps between frames: choppy movement.)
+  // At low rates a timer sleeps through most of the gap first, so the browser is not woken on every refresh.
   function scheduleFrame() {
-    if (frozen || frameTimer) return;
-    frameTimer = setTimeout(() => { frameTimer = 0; if (!frozen) raf = requestAnimationFrame(loop); },
-      Math.max(0, 1000 / (S.fps || 30) - (performance.now() - lastFrame)));
+    if (frozen || frameTimer || raf) return;
+    const wait = 1000 / (S.fps || 60) - (performance.now() - lastFrame);
+    if (wait > 20) frameTimer = setTimeout(() => { frameTimer = 0; if (!frozen) raf = requestAnimationFrame(loop); }, wait - 12);
+    else raf = requestAnimationFrame(loop);
   }
   function loop(now) {
     raf = 0;
     if (frozen) return;
+    // Too early for the chosen rate (a 120 Hz screen at 60 frames per second): wait for the next refresh.
+    // 3 ms of slack, so a refresh that comes a little early is not skipped.
+    if (lastFrame && now - lastFrame < 1000 / (S.fps || 60) - 3) { raf = requestAnimationFrame(loop); return; }
     lastFrame = now;
     const dt = Math.min(.1, (now - last) / 1000); last = now;
     const d = track.duration, pos = d ? (seekPreview != null ? seekPreview * d : Math.min(d, clock.now())) : 0;

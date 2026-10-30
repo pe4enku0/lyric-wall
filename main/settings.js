@@ -24,7 +24,7 @@ const defaults = {
   imageName: '', // file name of the own picture, shown in the settings
   pauseOnBattery: false, // stop the wallpaper while running on battery (main/power.js)
   showLyrics: true,
-  fps: 30, // wallpaper frames per second: 30, 20 or 15
+  fps: 60, // wallpaper frames per second: 60, 45, 30, 20 or 15
   welcomeShown: false, // the first-start notification was shown
   spotifyClientId: '', // Client ID of the user's app on developer.spotify.com (main/spotify-web.js)
   designVersion: 2 // 2 = the redesign; older settings files are moved to its look once

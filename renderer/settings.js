@@ -9,7 +9,7 @@
   /* ---------- choices ---------- */
   const layoutC = choice($('layout'), [['a', t('look.layoutA')], ['b', t('look.layoutB')]], v => set('layout', v));
   const styleC = choice($('bgStyle'), [['color', t('bgStyle.color')], ['picture', t('bgStyle.picture')], ['cover', t('bgStyle.cover')]], pickStyle);
-  const fpsC = choice($('fps'), [['30', '30'], ['20', '20'], ['15', '15']], v => set('fps', +v));
+  const fpsC = choice($('fps'), ['60', '45', '30', '20', '15'].map(v => [v, v]), v => set('fps', +v));
 
   /* ---------- themes: a small copy of the wallpaper in each theme's colours ---------- */
   for (const id of LW.THEMES) {
