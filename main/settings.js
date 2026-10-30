@@ -27,6 +27,7 @@ const defaults = {
   fps: 60, // wallpaper frames per second: 60, 45, 30, 20 or 15
   welcomeShown: false, // the first-start notification was shown
   spotifyClientId: '', // Client ID of the user's app on developer.spotify.com (main/spotify-web.js)
+  spotifyWaitUntil: {}, // "too many requests": request kind -> time (ms) until which it is not sent
   designVersion: 2 // 2 = the redesign; older settings files are moved to its look once
 };
 

@@ -30,7 +30,14 @@ let loginServer = null;
 let likedOf = null;     // the track whose "liked" mark is known (asked once per track, not every 30 s)
 let refreshTimer = null;
 // "Too many requests" (HTTP 429): Spotify says how long to wait; until then that kind of request is not sent.
+// Kept in the settings, so restarting the app does not ask again before the time is up.
 const blockedUntil = {};
+for (const [kind, until] of Object.entries(settings.get('spotifyWaitUntil') || {})) {
+  if (until > Date.now()) {
+    blockedUntil[kind] = until;
+    log.info(`Spotify Web API: still waiting after "too many requests" for ${kind}, ${Math.ceil((until - Date.now()) / 60000)} min left`);
+  }
+}
 
 const b64url = buf => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -89,6 +96,7 @@ async function api(method, pathAndQuery, retried) {
   if (res.status === 429) {
     const wait = Math.min(3600, Math.max(30, Number(res.headers.get('retry-after')) || 60));
     blockedUntil[kind] = Date.now() + wait * 1000;
+    settings.set('spotifyWaitUntil', Object.fromEntries(Object.entries(blockedUntil).filter(([, until]) => until > Date.now())));
     throw new Error(`Spotify said "too many requests" for ${kind}; waiting ${wait} s before asking again`);
   }
   if (res.status === 204 || res.status === 202) return null;
@@ -190,7 +198,9 @@ async function refreshNow() {
   }
   const current = q && q.currently_playing;
   const uri = current ? current.uri : localUri;
-  now = { ...now, uri, queue: ((q && q.queue) || []).slice(0, 5).map(trackInfo) };
+  // playing: the current track with its biggest cover (Windows media controls give only 300×300).
+  const playing = current ? { title: current.name, art: ((current.album && current.album.images) || current.images || [])[0]?.url || '' } : null;
+  now = { ...now, uri, playing, queue: ((q && q.queue) || []).slice(0, 5).map(trackInfo) };
   if (uri !== likedOf) {
     now.liked = false;
     try {
