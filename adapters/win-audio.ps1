@@ -1,9 +1,9 @@
 # Lyric Wall sound helper for Windows (keep this file ASCII-only: PowerShell 5.1 reads it as ANSI).
 # Listens to what the default output device plays (WASAPI loopback) in the device's own format, so
 # 5.1 / 7.1 headsets work too (the loopback built into Electron opens the device in stereo and is
-# refused by such devices). The sound is mixed down to mono and turned into a spectrum the same way
-# the browser's AnalyserNode does it (fftSize 4096, smoothing 0.5, -80..-22 dB), so the Sound bars
-# look the same as with the analyser on macOS. Nothing is recorded, saved or sent anywhere.
+# refused by such devices). The sound is mixed down to mono, made about 8 dB louder (GAIN) and turned
+# into a spectrum the same way the browser's AnalyserNode does it (fftSize 4096, smoothing 0.5,
+# -80..-22 dB). Nothing is recorded, saved or sent anywhere.
 # Output, one line each:
 #   F <sample rate> <fft size> <channels> <bits>   the device was opened (again)
 #   S <base64 bytes>                               the spectrum, bins 0..up to 16 kHz, 50 times a second
@@ -61,6 +61,8 @@ public static class LwLoopback {
   const int FFT = 4096;
   const double MIN_DB = -80, MAX_DB = -22, SMOOTHING = 0.5, TOP_HZ = 16000;
   const int TICK_MS = 20;
+  // The sound is taken after Spotify's own volume, so the bars were low: about +8 dB makes them livelier.
+  const float GAIN = 2.5f;
   static readonly Guid FLOAT = new Guid("00000003-0000-0010-8000-00AA00389B71");
 
   static StreamWriter output;
@@ -187,12 +189,12 @@ public static class LwLoopback {
     }
   }
 
-  // One frame mixed down like the browser does for stereo: (left + right) / 2.
+  // One frame mixed down like the browser does for stereo: (left + right) / 2, then GAIN.
   // In 5.1 / 7.1 the first two channels are front left and right, where music plays.
   static float Mono(byte[] b, int at, int channels, int bits, bool isFloat) {
     float l = Sample(b, at, bits, isFloat);
-    if (channels < 2) return l;
-    return (l + Sample(b, at + bits / 8, bits, isFloat)) / 2;
+    if (channels < 2) return l * GAIN;
+    return (l + Sample(b, at + bits / 8, bits, isFloat)) / 2 * GAIN;
   }
 
   static float Sample(byte[] b, int at, int bits, bool isFloat) {
