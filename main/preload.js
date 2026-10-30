@@ -47,9 +47,8 @@ contextBridge.exposeInMainWorld('lyricWall', {
   // Lyrics for the current track (see main/lyrics.js)
   getLyrics: () => ipcRenderer.invoke('lyrics:get'),
   onLyrics: cb => ipcRenderer.on('lyrics:state', (_e, r) => cb(r)),
-  // Tempo of the current track for the sound card (see main/tempo.js)
-  getTempo: () => ipcRenderer.invoke('tempo:get'),
-  onTempo: cb => ipcRenderer.on('tempo:state', (_e, r) => cb(r)),
+  // The computer's sound for the Sound card (see main/audio.js)
+  startAudio: () => ipcRenderer.send('audio:start'),
 
   // Control window: switches shared with the tray menu
   controlState: () => ipcRenderer.invoke('control:state'),

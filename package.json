@@ -57,7 +57,8 @@
       "artifactName": "Lyric-Wall-${version}-mac-${arch}.${ext}",
       "extendInfo": {
         "LSUIElement": true,
-        "NSAppleEventsUsageDescription": "Lyric Wall reads the current Spotify track and controls playback."
+        "NSAppleEventsUsageDescription": "Lyric Wall reads the current Spotify track and controls playback.",
+        "NSAudioCaptureUsageDescription": "Lyric Wall listens to the music playing on this Mac to move the Sound bars. Nothing is recorded or sent anywhere."
       },
       "icon": "assets/icon-mac.png",
       "extraResources": [

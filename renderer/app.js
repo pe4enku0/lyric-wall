@@ -441,6 +441,7 @@
   }
   function setPlaying(on) {
     playing = on;
+    audioActive(on && !frozen);
     const pp = $('pp'), icon = `${LW.platform}-${on ? 'pause' : 'play'}`;
     if (pp.dataset.icon !== icon) { pp.dataset.icon = icon; pp.innerHTML = LW.icon(on ? 'pause' : 'play'); }
     applyState();
@@ -610,12 +611,12 @@
     sx.globalAlpha = 1;
   }
 
-  /* ---------- Sound card: the bars move to the beat ----------
-     The tempo (BPM) comes from the public Deezer catalog (main/tempo.js) and the beats are counted from the
-     song position, so nothing listens to the computer's sound. Paused or nothing playing: a flat, faint line. */
+  /* ---------- Sound card: a spectrum of the computer's sound ----------
+     main/audio.js hands the wallpaper the system sound (nothing is recorded or sent); an analyser splits it
+     into bands: bass on the left, treble on the right. Without the sound (no permission, an error) the bars
+     move in a calm wave. Paused or nothing playing: a flat, faint line. */
   const vc = $('viz'), vx = vc.getContext('2d'), lv = new Array(48).fill(.05);
-  let tempo = { id: null, bpm: 0 }, vizAlpha = 1, accentUntil = 0, accentRgb = '163,157,173';
-  function onTempo(r) { tempo = r; wake(); }
+  let vizAlpha = 1, accentUntil = 0, accentRgb = '163,157,173';
   // The canvas gets as many pixels as the screen has there (twice as many on a Retina screen), so the bars stay sharp.
   let vizK = 1;
   function sizeViz() {
@@ -623,55 +624,69 @@
     const w = Math.round(vc.clientWidth * vizK), h = Math.round(vc.clientHeight * vizK);
     if (w && h && (vc.width !== w || vc.height !== h)) { vc.width = w; vc.height = h; }
   }
-  // The same "random" number for the same beat and bar: every beat gets its own pattern.
-  const noise = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
-  const smooth = x => x * x * (3 - 2 * x);
-  // A soft pattern: neighbouring bars get similar heights (one random point every 3 bars, blended between).
-  function pattern(beat, i) {
-    const x = i / 3, j = Math.floor(x), f = smooth(x - j);
-    return noise(beat, j) * (1 - f) + noise(beat, j + 1) * f;
+
+  let actx = null, analyser = null, spectrum = null, audioTries = 0;
+  // Called by the main process "as a click" (getDisplayMedia needs one), see main/audio.js.
+  window.lwStartAudio = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      stream.getVideoTracks().forEach(tr => tr.stop()); // only the sound is used
+      const tr = stream.getAudioTracks()[0];
+      if (!tr) throw new Error('the system gave no sound');
+      actx = new AudioContext();
+      analyser = actx.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = .5;
+      analyser.minDecibels = -80; analyser.maxDecibels = -22;
+      actx.createMediaStreamSource(new MediaStream([tr])).connect(analyser); // not to the speakers: no echo
+      spectrum = new Uint8Array(analyser.frequencyBinCount);
+      // The sound device changed or went away: listen again in a few seconds.
+      tr.onended = () => {
+        api.log('warn', 'Sound card: the system sound stopped');
+        analyser = null; actx.close().catch(() => {}); actx = null;
+        if (++audioTries < 5) setTimeout(() => api.startAudio(), 5000);
+      };
+      audioTries = 0;
+      api.log('info', `Sound card: listening to the system sound (${actx.sampleRate} Hz)`);
+      if (!playing || frozen) actx.suspend();
+      wake();
+    } catch (e) {
+      analyser = null;
+      api.log('warn', `Sound card: no system sound (${e.name}: ${e.message}); the bars move in a calm wave`);
+    }
+  };
+  // The analyser works only while there is something to show.
+  function audioActive(on) {
+    if (!actx) return;
+    if (on && actx.state === 'suspended') actx.resume().catch(() => {});
+    else if (!on && actx.state === 'running') actx.suspend().catch(() => {});
   }
 
-  /* Where the beats are. The tempo says how often; the synced lyrics say where: lines start on a beat far more
-     often than between beats, so the average place of the line starts inside a beat marks the beat.
-     (Counting from 0:00 misses the beat whenever the song does not start exactly on one.) */
-  let grid = { key: '', offset: 0 };
-  function beatOffset(bpm) {
-    const key = `${track.id}|${bpm}|${synced.length}`;
-    if (grid.key === key) return grid.offset;
-    let x = 0, y = 0, n = 0;
-    for (const l of synced) {
-      if (!l.t || l.text === '♪') continue;
-      const a = (l.t * bpm / 60) % 1 * 2 * Math.PI;
-      x += Math.cos(a); y += Math.sin(a); n++;
+  // n bands from 40 Hz to 14 kHz, evenly spread over the octaves (as we hear them).
+  function bands(n) {
+    analyser.getByteFrequencyData(spectrum);
+    const hz = actx.sampleRate / analyser.fftSize, out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const f0 = 40 * Math.pow(350, i / n), f1 = 40 * Math.pow(350, (i + 1) / n);
+      const a = Math.max(1, Math.floor(f0 / hz)), b = Math.max(a + 1, Math.ceil(f1 / hz));
+      let sum = 0;
+      for (let j = a; j < b && j < spectrum.length; j++) sum += spectrum[j];
+      // Treble is quieter than bass: lift it a little so the right side moves too.
+      const v = sum / (b - a) / 255 * (1 + .5 * i / (n - 1));
+      out[i] = Math.min(1, Math.pow(v, 1.6));
     }
-    // Too few lines, or they do not agree on a place: count from the start of the song.
-    const agree = n ? Math.hypot(x, y) / n : 0, sure = n >= 6 && agree > .3;
-    grid = { key, offset: sure ? (Math.atan2(y, x) / (2 * Math.PI) + 1) % 1 : 0 };
-    if (n) api.log('info', `Sound bars: ${bpm} BPM, beat ${sure ? `at ${(grid.offset * 60 / bpm).toFixed(2)} s from the lyrics` : 'from 0:00'} (${n} lines agree ${Math.round(agree * 100)}%)`);
-    return grid.offset;
+    return out;
   }
 
   function heightsFor(n) {
-    // Bars on the left (bass) are a bit taller, like a spectrum.
-    const shape = i => 1 - .4 * i / (n - 1);
-    const bpm = tempo.id === track.id ? tempo.bpm : 0;
     if (!playing) return () => .05;
-    if (!bpm) {
-      // Tempo unknown: a calm wave.
-      const tm = performance.now() / 1000;
-      return i => .14 + .1 * shape(i) * (1 + Math.sin(tm * 2.2 + i * .55));
+    if (analyser && actx.state === 'running') {
+      const b = bands(n);
+      return i => .04 + .96 * b[i];
     }
-    // Counted 50 ms early, so the bars (which take a frame or two to rise) are at the top right on the beat.
-    const beats = (clock.now() + .05) * bpm / 60 - beatOffset(bpm), b = Math.floor(beats), ph = beats - b;
-    // The bars jump on the beat, stay up for a moment and sink smoothly until the next one.
-    const pulse = ph < .08 ? 1 : Math.exp(-(ph - .08) * 3.4);
-    const accent = b % 4 === 0 ? 1 : .82;               // the first beat of a bar is a bit stronger
-    const mix = smooth(ph);                              // this beat's pattern melts into the next one's
-    return i => {
-      const p = pattern(b, i) * (1 - mix) + pattern(b + 1, i) * mix;
-      return .1 + .82 * shape(i) * accent * pulse * (.45 + .55 * p);
-    };
+    // No sound to listen to: a calm wave, bass a bit taller.
+    const tm = performance.now() / 1000;
+    return i => .14 + .1 * (1 - .4 * i / (n - 1)) * (1 + Math.sin(tm * 2.2 + i * .55));
   }
 
   function drawViz(now, dt) {
@@ -749,6 +764,7 @@
   }
   function setFrozen(st) {
     frozen = !!st.paused;
+    audioActive(playing && !frozen);
     document.body.classList.toggle('frozen', frozen);
     if (!frozen) wake();
   }
@@ -1038,8 +1054,7 @@
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());
   api.onLyrics(onLyrics);
-  api.onTempo(onTempo);
-  onTempo(await api.getTempo());
+  api.startAudio();
   api.onWebNow(onWeb);
   api.onWebState(st => onWeb({ loggedIn: st.loggedIn }));
   onWeb(await api.getWebNow());

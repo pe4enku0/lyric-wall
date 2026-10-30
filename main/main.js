@@ -20,7 +20,8 @@ const settings = require('./settings');
 const i18n = require('./i18n');
 const player = require('./player');
 const lyrics = require('./lyrics');
-const tempo = require('./tempo');
+const audio = require('./audio');
+audio.enableFeatures();
 const spotifyWeb = require('./spotify-web');
 const power = require('./power');
 const appearance = require('./appearance');
@@ -61,7 +62,6 @@ ipcMain.on('app:log', (_e, level, text) => (log[level] || log.info)('UI:', text)
 ipcMain.on('app:openSoundSettings', () => shell.openExternal(adapter.soundSettingsUrl));
 ipcMain.on('app:openControl', () => control.show('the "…" button on the wallpaper'));
 ipcMain.handle('lyrics:get', () => lyrics.get());
-ipcMain.handle('tempo:get', () => tempo.get());
 ipcMain.handle('web:getNow', () => ({ ...spotifyWeb.getNow(), loggedIn: spotifyWeb.state().loggedIn }));
 ipcMain.handle('web:like', (_e, on) => spotifyWeb.setLiked(!!on));
 ipcMain.handle('render:get', () => power.state());
@@ -92,6 +92,7 @@ app.whenReady().then(() => {
     `Electron ${process.versions.electron}, adapter ${adapter.name}, language ${i18n.lang()}, ` +
     `screen ${d.size.width}x${d.size.height} at ${d.scaleFactor}x, ${screen.getAllDisplays().length} display(s)`);
   adapter.init();
+  audio.setup();
   power.start();
   spotifyWeb.start();
   appearance.onChange(power.checkBattery);
