@@ -1,11 +1,52 @@
-/* Wallpaper themes. A theme sets the whole look: background, glass, text, icons, the current lyric line,
-   the sound bars and the particles (read by app.js from --particles and --p1…--p3).
+/* Wallpaper themes.
+   "default" is the look of the redesign: ink background, glass cards that look native on each system
+   (data-platform="mac" | "win"), an accent colour taken from the cover.
+   The other themes (dusty glass, pastel, sakura…) set the whole look with their own variables (--ink, --glass-bg…),
+   which the bridge below turns into the tokens the wallpaper uses. Particles: --particles and --p1…--p3 (read by app.js).
    Used by the wallpaper (.stage) and by the theme previews in the settings window. */
 @property --hue { syntax: '<number>'; inherits: true; initial-value: 225; }
 @property --sat { syntax: '<number>'; inherits: true; initial-value: 1; }
+/* The accent changes smoothly (600 ms) when the next track has another cover. */
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #A39DAD; }
 
-/* Dusty glass — the look of mockup.html (the default; also the values every theme starts from). */
+/* ---------- default look (tokens) ---------- */
 .themed {
+  --bg: #0C0B10;
+  --bg-fill: var(--bg);
+  --text: #F5F2F4;
+  --text-2: rgba(245,242,244,.66);
+  --text-3: rgba(245,242,244,.62);
+  --accent-idle: #A39DAD;
+  --on-accent: #1A0B08;
+  --glow-max: .15;
+  --icon: var(--text);
+  --soft: rgba(255,255,255,.07);
+  --track: rgba(255,255,255,.16);
+  --fill-plain: #fff;               /* volume fill (Mac) */
+  --btn-light: #fff; --btn-light-ink: #121016;
+  --line-active: var(--text); --line-todo: rgba(245,242,244,.4); --line-near: var(--text);
+  --line-on-bg: none; --line-on-filter: none;
+  --outline: rgba(245,242,244,.4);
+  --dim: #000; --grain-opacity: 0; --grain-blend: overlay;
+  --particles: snow; --p1: #fff; --p2: #fff; --p3: #fff;
+}
+/* Glass of the cards: macOS vibrancy and Windows 11 acrylic. */
+.themed[data-platform="mac"] {
+  --card-bg: rgba(38,34,44,.58);
+  --card-filter: blur(30px) saturate(160%);
+  --card-border: rgba(255,255,255,.08);
+  --card-shadow: none;
+}
+.themed[data-platform="win"] {
+  --card-bg: rgba(36,33,40,.74);
+  --card-filter: blur(40px) saturate(140%);
+  --card-border: rgba(255,255,255,.07);
+  --card-shadow: 0 16px 48px rgba(0,0,0,.42);
+}
+
+/* ---------- themes ---------- */
+/* Dusty glass — the look before the redesign; also the values every other theme starts from. */
+.themed:not([data-theme="default"]) {
   --stage-bg:
     radial-gradient(620px 420px at 46% 100%, hsl(calc(var(--hue) + 120) calc(40% * var(--sat)) 24% / .95), transparent 75%),
     radial-gradient(700px 520px at 92% 92%, hsl(calc(var(--hue) + 110) calc(20% * var(--sat)) 17% / .75), transparent 75%),
@@ -24,7 +65,6 @@
   --msg: rgba(228,225,232,.72); --plain: #e4e1e8;
   --dim: #000; --grain-opacity: .16; --grain-blend: overlay;
   --viz-rgb: 255,92,112;
-  --big: hsl(calc(var(--hue) + 120) 60% 86%); /* the big volume number */
   --particles: snow; --p1: #f1eef4; --p2: #f1eef4; --p3: #f1eef4;
 }
 
@@ -206,4 +246,18 @@
   --viz-rgb: 138,143,216;
   --big: rgb(var(--viz-rgb));
   --particles: glitter; --p1: #ffffff; --p2: #c9b6ff; --p3: #9fe8ff;
+}
+
+/* Bridge: the theme variables above become the wallpaper's tokens. The accent is the theme's own colour. */
+.themed:not([data-theme="default"]) {
+  --bg-fill: var(--stage-bg);
+  --text: var(--ink); --text-2: var(--ink2); --text-3: var(--ink3);
+  --card-bg: var(--glass-bg); --card-border: var(--glass-border); --card-filter: var(--glass-filter); --card-shadow: var(--glass-shadow);
+  --fill-plain: var(--fill);
+  --btn-light-ink: var(--icon-inv);
+  --line-active: var(--line-on); --line-todo: var(--line); --line-near: var(--line);
+  --outline: var(--ink3);
+  --accent: rgb(var(--viz-rgb));
+  --on-accent: var(--icon-inv);
+  --glow-max: 0;
 }

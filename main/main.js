@@ -33,12 +33,22 @@ const tray = require('./tray');
 
 const startedAt = Date.now();
 
-ipcMain.handle('app:info', () => ({
+// Mac: the model name for the sound output button ("MacBook Air"); asked once, in the background.
+const modelName = new Promise(resolve => {
+  if (process.platform !== 'darwin') { resolve(null); return; }
+  require('child_process').execFile('/usr/sbin/system_profiler', ['SPHardwareDataType', '-json'], { timeout: 4000 }, (err, out) => {
+    try { resolve(err ? null : JSON.parse(out).SPHardwareDataType[0].machine_name || null); } catch (_) { resolve(null); }
+  });
+});
+
+ipcMain.handle('app:info', async () => ({
   version: app.getVersion(),
   platform: process.platform,
+  // Look of the wallpaper: 'mac' or 'win'. LW_UI=win npm run window shows the Windows look on a Mac (for testing).
+  ui: ['mac', 'win'].includes(process.env.LW_UI) ? process.env.LW_UI : process.platform === 'darwin' ? 'mac' : 'win',
   lang: i18n.lang(),
   strings: i18n.uiStrings(),
-  deviceLabel: i18n.t(adapter.deviceKey)
+  deviceLabel: (await Promise.race([modelName, new Promise(r => setTimeout(r, 1500, null))])) || i18n.t(adapter.deviceKey)
 }));
 ipcMain.handle('player:get', () => player.get());
 ipcMain.on('player:control', (_e, cmd, value, rid) => player.control(cmd, value, typeof rid === 'string' ? rid.slice(0, 16) : undefined));

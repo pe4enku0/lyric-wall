@@ -174,7 +174,7 @@ async function refreshNow() {
     const uri = current ? current.uri : localUri;
     let liked = false;
     if (uri) liked = !!((await api('GET', '/me/library/contains?uris=' + encodeURIComponent(uri))) || [])[0];
-    now = { uri, queue: ((q && q.queue) || []).slice(0, 3).map(trackInfo), liked };
+    now = { uri, queue: ((q && q.queue) || []).slice(0, 5).map(trackInfo), liked };
     events.emit('now', now);
   } catch (e) {
     log.warn('Spotify Web API:', e.message);

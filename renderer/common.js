@@ -3,6 +3,7 @@ window.LW = {
   // Background presets from mockup.html. hue/sat tint the gradient behind the glass
   // (null = taken from the track cover); img: which picture is shown; sw: the swatch in the settings.
   BACKGROUNDS: [
+    { id: 'color', hue: 225, sat: 1, sw: '' }, // a plain colour (look.bgColor), the default theme only
     { id: 'theme', hue: 225, sat: 1, sw: '' }, // the theme's own background (swatch drawn from the theme)
     { id: 'dusk', img: 'dusk', hue: 330, sat: 1, sw: 'linear-gradient(180deg, #8a8a98, #e3b08a 70%, #2a2226)' },
     { id: 'photo', img: 'photo', hue: 225, sat: 1, sw: 'linear-gradient(135deg, #6d7a8f, #b79a8c)' },
@@ -14,11 +15,14 @@ window.LW = {
     { id: 'pine', hue: 30, sat: 1.2, sw: 'linear-gradient(160deg, #3f4844, #1f4a36)' },
     { id: 'sunset', hue: 265, sat: 1.5, sw: 'linear-gradient(160deg, #4d4545, #6a3420)' }
   ],
-  THEMES: ['dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'],
-  // Backgrounds offered with a theme: the colour presets only with dusty glass.
+  THEMES: ['default', 'dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'],
+  // Swatches of the "Color" background.
+  COLORS: [['ink', '#0C0B10'], ['midnight', '#0E1622'], ['plum', '#1A0F1F'], ['pine', '#0F1A16'], ['umber', '#1C1712'], ['graphite', '#202024']],
+  // Backgrounds offered with a theme (the same rules as main/appearance.js).
   backgroundsFor(theme) {
     const dustyOnly = ['dusk', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
-    return LW.BACKGROUNDS.filter(b => (theme === 'dusty' ? b.id !== 'theme' : !dustyOnly.includes(b.id)));
+    if (theme === 'default') return LW.BACKGROUNDS.filter(b => ['color', 'photo', 'cover', 'dusk'].includes(b.id));
+    return LW.BACKGROUNDS.filter(b => b.id !== 'color' && (theme === 'dusty' ? b.id !== 'theme' : !dustyOnly.includes(b.id)));
   },
 
   // Loads the UI language and fills every element that has data-i18n="key".

@@ -11,8 +11,11 @@ const defaults = {
   language: 'auto', // 'auto' | 'en' | 'ru'
   winMode: 'auto', // Windows: 'auto' = behind desktop icons, 'bottom' = fallback below all windows
   // Look of the wallpaper (the settings window, see main/appearance.js)
-  theme: 'dusty',
-  bg: 'dusk',
+  theme: 'default',
+  layout: 'a', // 'a' = side by side, 'b' = centered
+  bg: 'color',
+  bgColor: '#0C0B10',
+  snowOn: true,
   imgBlur: 0,
   imgDim: 30,
   snowSpeed: 1,
@@ -22,14 +25,22 @@ const defaults = {
   showLyrics: true,
   fps: 30, // wallpaper frames per second: 30, 20 or 15
   welcomeShown: false, // the first-start notification was shown
-  spotifyClientId: '' // Client ID of the user's app on developer.spotify.com (main/spotify-web.js)
+  spotifyClientId: '', // Client ID of the user's app on developer.spotify.com (main/spotify-web.js)
+  designVersion: 2 // 2 = the redesign; older settings files are moved to its look once
 };
 
-let data = { ...defaults };
+let saved = null;
 try {
-  data = { ...defaults, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
+  saved = JSON.parse(fs.readFileSync(file, 'utf8'));
 } catch (e) {
   if (e.code !== 'ENOENT') log.warn('Could not read settings, using defaults:', e.message);
+}
+const data = { ...defaults, ...saved };
+// Settings from before the redesign: switch to the new look once (an own picture stays).
+if (saved && !(saved.designVersion >= 2)) {
+  data.theme = 'default';
+  if (data.bg !== 'photo') data.bg = 'color';
+  data.designVersion = 2;
 }
 
 let saveTimer = null;

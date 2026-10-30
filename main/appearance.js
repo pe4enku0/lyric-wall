@@ -1,4 +1,4 @@
-// Options of the settings window: background, picture blur/dim, snow, pausing on battery, sound card;
+// Options of the settings window: arrangement, theme, background, picture blur/dim, snow, pausing on battery;
 // plus showing the lyrics (the lyrics button on the wallpaper).
 // Applied right away and kept in settings.json.
 const { app } = require('electron');
@@ -12,10 +12,14 @@ const log = require('./log');
 const IMAGE = path.join(app.getPath('userData'), 'background.jpg');
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
-const THEMES = ['dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'];
-// 'theme' = the theme's own background. The colour presets belong to the dusty-glass theme only.
-const BACKGROUNDS = ['theme', 'dusk', 'photo', 'cover', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
+const THEMES = ['default', 'dusty', 'pastel', 'sakura', 'rain', 'neon', 'amoled', 'vinyl', 'matcha', 'chrome'];
+// 'color' = a plain colour (bgColor), the default look only. 'theme' = the theme's own background.
+// The colour presets belong to the dusty-glass theme only.
+const BACKGROUNDS = ['color', 'theme', 'dusk', 'photo', 'cover', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
 const DUSTY_ONLY = ['dusk', 'auto', 'lilac', 'graphite', 'night', 'pine', 'sunset'];
+const DEFAULT_ONLY = ['color'];
+const allowedBg = (theme, bg) => (theme === 'default' ? ['color', 'photo', 'cover', 'dusk'].includes(bg)
+  : theme === 'dusty' ? bg !== 'theme' && !DEFAULT_ONLY.includes(bg) : !DUSTY_ONLY.includes(bg) && !DEFAULT_ONLY.includes(bg));
 const LIMITS = { imgBlur: [0, 40], imgDim: [0, 80], snowSpeed: [0, 3], snowCount: [0, 300] };
 
 const events = new EventEmitter();
@@ -25,7 +29,10 @@ const hasImage = () => fs.existsSync(IMAGE);
 function get() {
   return {
     theme: settings.get('theme'),
+    layout: settings.get('layout'),
     bg: settings.get('bg'),
+    bgColor: settings.get('bgColor'),
+    snowOn: settings.get('snowOn'),
     imgBlur: settings.get('imgBlur'),
     imgDim: settings.get('imgDim'),
     snowSpeed: settings.get('snowSpeed'),
@@ -42,13 +49,15 @@ function set(key, value) {
   if (key === 'theme') {
     if (!THEMES.includes(value)) return get();
     // A theme sets the whole look: switch to its own background, but keep a picture or the cover.
-    const bg = settings.get('bg');
-    if (value !== 'dusty' && DUSTY_ONLY.includes(bg)) settings.set('bg', 'theme');
-    if (value === 'dusty' && bg === 'theme') settings.set('bg', 'dusk');
+    if (!allowedBg(value, settings.get('bg'))) settings.set('bg', value === 'default' ? 'color' : value === 'dusty' ? 'dusk' : 'theme');
   } else if (key === 'bg') {
     if (!BACKGROUNDS.includes(value) || (value === 'photo' && !hasImage())) return get();
-    if (settings.get('theme') !== 'dusty' && DUSTY_ONLY.includes(value)) return get();
-  } else if (['pauseOnBattery', 'showLyrics'].includes(key)) {
+    if (!allowedBg(settings.get('theme'), value)) return get();
+  } else if (key === 'layout') {
+    if (!['a', 'b'].includes(value)) return get();
+  } else if (key === 'bgColor') {
+    if (!/^#[0-9a-f]{6}$/i.test(String(value))) return get();
+  } else if (['pauseOnBattery', 'showLyrics', 'snowOn'].includes(key)) {
     value = !!value;
   } else if (key === 'fps') {
     if (![15, 20, 30].includes(Number(value))) return get();

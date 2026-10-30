@@ -4,76 +4,83 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https:">
 <title>Lyric Wall</title>
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/archivo/wdth.css">
 <link rel="stylesheet" href="../node_modules/@fontsource-variable/onest/index.css">
-<link rel="stylesheet" href="../node_modules/@fontsource-variable/jetbrains-mono/index.css">
 <link rel="stylesheet" href="themes.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="stage themed" id="stage" data-theme="dusty">
+<!-- One set of parts (cover, track info, progress, buttons, clock, lyrics, Sound, Up next) in two arrangements:
+     data-layout="a" (side by side) and "b" (centered). data-platform="mac" | "win" changes only the look. -->
+<div class="stage themed" id="stage" data-theme="default" data-platform="mac" data-layout="a" data-state="idle">
   <div class="bgimg" id="bgimg"></div><div class="dim" id="dim"></div>
+  <div class="glow" id="glow"></div>
   <canvas id="snow" width="1280" height="800"></canvas>
   <div class="grain" id="grain"></div>
 
-  <div class="cols" id="cols">
-    <div class="left">
-      <div class="glass art" data-act="cover">
-        <img id="artA" alt="">
-        <img id="artB" alt="" class="out">
-        <span class="chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M9 18a3 3 0 1 1-2-2.8V4l12-2v13a3 3 0 1 1-2-2.8V6.4L9 7.8Z"/></svg><span data-i18n="ui.nowPlaying"></span></span>
-        <span class="dot"></span>
-        <div class="cap"><span id="capL">SPOTIFY</span><span id="capR">00:00:00</span></div>
+  <div class="ui" id="ui">
+    <div class="leftcol">
+      <div class="player" id="player">
+        <div class="pbg glass" data-fly></div>
+        <div class="cover" id="cover" data-act="cover" data-fly>
+          <img id="artA" alt="">
+          <img id="artB" alt="" class="out">
+          <div class="empty" data-icon="noteOutline" data-size="40"></div>
+        </div>
+        <div class="meta" data-fly>
+          <div class="status"><span data-icon="note" data-size="13"></span><span id="status"></span></div>
+          <h2><span id="title"></span><i id="explicit" hidden>E</i></h2>
+          <div class="artist" id="artist"></div>
+        </div>
+        <div class="prog" data-fly>
+          <div class="bar slider" data-act="progress"><i id="fill"></i><b id="knob"></b></div>
+          <span id="cur">–:––</span><span id="rem">–:––</span>
+        </div>
+        <div class="transport" data-fly>
+          <span class="tb like" id="like" data-act="like"></span>
+          <span class="tb skip" data-act="prev" data-icon="prev"></span>
+          <span class="tb pp" id="pp" data-act="pp"></span>
+          <span class="tb skip" data-act="next" data-icon="next"></span>
+          <span class="tb more" data-act="more" data-icon="more"></span>
+        </div>
+        <div class="util" data-fly>
+          <div class="vol" id="volBox">
+            <span class="spk" data-act="mute" data-icon="volume" data-size="20"></span>
+            <div class="vb slider" data-act="volume"><i id="volBar"></i><b id="volKnob"></b></div>
+          </div>
+          <span class="lyb" id="lyb" data-act="lyrics" data-icon="lyrics" data-size="18"></span>
+          <span class="dev" data-act="device"><span data-icon="device" data-size="18"></span><span class="devl" id="device"></span><span class="caret" data-icon="caret" data-size="14"></span></span>
+        </div>
         <div class="toast" id="toast" hidden></div>
       </div>
 
-      <div class="glass info">
-        <div class="ttl">
-          <div><h2><span id="title"></span><i id="explicit" hidden>E</i></h2><div class="ar" id="artist"></div></div>
-          <div class="dots">
-            <span data-act="like" id="like"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/></svg></span>
-            <span data-act="more"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span>
-          </div>
+      <div class="cards">
+        <div class="glass card sound" id="sound" data-fade>
+          <div class="ch"><span class="k"><span data-icon="bars" data-size="16"></span><span data-i18n="ui.sound"></span></span><small id="live"></small></div>
+          <canvas id="viz" width="200" height="100"></canvas>
         </div>
-        <div class="prog"><span id="cur">0:00</span><div class="bar" data-act="progress"><i id="fill"></i><b id="knob"></b></div><span id="rem">-0:00</span></div>
-        <div class="ctrl">
-          <div class="vol" id="volBox">
-            <svg data-act="mute" width="14" height="12" viewBox="0 0 28 24" fill="rgba(228,225,232,.75)" stroke="rgba(228,225,232,.75)" stroke-width="2.4" stroke-linecap="round"><path d="M3 9h4l5-5v16l-5-5H3Z" stroke="none"/><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7" fill="none"/><path class="x" d="m17 9 6 6m0-6-6 6" fill="none"/></svg>
-            <div class="vb" data-act="volume"><i id="volBar"></i></div>
-          </div>
-          <div class="mid">
-            <svg width="24" height="17" viewBox="0 0 26 18" id="bPrev" data-act="prev"><path d="M12 9 24 1v16Z"/><path d="M1 9 13 1v16Z"/></svg>
-            <svg width="18" height="24" viewBox="0 0 18 24" id="pp" data-act="pp"><rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/></svg>
-            <svg width="24" height="17" viewBox="0 0 26 18" id="bNext" data-act="next"><path d="M14 9 2 1v16Z"/><path d="M25 9 13 1v16Z"/></svg>
-          </div>
-          <div class="ex">
-            <span class="lyb" data-act="lyrics"><svg width="16" height="14" viewBox="0 0 24 20" fill="#3d3a42"><path d="M3 1h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Zm3 5v2h12V6Zm0 4v2h8v-2Z"/></svg></span>
-            <span class="dev" data-act="device"><svg width="20" height="18" viewBox="0 0 24 22" fill="none" stroke="#e4e1e8" stroke-width="1.8"><path d="M6 15H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-3"/><path d="M12 13 7 20h10Z" fill="#e4e1e8" stroke="none"/></svg>
-            <span id="device"></span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="glass card">
-          <div class="ch"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="hsl(350 80% 62%)"><rect x="2" y="9" width="4" height="10" rx="1.5"/><rect x="10" y="4" width="4" height="15" rx="1.5"/><rect x="18" y="12" width="4" height="7" rx="1.5"/></svg><span data-i18n="ui.sound"></span></span><small data-i18n="ui.now"></small></div>
-          <div class="big" data-act="volnum"><b id="volNum">–</b><span data-i18n="ui.volumeUnit"></span></div>
-          <canvas id="viz" width="460" height="230"></canvas>
-        </div>
-        <div class="glass card">
-          <div class="ch"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><rect x="3" y="5" width="18" height="2.4" rx="1.2"/><rect x="3" y="11" width="18" height="2.4" rx="1.2"/><rect x="3" y="17" width="12" height="2.4" rx="1.2"/></svg><span data-i18n="ui.upNext"></span></span><small id="qn"></small></div>
+        <div class="glass card upnext" id="upnext" data-fade>
+          <div class="ch"><span class="k"><span data-icon="queue" data-size="16"></span><span data-i18n="ui.upNext"></span></span><small id="qn"></small><span class="shuf" id="mode" data-act="shuffle" data-icon="shuffle" data-size="16" hidden></span></div>
           <div class="q" id="queue"></div>
-          <div class="pill" id="mode" data-act="shuffle" hidden></div>
         </div>
       </div>
     </div>
 
-    <div class="lyr" id="lyr">
-      <div class="vp"><ul id="lines"></ul></div>
+    <div class="rightcol">
+      <div class="clock"><div class="time" id="time" data-fly></div><div class="date" id="date" data-fly></div></div>
+      <div class="lyr" id="lyr" data-fade>
+        <div class="vp" id="vp"><ul id="lines"></ul></div>
+        <div class="quiet" id="quiet" hidden>
+          <div class="qt" id="quietTitle"></div>
+          <div class="qn"><span data-icon="lyricsOff" data-size="20"></span><span id="quietNote"></span></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
 <script src="common.js"></script>
+<script src="icons.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

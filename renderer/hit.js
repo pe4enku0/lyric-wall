@@ -6,7 +6,7 @@
   const api = window.lyricWall;
   let rects = [];
   api.onHitRects(items => { rects = items; });
-  api.onHitCursor(id => { document.body.style.cursor = id === 'volnum' ? 'ns-resize' : id ? 'pointer' : ''; });
+  api.onHitCursor(id => { document.body.style.cursor = id ? 'pointer' : ''; });
 
   const at = (x, y) => rects.find(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
   const fx = (r, e) => (e.clientX - r.x) / r.w;

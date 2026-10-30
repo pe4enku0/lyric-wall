@@ -16,6 +16,7 @@
     "dist": "electron-builder --publish never"
   },
   "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/onest": "^5.3.1",
     "koffi": "^3.3.5"

@@ -50,6 +50,7 @@
     $('cnt').value = look.snowCount; $('cntO').textContent = look.snowCount;
     $('battery').checked = !!look.pauseOnBattery;
     for (const b of $('fps').children) b.setAttribute('aria-pressed', String(+b.dataset.v === look.fps));
+    for (const b of $('layout').children) b.setAttribute('aria-pressed', String(b.dataset.v === look.layout));
   }
   async function set(key, value) {
     look = await api.setLook(key, value);
@@ -69,6 +70,7 @@
 
   $('battery').addEventListener('change', e => set('pauseOnBattery', e.target.checked));
   $('fps').addEventListener('click', e => { const b = e.target.closest('button'); if (b) set('fps', +b.dataset.v); });
+  $('layout').addEventListener('click', e => { const b = e.target.closest('button'); if (b) set('layout', b.dataset.v); });
 
   /* ---------- own picture ---------- */
   // Resize to at most 2560 px and turn into JPEG here; the main process copies it into the app data folder.

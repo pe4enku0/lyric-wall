@@ -1,4 +1,5 @@
-/* Wallpaper UI. The look and animations come from mockup.html; the data comes from the main process. */
+/* Wallpaper UI. The data comes from the main process; the look is in style.css and themes.css.
+   One set of parts in two arrangements (stage data-layout="a" | "b") and two platform looks (data-platform). */
 (async () => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
@@ -7,17 +8,25 @@
   const stage = $('stage');
   const api = window.lyricWall;
 
-  /* ---------- language ---------- */
+  /* ---------- language and platform ---------- */
   const { info, t } = await LW.initI18n();
+  const plat = info.ui || (info.platform === 'darwin' ? 'mac' : 'win');
+  LW.platform = plat;
+  stage.dataset.platform = plat;
+  LW.fillIcons(stage);
   $('device').textContent = info.deviceLabel;
+  const DASH = '–:––';
 
   // Look from the settings window (main/appearance.js); the own picture is loaded separately.
-  let S = { theme: 'dusty', bg: 'dusk', imgBlur: 0, imgDim: 30, snowSpeed: reduce ? 0 : 1, snowCount: 90, imageVersion: 0, showLyrics: true, fps: 30 };
+  let S = { theme: 'default', bg: 'color', bgColor: '#0C0B10', layout: 'a', imgBlur: 0, imgDim: 30, snowOn: true, snowSpeed: reduce ? 0 : 1, snowCount: 90,
+    imageVersion: 0, showLyrics: true, fps: 30 };
   let userImg = null;
 
-  /* The mockup is drawn for 1280×800. Scale so the height is ~800 mockup points
-     and the width stretches to the screen (16:9, 16:10 and so on). */
-  let W = 1280, H = 800;
+  /* ---------- size and safe area ----------
+     Everything is laid out in screen points for a MacBook Air 13" (1470×956) or a 1080p PC (1920×1080).
+     Bigger screens get more room (the columns stretch); smaller ones shrink the whole wallpaper. */
+  const REF = plat === 'mac' ? [1470, 956] : [1920, 1080];
+  let W = REF[0], H = REF[1], k = 1;
   const sc = $('snow'), sx = sc.getContext('2d');
   // Parts of the screen covered by the menu bar and Dock (Mac) or the taskbar (Windows), in screen points.
   function insets() {
@@ -30,32 +39,32 @@
     };
   }
   function fit() {
-    const k = Math.min(innerWidth / 1280, innerHeight / 800);
+    k = Math.min(1, innerWidth / REF[0], innerHeight / REF[1]);
     W = Math.round(innerWidth / k); H = Math.round(innerHeight / k);
     stage.style.width = W + 'px'; stage.style.height = H + 'px';
-    stage.style.transform = `scale(${k})`;
-    // Keep the content clear of the menu bar, Dock and taskbar (the background still fills the whole screen).
-    const ins = insets(), cols = $('cols').style;
-    cols.top = Math.max(74, ins.top / k + 34) + 'px';
-    cols.bottom = Math.max(56, ins.bottom / k + 28) + 'px';
-    cols.left = Math.max(64, ins.left / k + 40) + 'px';
-    cols.right = Math.max(56, ins.right / k + 40) + 'px';
+    stage.style.transform = k === 1 ? '' : `scale(${k})`;
+    // Mac: below the menu bar and the notch, above the Dock. Windows: above the taskbar.
+    const ins = insets(), ui = $('ui').style, mac = plat === 'mac';
+    const side = mac ? 48 : 64;
+    ui.top = Math.round(mac ? Math.max(69, ins.top / k + 32) : Math.max(48, ins.top / k + 24)) + 'px';
+    ui.bottom = Math.round(mac ? Math.max(32, ins.bottom / k + 16) : Math.max(72, ins.bottom / k + 24)) + 'px';
+    ui.left = Math.round(Math.max(side, ins.left / k + 24)) + 'px';
+    ui.right = Math.round(Math.max(side, ins.right / k + 24)) + 'px';
     sc.width = W; sc.height = H;
     for (const f of flakes) { if (f.x > W) f.x = Math.random() * W; if (f.y > H) f.y = Math.random() * H; }
   }
+  // Rectangle of an element in stage points (the stage may be scaled).
+  const box = el => { const r = el.getBoundingClientRect(); return { x: r.left / k, y: r.top / k, w: r.width / k, h: r.height / k }; };
 
   $('grain').style.backgroundImage = `url(${LW.grain()})`;
 
-  /* Cover shown when there is no track (or no cover). */
+  /* Cover shown for a track without a cover. */
   const NO_COVER = (() => {
-    const c = document.createElement('canvas'); c.width = 960; c.height = 472;
+    const c = document.createElement('canvas'); c.width = c.height = 600;
     const g = c.getContext('2d');
-    const gr = g.createLinearGradient(0, 0, 960, 472);
-    gr.addColorStop(0, '#2a2a2e'); gr.addColorStop(1, '#0c0c0e');
-    g.fillStyle = gr; g.fillRect(0, 0, 960, 472);
-    const m = g.createRadialGradient(330, 200, 10, 330, 200, 300);
-    m.addColorStop(0, 'rgba(240,240,245,.35)'); m.addColorStop(1, 'rgba(200,200,210,0)');
-    g.fillStyle = m; g.fillRect(0, 0, 960, 472);
+    const gr = g.createLinearGradient(0, 0, 600, 600);
+    gr.addColorStop(0, '#2a2830'); gr.addColorStop(1, '#121116');
+    g.fillStyle = gr; g.fillRect(0, 0, 600, 600);
     return c.toDataURL('image/jpeg', .9);
   })();
 
@@ -91,51 +100,93 @@
     });
     return c.toDataURL('image/jpeg', .88);
   }
-  const DUSK = dusk();
+  let DUSK = null;
 
   /* ---------- current track ---------- */
-  let track = { id: null, tone: null, cover: NO_COVER, duration: 0, volume: null };
+  let track = { id: null, idle: true, tone: null, accent: null, cover: NO_COVER, duration: 0, volume: null };
   let volHold = 0;       // until then our own volume wins over what Spotify reports (it reports with a delay)
-  let volShown = null;   // the big number counts towards track.volume
   let preMute = null;    // volume before the speaker muted it
   let seekPreview = null; // 0..1 while the progress bar is dragged
   let playing = false;
   const clock = LW.createClock();
 
-  // Colour of the cover for "From cover": the average hue of its colourful pixels (null = a grey cover).
-  function coverTone(src) {
+  /* Colours of the cover:
+     - accent: a bright, saturated colour (not the most common one), made lighter until it reads well on the dark
+       background (contrast 4.5:1 with #0C0B10); null for a grey cover;
+     - tone: the average hue of the colourful pixels, for the old "From cover" backgrounds. */
+  const lum = ([r, g, b]) => {
+    const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; };
+    return .2126 * f(r) + .7152 * f(g) + .0722 * f(b);
+  };
+  const BG_LUM = lum([12, 11, 16]);
+  function hsl2rgb(h, s, l) {
+    const a = s * Math.min(l, 1 - l), f = n => { const q = (n + h / 30) % 12; return l - a * Math.max(-1, Math.min(q - 3, 9 - q, 1)); };
+    return [f(0), f(8), f(4)].map(v => Math.round(v * 255));
+  }
+  function readableAccent([r, g, b]) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0, l = (max + min) / 2, s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+    if (d) h = (max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+    h = (h + 360) % 360; s = Math.max(s, .55);
+    let rgb = hsl2rgb(h, s, l);
+    while ((lum(rgb) + .05) / (BG_LUM + .05) < 4.5 && l < .92) { l += .02; rgb = hsl2rgb(h, s, l); }
+    return rgb;
+  }
+  function coverColours(src) {
     return new Promise(resolve => {
       if (!src || src === NO_COVER) { resolve(null); return; }
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         try {
-          const c = document.createElement('canvas'); c.width = c.height = 24;
+          const c = document.createElement('canvas'); c.width = c.height = 32;
           const g = c.getContext('2d', { willReadFrequently: true });
-          g.drawImage(img, 0, 0, 24, 24);
-          const d = g.getImageData(0, 0, 24, 24).data, n = d.length / 4;
+          g.drawImage(img, 0, 0, 32, 32);
+          const d = g.getImageData(0, 0, 32, 32).data, n = d.length / 4;
           let x = 0, y = 0, w = 0, sat = 0;
+          const bins = Array.from({ length: 24 }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
           for (let i = 0; i < d.length; i += 4) {
             const r = d[i] / 255, gr = d[i + 1] / 255, b = d[i + 2] / 255;
             const max = Math.max(r, gr, b), min = Math.min(r, gr, b), ch = max - min;
             if (!ch) continue;
-            const h = (max === r ? (gr - b) / ch : max === gr ? (b - r) / ch + 2 : (r - gr) / ch + 4) * Math.PI / 3;
-            x += Math.cos(h) * ch; y += Math.sin(h) * ch; w += ch; // colourful pixels count more
+            const hr = (max === r ? (gr - b) / ch : max === gr ? (b - r) / ch + 2 : (r - gr) / ch + 4) * Math.PI / 3;
+            x += Math.cos(hr) * ch; y += Math.sin(hr) * ch; w += ch; // colourful pixels count more
             sat += ch / (1 - Math.abs(max + min - 1));
+            // Vivid pixels vote for their hue: saturation counts twice, very dark ones not at all.
+            const sv = ch / max;
+            if (sv < .28 || max < .25) continue;
+            const bin = bins[Math.floor(((hr * 180 / Math.PI + 360) % 360) / 15)], wt = sv * sv * max;
+            bin.w += wt; bin.r += d[i] * wt; bin.g += d[i + 1] * wt; bin.b += d[i + 2] * wt;
           }
-          resolve(w / n < .04 ? { hue: null, sat: 0 } : { hue: (Math.atan2(y, x) * 180 / Math.PI + 360) % 360, sat: sat / n });
+          const tone = w / n < .04 ? { hue: null, sat: 0 } : { hue: (Math.atan2(y, x) * 180 / Math.PI + 360) % 360, sat: sat / n };
+          const best = bins.reduce((a, b) => (b.w > a.w ? b : a));
+          const accent = best.w > n * .012 ? readableAccent([best.r / best.w, best.g / best.w, best.b / best.w]) : null;
+          resolve({ tone, accent });
         } catch (_) { resolve(null); }
       };
       img.onerror = () => resolve(null);
       img.src = src;
     });
   }
-  function updateTone() {
+  function updateColours() {
     const id = track.id;
-    coverTone(track.cover).then(tone => { if (track.id === id) { track.tone = tone; applyBg(); } });
+    coverColours(track.cover).then(res => {
+      if (track.id !== id) return;
+      track.tone = res && res.tone; track.accent = res && res.accent;
+      applyBg(); applyAccent();
+    });
+  }
+  // The default look takes the accent from the cover; the other themes have their own colour.
+  function applyAccent() {
+    if (S.theme === 'default' && !track.idle && track.accent) stage.style.setProperty('--accent', `rgb(${track.accent.join(' ')})`);
+    else if (S.theme === 'default' && !track.idle) stage.style.setProperty('--accent', 'var(--accent-idle)');
+    else stage.style.removeProperty('--accent');
+    accentUntil = performance.now() + 700; // the visualizer follows the colour while it changes
+    wake();
   }
 
-  // Tint of the gradient behind the glass. The main glow uses hue + 120 (as in the mockup).
+  // Tint of the gradient behind the glass of the old themes. The main glow uses hue + 120.
   function tint(b) {
     if (b.hue != null) return [b.hue, b.sat];
     const tone = track.tone;
@@ -149,11 +200,12 @@
     const [hue, sat] = tint(b);
     stage.style.setProperty('--hue', hue);
     stage.style.setProperty('--sat', sat);
+    if (/^#[0-9a-f]{6}$/i.test(S.bgColor || '')) stage.style.setProperty('--bg', S.bgColor);
     const el = $('bgimg'), dm = $('dim');
     let src = null;
-    if (b.img === 'dusk') src = DUSK;
-    else if (b.img === 'photo') src = userImg || DUSK;
-    else if (b.img === 'cover') src = track.cover;
+    if (b.img === 'dusk') src = DUSK || (DUSK = dusk());
+    else if (b.img === 'photo') src = userImg || null;
+    else if (b.img === 'cover' && !track.idle) src = track.cover;
     const bl = b.img === 'cover' ? Math.max(30, S.imgBlur) : S.imgBlur;
     const dv = b.img === 'cover' ? Math.max(45, S.imgDim) : S.imgDim;
     el.style.filter = bl ? `blur(${bl}px)` : 'none';
@@ -168,19 +220,44 @@
   }
 
   const fmt = LW.fmt;
-  const hms = s => { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
 
-  /* ---------- lyrics (main/lyrics.js loads them from LRCLIB) ---------- */
+  /* ---------- clock and date ---------- */
+  const timeFmt = new Intl.DateTimeFormat(info.lang, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const dateFmt = new Intl.DateTimeFormat(info.lang, { weekday: 'long', month: 'long', day: 'numeric' });
+  function tick() {
+    const d = new Date(), date = dateFmt.format(d);
+    put($('time'), 'textContent', timeFmt.format(d));
+    put($('date'), 'textContent', date.charAt(0).toUpperCase() + date.slice(1));
+    setTimeout(tick, 60000 - (Date.now() % 60000) + 50);
+  }
+
+  /* ---------- state of the wallpaper: playing | paused | idle, plus "no lyrics" and "empty queue" ---------- */
+  function applyState() {
+    const st = track.idle ? 'idle' : playing ? 'playing' : 'paused';
+    if (stage.dataset.state !== st) { stage.dataset.state = st; wake(); }
+    put($('status'), 'textContent', t(st === 'idle' ? 'ui.notPlaying' : st === 'paused' ? 'ui.paused' : S.layout === 'b' ? 'ui.nowPlaying' : 'ui.nowPlayingOn'));
+    put($('live'), 'textContent', t(st === 'idle' ? 'ui.silent' : st === 'paused' ? 'ui.paused' : 'ui.live'));
+    const noLyrics = !track.idle && ['not-found', 'instrumental'].includes(lyr.status);
+    $('lyb').classList.toggle('on', S.showLyrics && !noLyrics);
+    $('lyb').classList.toggle('na', noLyrics);
+    applyQuiet();
+  }
+
+  /* ---------- lyrics (main/lyrics.js loads them from LRCLIB) ----------
+     Every line is placed here: the current one in the vertical middle at full size, its neighbours smaller,
+     fainter and blurred (±1, ±2, ±3), the rest hidden. A new line moves them all in 400 ms (style.css). */
   const LEAD = 0.35; // switch to a line a moment before it is sung
+  const SCALE = [1, .57, .5, .47], FADE = [1, .42, .29, .18], BLUR = [0, 1.6, 3, 4];
   let lyr = { id: null, status: 'none' }; // what is shown now
   let latestLyrics = { id: null };        // last result from the main process (may arrive before the track)
   let synced = [];                        // [{ t, text }] for synced lyrics
   let li = 0;                             // current line
+  let heights = [];                       // full-size height of every line
   let fadeTimer = null;
   let lastScroll = null;
 
   function renderLines(lines) {
-    const ul = $('lines'); ul.innerHTML = '';
+    const ul = $('lines'); ul.innerHTML = ''; heights = [];
     lines.forEach(text => {
       const el = document.createElement('li');
       if (text) el.textContent = text; else el.className = 'gap';
@@ -189,19 +266,26 @@
   }
   function focusLine(instant) {
     const ul = $('lines'), items = ul.children;
-    if (lyr.status === 'plain') return;
+    if (lyr.status === 'plain' || !items.length) return;
+    if ($('vp').hidden) { heights = []; return; }
+    if (heights.length !== items.length) heights = [...items].map(el => el.offsetHeight);
+    const mid = $('vp').clientHeight / 2, gap = 18;
+    const size = i => SCALE[Math.min(Math.abs(i - li), 3)];
+    // Centres of the lines, from the current one up and down.
+    const ys = [];
+    ys[li] = mid;
+    for (let i = li - 1; i >= 0; i--) ys[i] = ys[i + 1] - heights[i + 1] * size(i + 1) / 2 - gap - heights[i] * size(i) / 2;
+    for (let i = li + 1; i < items.length; i++) ys[i] = ys[i - 1] + heights[i - 1] * size(i - 1) / 2 + gap + heights[i] * size(i) / 2;
     for (let i = 0; i < items.length; i++) {
-      const d = i - li, a = Math.abs(d), el = items[i];
-      el.classList.toggle('on', d === 0);
-      el.style.filter = d === 0 ? '' : d < 0 ? `blur(${1.6 + a * 1.2}px)` : `blur(${Math.min(2.4 + a * 1.6, 8)}px)`;
-      el.style.opacity = d === 0 ? 1 : d < 0 ? Math.max(.2, .62 - a * .15) : Math.max(.22, .7 - a * .14);
-      el.style.transform = d === 0 ? 'scale(1)' : 'scale(.97)';
-      el.style.visibility = a > 7 ? 'hidden' : ''; // far lines are out of view anyway
+      const a = Math.abs(i - li), el = items[i];
+      if (instant) el.style.transition = 'none';
+      el.classList.toggle('on', a === 0);
+      el.style.transform = `translateY(${(ys[i] - heights[i] / 2).toFixed(1)}px) scale(${size(i)})`;
+      el.style.opacity = a <= 3 ? FADE[a] : 0;
+      el.style.filter = a === 0 ? '' : `blur(${BLUR[Math.min(a, 3)]}px)`;
+      el.style.visibility = a > 5 ? 'hidden' : ''; // far lines are out of view anyway
     }
-    const target = items[li]; if (!target) return;
-    if (instant) ul.style.transition = 'none';
-    ul.style.transform = `translateY(${118 - target.offsetTop}px)`;
-    if (instant) { ul.offsetHeight; ul.style.transition = ''; }
+    if (instant) { ul.offsetHeight; for (const el of items) el.style.transition = ''; }
   }
   // Index of the line being sung at position pos (binary search).
   function lineAt(pos) {
@@ -209,12 +293,23 @@
     while (lo <= hi) { const mid = (lo + hi) >> 1; if (synced[mid].t <= pos + LEAD) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
     return ans;
   }
+  // Nothing playing, or no synced lyrics for this track: big outlined words instead of the lines.
+  function applyQuiet() {
+    const noLyrics = !track.idle && ['not-found', 'instrumental'].includes(lyr.status);
+    const quiet = track.idle || noLyrics;
+    $('quiet').hidden = !quiet;
+    $('vp').hidden = quiet;
+    if (!quiet) return;
+    put($('quietTitle'), 'textContent', track.idle ? t('ui.quiet') : $('title').textContent);
+    put($('quietNote'), 'textContent', track.idle ? t('ui.quietNote') : lyr.status === 'instrumental' ? t('lyrics.instrumental') : t('ui.noSynced'));
+  }
 
   function showLyrics(r) {
     lyr = r;
     lastScroll = null;
     const ul = $('lines');
     ul.className = r.status === 'synced' ? '' : r.status === 'plain' ? 'plain' : 'msg';
+    ul.style.transform = '';
     if (r.status === 'synced') {
       // A "♪" line for the intro and for instrumental breaks (empty lines in the LRC file).
       synced = r.lines.map(l => ({ t: l.t, text: l.text || '♪' }));
@@ -227,8 +322,10 @@
       ul.style.transform = 'translateY(40px)';
     } else {
       synced = []; li = 0;
-      renderLines(r.status === 'none' ? [] : [t(`lyrics.${r.status}`)]);
+      const msg = ['none', 'not-found', 'instrumental'].includes(r.status) ? [] : [t(`lyrics.${r.status}`)];
+      renderLines(msg);
     }
+    applyState(); // shows the lines or the outlined words before the lines are measured
     focusLine(true);
     wake();
   }
@@ -252,7 +349,7 @@
       if (i !== li) { li = i; focusLine(false); }
     } else if (lyr.status === 'plain' && d) {
       // Plain lyrics have no timing: scroll them evenly through the song.
-      const ul = $('lines'), vp = ul.parentElement;
+      const ul = $('lines'), vp = $('vp');
       const travel = Math.max(0, ul.scrollHeight - vp.clientHeight * .6);
       const y = Math.round(40 - travel * Math.min(1, pos / d));
       if (y !== lastScroll) { lastScroll = y; ul.style.transform = `translateY(${y}px)`; }
@@ -261,41 +358,52 @@
 
   /* ---------- "Up next" and likes (Spotify Web API, after signing in in the settings) ---------- */
   let web = { loggedIn: false, uri: null, queue: [], liked: false };
-  const STAR = fill => `<svg width="15" height="15" viewBox="0 0 24 24" fill="${fill}" stroke="#fff" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/></svg>`;
-  const PLAY_SMALL = '<svg width="11" height="11" viewBox="0 0 24 24" fill="#3d3a42"><path d="M7 4v16l13-8Z"/></svg>';
-  const tracksWord = n => t(n === 1 ? 'ui.tracks.one' : n < 5 ? 'ui.tracks.few' : 'ui.tracks.many');
+  const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
   function renderStar() {
     const el = $('like');
-    const mark = web.liked ? 'on' : 'off';
-    if (el.dataset.mark !== mark) { el.dataset.mark = mark; el.innerHTML = STAR(web.liked ? '#fff' : 'none'); }
+    const mark = `${LW.platform}-${web.liked ? 'on' : 'off'}`;
+    if (el.dataset.mark !== mark) { el.dataset.mark = mark; el.innerHTML = LW.icon(web.liked ? 'starOn' : 'star'); }
+    el.classList.toggle('on', web.liked);
+  }
+  // An empty queue (or no sign-in) still fills the card: dashed squares and a short hint.
+  function emptyNote(title, long, short, act) {
+    const el = document.createElement('div');
+    el.className = 'qe' + (act ? ' link' : '');
+    if (act) el.dataset.act = act;
+    el.innerHTML = '<span class="sq"><i></i><i></i><i></i></span><b></b><span class="long"></span><span class="short"></span>';
+    el.querySelector('b').textContent = title;
+    el.querySelector('.long').textContent = long;
+    el.querySelector('.short').textContent = short;
+    return el;
   }
   function renderQueue() {
     const q = $('queue'); q.innerHTML = '';
-    if (web.loggedIn && web.queue.length) {
-      web.queue.forEach((it, k) => {
+    const list = web.loggedIn && !track.idle ? web.queue : [];
+    stage.dataset.queue = list.length ? 'ok' : 'empty';
+    if (!web.loggedIn) q.appendChild(emptyNote(t('ui.queueLoginTitle'), t('ui.queueLogin'), t('ui.queueLoginShort'), 'login'));
+    else if (!list.length) q.appendChild(emptyNote(t('ui.queueEmpty'), t('ui.queueEmptyHint'), t('ui.queueEmptyShort')));
+    else {
+      (S.layout === 'b' ? list.slice(0, 1) : list).forEach(it => {
         const row = document.createElement('div');
         row.className = 'qi';
-        row.innerHTML = `<img alt=""><div style="min-width:0"><div class="t"></div><div class="a"></div></div><span class="c${k === 0 ? ' on' : ''}">${k === 0 ? PLAY_SMALL : ''}</span>`;
-        // no cover: an empty circle instead of a broken image
-        row.querySelector('img').src = it.art || 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+        row.innerHTML = '<img alt=""><div style="min-width:0"><div class="t"></div><div class="a"></div></div>';
+        // no cover: an empty square instead of a broken image
+        row.querySelector('img').src = it.art || BLANK;
         row.querySelector('.t').textContent = it.title; row.querySelector('.a').textContent = it.artist;
         q.appendChild(row);
       });
-      $('qn').textContent = `${web.queue.length} ${tracksWord(web.queue.length)}`;
-    } else {
-      const note = document.createElement('div');
-      note.className = 'qe';
-      note.textContent = t(web.loggedIn ? 'ui.queueEmpty' : 'ui.queueLogin');
-      if (!web.loggedIn) { note.dataset.act = 'login'; note.classList.add('link'); }
-      q.appendChild(note);
-      $('qn').textContent = '';
+      // Only whole rows: the ones that do not fit are hidden.
+      const room = q.clientHeight;
+      for (const row of q.children) if (row.offsetTop - q.offsetTop + row.offsetHeight > room + 1) row.hidden = true;
     }
+    const more = S.layout === 'b' && list.length > 1 ? t('ui.more').replace('{n}', list.length - 1) : '';
+    put($('qn'), 'textContent', more);
     renderStar();
     reportHits();
     wake();
   }
   function onWeb(n) {
-    for (const [k, v] of Object.entries(n || {})) if (v !== undefined) web[k] = v; // only what came
+    for (const [key, v] of Object.entries(n || {})) if (v !== undefined) web[key] = v; // only what came
     renderQueue();
   }
 
@@ -315,61 +423,57 @@
   }
 
   /* ---------- applying player updates ---------- */
-  const PAUSE_ICON = '<rect x="1" y="1" width="5.5" height="22" rx="1.6"/><rect x="11.5" y="1" width="5.5" height="22" rx="1.6"/>';
-  const PLAY_ICON = '<path d="M2 1 17 12 2 23Z"/>';
-  // The bar slides to the new value (CSS), the big number counts to it (stepVolume in the main loop).
+  // The volume bar slides to the new value (CSS).
   function showVolume(v) {
     if (v === track.volume) return;
     track.volume = v;
-    if (v == null) { put($('volBox').style, 'visibility', 'hidden'); wake(); return; }
-    put($('volBar').style, 'transform', `scaleX(${v / 100})`);
-    put($('volBox').style, 'visibility', '');
+    $('volBox').classList.toggle('na', v == null);
     $('volBox').classList.toggle('muted', v === 0);
+    placeVolume();
     wake();
   }
-  // Returns true while the number is still moving.
-  function stepVolume(dt) {
+  // Also after the bar changed its width (another arrangement).
+  function placeVolume() {
     const v = track.volume;
-    if (v == null) { volShown = null; setText('volNum', '–'); return false; }
-    if (volShown == null || reduce) volShown = v;
-    volShown += (v - volShown) * Math.min(1, dt * 10);
-    if (Math.abs(v - volShown) < .5) volShown = v;
-    setText('volNum', String(Math.round(volShown)));
-    return volShown !== v;
+    if (v == null) return;
+    put($('volBar').style, 'transform', `scaleX(${v / 100})`);
+    put($('volKnob').style, 'transform', `translateX(${($('volBar').parentElement.clientWidth * v / 100).toFixed(1)}px)`);
   }
   function setPlaying(on) {
     playing = on;
-    const pp = $('pp'), icon = on ? 'pause' : 'play';
-    if (pp.dataset.icon !== icon) { pp.dataset.icon = icon; pp.innerHTML = on ? PAUSE_ICON : PLAY_ICON; }
+    const pp = $('pp'), icon = `${LW.platform}-${on ? 'pause' : 'play'}`;
+    if (pp.dataset.icon !== icon) { pp.dataset.icon = icon; pp.innerHTML = LW.icon(on ? 'pause' : 'play'); }
+    applyState();
   }
 
   function showMessage(state) {
     if (track.id === state) return;
-    track = { id: state, tone: null, cover: NO_COVER, duration: 0, volume: null };
-    clock.set(0, false); setPlaying(false);
+    track = { id: state, idle: true, tone: null, accent: null, cover: NO_COVER, duration: 0, volume: track.volume };
+    clock.set(0, false);
     $('title').textContent = t(`state.${state}.title`);
-    $('artist').textContent = t(`state.${state}.detail`);
-    $('capL').textContent = 'SPOTIFY';
-    put($('volBox').style, 'visibility', 'hidden');
+    $('artist').textContent = t(`state.${state}.detail`) || t('state.stopped.detail');
+    showVolume(null);
     put($('mode'), 'hidden', true);
-    track.volume = null;
     showLyrics({ id: null, status: 'none' });
+    renderQueue();
+    setPlaying(false);
     reportHits();
-    setCover(NO_COVER); applyBg();
+    setCover(NO_COVER); applyBg(); applyAccent();
   }
 
   function showTrack(s) {
     const changed = s.id !== track.id;
     if (changed) {
-      track = { id: s.id, tone: null, cover: s.art || NO_COVER, duration: s.duration || 0, volume: track.volume };
+      const wasIdle = track.idle;
+      track = { id: s.id, idle: false, tone: null, accent: null, cover: s.art || NO_COVER, duration: s.duration || 0, volume: track.volume };
       $('title').textContent = s.title || '';
       $('artist').textContent = s.artist || '';
-      $('capL').textContent = [s.artist, s.album].filter(Boolean).join(' · ').toUpperCase();
       setLyrics(latestLyrics.id === s.id ? latestLyrics : { id: s.id, status: 'loading' });
       if (web.liked) { web.liked = false; renderStar(); }
-      applyBg(); updateTone();
+      applyBg(); updateColours();
+      if (wasIdle) { applyAccent(); renderQueue(); }
     } else if (s.art && s.art !== track.cover) {
-      track.cover = s.art; applyBg(); updateTone();
+      track.cover = s.art; applyBg(); updateColours();
     }
     track.duration = s.duration || track.duration;
     setCover(track.cover);
@@ -378,7 +482,7 @@
     if (Date.now() > volHold) showVolume(s.volume == null ? null : Math.round(s.volume));
     const modeHidden = s.shuffle == null;
     if ($('mode').hidden !== modeHidden) { $('mode').hidden = modeHidden; reportHits(); }
-    if (s.shuffle != null) put($('mode'), 'textContent', t(s.shuffle ? 'ui.shuffleOn' : 'ui.shuffleOff'));
+    $('mode').classList.toggle('on', !!s.shuffle);
 
     clock.update(s, changed);
     setPlaying(clock.playing);
@@ -395,9 +499,9 @@
   }
 
   /* ---------- particles: snow, butterflies, petals, rain… (the theme chooses, themes.css) ---------- */
-  // speed: how fast it falls; sway: side movement; size: in mockup points.
+  // speed: how fast it falls; sway: side movement; size: in points.
   const KINDS = {
-    snow:        { speed: 1,   sway: 6,  size: [.5, 2.1] },
+    snow:        { speed: 1,   sway: 6,  size: [.6, 1.4] },  // dots 1.2–2.8 px; every 5th one 3–5.5 px and soft
     butterflies: { speed: .5,  sway: 18, size: [6, 11] },    // a third are butterflies, the rest sparkles
     petals:      { speed: .9,  sway: 14, size: [5, 9] },
     rain:        { speed: 22,  sway: 0,  size: [14, 28] },
@@ -407,13 +511,14 @@
     glitter:     { speed: .4,  sway: 4,  size: [1.5, 3.5] },
     none:        { speed: 0,   sway: 0,  size: [0, 0] }
   };
-  let pKind = 'snow', pColors = ['#f1eef4'];
-  let vizRgb = '255,92,112';
+  let pKind = 'snow', pColors = ['#fff'];
   const rnd = (a, b) => a + Math.random() * (b - a);
+  let made = 0;
   const mk = () => {
-    const k = KINDS[pKind] || KINDS.snow;
+    const kind = KINDS[pKind] || KINDS.snow;
+    const big = pKind === 'snow' && made++ % 5 === 0;
     return {
-      x: Math.random() * W, y: Math.random() * H, s: rnd(k.size[0], k.size[1]),
+      x: Math.random() * W, y: Math.random() * H, s: big ? rnd(1.5, 2.75) : rnd(kind.size[0], kind.size[1]), big,
       v: 5 + Math.random() * 14, w: Math.random() * 6.3, a: .12 + Math.random() * .5,
       rot: Math.random() * 6.3, spin: rnd(-1.2, 1.2),
       c: pColors[Math.floor(Math.random() * pColors.length)],
@@ -422,14 +527,21 @@
   };
   let flakes = [];
   function setCount(n) { while (flakes.length < n) flakes.push(mk()); flakes.length = n; }
-  // Read the theme's particles and sound-bar colours (after the theme changed).
+  // Read the theme's particles (after the theme changed).
   function readTheme() {
     const cs = getComputedStyle(stage);
     const kind = cs.getPropertyValue('--particles').trim() || 'snow';
     pColors = ['--p1', '--p2', '--p3'].map(v => cs.getPropertyValue(v).trim()).filter(Boolean);
-    vizRgb = cs.getPropertyValue('--viz-rgb').trim() || vizRgb;
-    if (kind !== pKind || !flakes.length) { pKind = kind; flakes = flakes.map(mk); }
+    if (kind !== pKind || !flakes.length) { pKind = kind; made = 0; flakes = flakes.map(mk); }
   }
+  // A soft white dot for the big snowflakes (blurred once, then only copied).
+  const SOFT = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 32;
+    const g = c.getContext('2d');
+    g.filter = 'blur(1.2px)'; g.fillStyle = '#fff';
+    g.beginPath(); g.arc(16, 16, 11, 0, Math.PI * 2); g.fill();
+    return c;
+  })();
 
   function star4(x, y, r) {
     sx.beginPath(); sx.moveTo(x, y - r);
@@ -442,7 +554,11 @@
     const s = f.s;
     sx.fillStyle = f.c; sx.strokeStyle = f.c;
     switch (pKind) {
-      case 'snow': sx.globalAlpha = f.a; sx.beginPath(); sx.arc(f.x, f.y, s, 0, Math.PI * 2); sx.fill(); break;
+      case 'snow':
+        sx.globalAlpha = f.a;
+        if (f.big) { const d = s * 2 * 32 / 22; sx.drawImage(SOFT, f.x - d / 2, f.y - d / 2, d, d); break; }
+        sx.beginPath(); sx.arc(f.x, f.y, s, 0, Math.PI * 2); sx.fill();
+        break;
       case 'dust': sx.globalAlpha = f.a * .7; sx.beginPath(); sx.arc(f.x, f.y, s, 0, Math.PI * 2); sx.fill(); break;
       case 'rain':
         sx.globalAlpha = .25 + f.a * .5; sx.lineWidth = 1;
@@ -476,15 +592,15 @@
     }
   }
   function drawParticles(dt) {
-    const speed = S.snowSpeed, k = KINDS[pKind] || KINDS.snow;
+    const speed = S.snowSpeed, kind = KINDS[pKind] || KINDS.snow;
     sx.clearRect(0, 0, W, H);
     if (pKind === 'none') return;
     const m = Math.max(.4, speed);
     for (const f of flakes) {
       if (playing && speed > 0) {
-        f.y += f.v * dt * speed * k.speed;
+        f.y += f.v * dt * speed * kind.speed;
         f.w += dt * .5 * m;
-        f.x += Math.sin(f.w) * k.sway * dt * m;
+        f.x += Math.sin(f.w) * kind.sway * dt * m;
         f.rot += f.spin * dt * m;
       }
       if (f.y > H + 30) { f.y = -30; f.x = Math.random() * W; }
@@ -494,11 +610,11 @@
     sx.globalAlpha = 1;
   }
 
-  /* ---------- sound card: the bars jump to the beat ----------
+  /* ---------- Sound card: the bars jump to the beat ----------
      The tempo (BPM) comes from the public Deezer catalog (main/tempo.js) and the beats are counted from the
-     song position, so nothing listens to the computer's sound. The card only shows; it has no buttons. */
-  const vc = $('viz'), vx = vc.getContext('2d'), N = 24, lv = new Array(N).fill(.05);
-  let tempo = { id: null, bpm: 0 };
+     song position, so nothing listens to the computer's sound. Paused or nothing playing: a flat, faint line. */
+  const vc = $('viz'), vx = vc.getContext('2d'), lv = new Array(48).fill(.05);
+  let tempo = { id: null, bpm: 0 }, vizAlpha = 1, accentUntil = 0, accentRgb = '163,157,173';
   function onTempo(r) { tempo = r; wake(); }
   // The canvas gets as many pixels as it has room in the card.
   function sizeViz() {
@@ -507,42 +623,50 @@
   }
   // The same "random" number for the same beat and bar: every beat gets its own pattern.
   const noise = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
-  // Bars on the left (bass) are a bit taller, like a spectrum.
-  const shape = i => 1 - .4 * i / (N - 1);
 
-  function heights() {
+  function heightsFor(n) {
+    // Bars on the left (bass) are a bit taller, like a spectrum.
+    const shape = i => 1 - .4 * i / (n - 1);
     const bpm = tempo.id === track.id ? tempo.bpm : 0;
     if (!playing) return () => .05;
     if (!bpm) {
       // Tempo unknown: a calm wave.
-      const t = performance.now() / 1000;
-      return i => .14 + .1 * shape(i) * (1 + Math.sin(t * 2.2 + i * .55));
+      const tm = performance.now() / 1000;
+      return i => .14 + .1 * shape(i) * (1 + Math.sin(tm * 2.2 + i * .55));
     }
-    const beats = clock.now() * bpm / 60, k = Math.floor(beats);
-    const hit = Math.exp(-(beats - k) * 3.2);              // jump on the beat, fall until the next one
+    const beats = clock.now() * bpm / 60, b = Math.floor(beats);
+    const hit = Math.exp(-(beats - b) * 3.2);              // jump on the beat, fall until the next one
     const half = Math.exp(-((beats * 2) % 1) * 6) * .35;  // a smaller jump between the beats
-    const accent = k % 4 === 0 ? 1 : .8;                 // the first beat of a bar is a bit stronger
-    return i => .1 + .9 * shape(i) * accent * (hit * (.5 + .5 * noise(k, i)) + half * noise(k + .5, i));
+    const accent = b % 4 === 0 ? 1 : .8;                 // the first beat of a bar is a bit stronger
+    return i => .1 + .9 * shape(i) * accent * (hit * (.5 + .5 * noise(b, i)) + half * noise(b + .5, i));
   }
 
-  function drawViz() {
-    const VW = vc.width, VH = vc.height, step = VW / N, bw = step * .62, target = heights();
+  function drawViz(now) {
+    const VW = vc.width, VH = vc.height;
+    if (!VW || !VH) return false;
+    // The accent colour, also while it changes (CSS animates it over 600 ms).
+    if (now < accentUntil || !accentRgb) {
+      const m = getComputedStyle(stage).getPropertyValue('--accent').match(/[\d.]+/g);
+      if (m && m.length >= 3) accentRgb = m.slice(0, 3).join(',');
+    }
+    const n = Math.max(10, Math.min(48, Math.round(VW / 10))), step = VW / n, bw = step * .6, target = heightsFor(n);
+    const alpha = playing ? 1 : .35;
+    vizAlpha += (alpha - vizAlpha) * .2;
+    if (Math.abs(alpha - vizAlpha) < .01) vizAlpha = alpha;
     vx.clearRect(0, 0, VW, VH);
-    vx.shadowColor = `rgba(${vizRgb},.6)`; vx.shadowBlur = 8;
-    let moving = false;
-    for (let i = 0; i < N; i++) {
+    vx.globalAlpha = vizAlpha;
+    vx.fillStyle = `rgb(${accentRgb})`;
+    let moving = vizAlpha !== alpha || now < accentUntil;
+    for (let i = 0; i < n; i++) {
       const tgt = Math.min(1, target(i));
       lv[i] += (tgt - lv[i]) * (tgt > lv[i] ? .85 : .3);  // up fast, down slower
-      const h = Math.max(4, lv[i] * (VH - 8)), x = i * step + (step - bw) / 2;
-      const gr = vx.createLinearGradient(0, VH - h, 0, VH);
-      gr.addColorStop(0, `rgba(${vizRgb},.95)`); gr.addColorStop(1, `rgba(${vizRgb},.15)`);
-      vx.fillStyle = gr;
+      const h = Math.max(3, lv[i] * VH), x = i * step + (step - bw) / 2;
       vx.beginPath();
-      vx.roundRect ? vx.roundRect(x, VH - h, bw, h, Math.min(4, bw / 2)) : vx.rect(x, VH - h, bw, h);
+      vx.roundRect(x, VH - h, bw, h, Math.min(2, bw / 2));
       vx.fill();
       if (Math.abs(tgt - lv[i]) > .003) moving = true;
     }
-    vx.shadowBlur = 0;
+    vx.globalAlpha = 1;
     return moving;
   }
 
@@ -570,19 +694,112 @@
     lastFrame = now;
     const dt = Math.min(.1, (now - last) / 1000); last = now;
     const d = track.duration, pos = d ? (seekPreview != null ? seekPreview * d : Math.min(d, clock.now())) : 0;
-    const pct = d ? Math.round(pos / d * 1000) / 10 : 0;
-    if (pct !== lastPct) { lastPct = pct; $('fill').style.width = pct + '%'; $('knob').style.left = pct + '%'; }
-    setText('cur', fmt(pos)); setText('rem', '-' + fmt(d - pos)); setText('capR', hms(pos));
+    const pct = d ? Math.round(pos / d * 1000) / 1000 : 0;
+    if (pct !== lastPct) {
+      lastPct = pct;
+      $('fill').style.transform = `scaleX(${pct})`;
+      $('knob').style.transform = `translateX(${(pct * $('fill').parentElement.clientWidth).toFixed(1)}px)`;
+    }
+    // Mac shows the time left (−1:56), Windows the length of the track (4:10).
+    setText('cur', d ? fmt(pos) : DASH);
+    setText('rem', !d ? DASH : plat === 'mac' ? '−' + fmt(d - pos) : fmt(d));
     updateLyrics(pos, d);
     drawParticles(dt);
-    const vizMoving = drawViz();
-    const volMoving = stepVolume(dt);
-    if (playing || vizMoving || volMoving) scheduleFrame();
+    const vizMoving = drawViz(now);
+    if (playing || vizMoving) scheduleFrame();
   }
   function setFrozen(st) {
     frozen = !!st.paused;
     document.body.classList.toggle('frozen', frozen);
     if (!frozen) wake();
+  }
+
+  /* ---------- arrangement A ↔ B ----------
+     Shared parts fly to their new place (FLIP: remember where they were, switch the arrangement, then play the
+     difference back as a transform); the lyrics and the two cards fade out where they were and fade in at the new
+     place. Calm and soft: 700 ms, no overshoot. With "reduce motion" on: a plain 250 ms fade. */
+  const EASE = 'cubic-bezier(.45, 0, .25, 1)', FLY_MS = 700;
+  let ghosts = [];
+  function placeGlow() {
+    const b = box(S.layout === 'b' ? $('player') : $('cover'));
+    const glow = $('glow');
+    glow.style.transform = `translate(${(b.x + b.w / 2).toFixed(0)}px, ${(b.y + b.h / 2).toFixed(0)}px)`;
+    if (!glow.classList.contains('ready')) requestAnimationFrame(() => glow.classList.add('ready')); // glide only after the first placing
+  }
+  // Everything that depends on the arrangement, after it changed.
+  function relayout() {
+    sizeViz();
+    heights = [];
+    focusLine(true);
+    applyState();
+    renderQueue();
+    placeGlow();
+    placeVolume();
+  }
+  // A still copy of a part at its old place, to fade out while the real one moves.
+  function ghost(el) {
+    const b = box(el), g = el.cloneNode(true);
+    g.querySelectorAll('[data-act]').forEach(x => x.removeAttribute('data-act'));
+    g.querySelectorAll('[data-fly]').forEach(x => x.removeAttribute('data-fly'));
+    const from = el.querySelectorAll('canvas'), to = g.querySelectorAll('canvas');
+    from.forEach((c, i) => { to[i].width = c.width; to[i].height = c.height; to[i].getContext('2d').drawImage(c, 0, 0); });
+    Object.assign(g.style, { position: 'absolute', left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px', margin: 0, pointerEvents: 'none' });
+    g.removeAttribute('id');
+    stage.appendChild(g);
+    return g;
+  }
+  function applyLayout(name, animate) {
+    if (name !== 'a' && name !== 'b') name = 'a';
+    if (stage.dataset.layout === name) return;
+    // A switch during a switch: finish the old one at once.
+    stage.getAnimations({ subtree: true }).forEach(a => { if (a.id === 'lw') a.finish(); });
+    ghosts.forEach(g => g.remove()); ghosts = [];
+    if (!animate || frozen) { stage.dataset.layout = name; S.layout = name; relayout(); reportHits(); return; }
+    if (reduce) {
+      stage.dataset.layout = name; S.layout = name; relayout();
+      $('ui').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, easing: 'ease', id: 'lw' });
+      reportHits();
+      return;
+    }
+    const fly = [...stage.querySelectorAll('[data-fly]')];
+    const fades = [...stage.querySelectorAll('[data-fade]')];
+    const before = fly.map(el => ({ b: box(el), r: parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0 }));
+    ghosts = fades.map(ghost);
+    stage.dataset.layout = name; S.layout = name;
+    relayout();
+    fly.forEach((el, i) => {
+      const a = before[i].b, b = box(el);
+      if (!a.w || !b.w) return;
+      const r1 = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, r0 = before[i].r;
+      if (el.classList.contains('pbg')) {
+        // The player's glass changes its real size (a stretched glass would bend its corners).
+        const p = box(el.parentElement);
+        el.animate([
+          { left: a.x - p.x + 'px', top: a.y - p.y + 'px', width: a.w + 'px', height: a.h + 'px', right: 'auto', bottom: 'auto', borderRadius: r0 + 'px' },
+          { left: b.x - p.x + 'px', top: b.y - p.y + 'px', width: b.w + 'px', height: b.h + 'px', right: 'auto', bottom: 'auto', borderRadius: r1 + 'px' }
+        ], { duration: FLY_MS, easing: EASE, id: 'lw' });
+        return;
+      }
+      // Everything else keeps its shape: one scale, centre to centre.
+      const s = Math.min(a.w / b.w, a.h / b.h);
+      const dx = a.x + a.w / 2 - (b.x + b.w / 2), dy = a.y + a.h / 2 - (b.y + b.h / 2);
+      const from = { transformOrigin: '50% 50%', transform: `translate(${dx}px, ${dy}px) scale(${s})` };
+      const to = { transformOrigin: '50% 50%', transform: 'none' };
+      if (r0 || r1) { from.borderRadius = r0 / s + 'px'; to.borderRadius = r1 + 'px'; }
+      el.animate([from, to], { duration: FLY_MS, easing: EASE, id: 'lw' });
+    });
+    // Lyrics, Sound and Up next: out at the old place (260 ms), in at the new one (440 ms after 360 ms).
+    ghosts.forEach(g => {
+      g.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(8px)' }], { duration: 260, easing: 'ease-in', fill: 'forwards', id: 'lw' })
+        .finished.then(() => g.remove(), () => g.remove());
+    });
+    fades.forEach(el => {
+      // The lyrics block keeps its own opacity (paused, hidden), so its inside fades instead.
+      const parts = el.id === 'lyr' ? [$('vp'), $('quiet')] : [el];
+      parts.forEach(p => p.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 440, delay: 360, easing: EASE, fill: 'backwards', id: 'lw' }));
+    });
+    setTimeout(() => { ghosts = ghosts.filter(g => g.isConnected); reportHits(); }, FLY_MS + 120);
   }
 
   /* ---------- buttons ----------
@@ -616,10 +833,9 @@
     const wait = 100 - (Date.now() - volSentAt);
     if (wait <= 0) send(); else volTimer = setTimeout(send, wait);
   }
-  function userVolume(v, rid, instant) {
+  function userVolume(v, rid) {
     if (track.volume == null) return;
     v = Math.round(Math.max(0, Math.min(100, v)));
-    if (instant) volShown = v;
     if (v === track.volume) return;
     showVolume(v);
     sendVolume(v, rid);
@@ -630,7 +846,7 @@
   let slide = null; // { id, rid }
   function slideTo(fx, final) {
     const f = Math.max(0, Math.min(1, fx));
-    if (slide.id === 'volume') { userVolume(f * 100, slide.rid, true); return; }
+    if (slide.id === 'volume') { userVolume(f * 100, slide.rid); return; }
     if (!track.id || !track.duration) return;
     seekPreview = f;
     if (final) {
@@ -641,7 +857,7 @@
     wake();
   }
 
-  // The mouse wheel over the volume bar, the speaker or the big number: 5% per notch.
+  // The mouse wheel over the volume bar or the speaker: 5% per notch.
   let wheelAcc = 0;
   function wheel(dy, rid) {
     if (track.volume == null) return;
@@ -653,6 +869,8 @@
   }
 
   function act(id, rid) {
+    // Nothing playing: only Play (and the links) work.
+    if (track.idle && ['like', 'prev', 'next', 'more', 'progress'].includes(id)) return;
     press(id);
     const control = (cmd, value) => api.control(cmd, value, rid);
     switch (id) {
@@ -703,8 +921,8 @@
         actEl(e.id).classList.remove('drag');
         slide = null;
         break;
-      case 'click': if (!SLIDERS.includes(e.id) && e.id !== 'volnum') act(e.id, rid); break;
-      case 'wheel': if (['volume', 'mute', 'volnum'].includes(e.id)) wheel(e.dy, rid); break;
+      case 'click': if (!SLIDERS.includes(e.id)) act(e.id, rid); break;
+      case 'wheel': if (['volume', 'mute'].includes(e.id)) wheel(e.dy, rid); break;
     }
   }
   api.onHit(input);
@@ -739,7 +957,7 @@
   function reportHits() {
     clearTimeout(hitsTimer);
     hitsTimer = setTimeout(() => {
-      // Thin elements (the 4 px progress and volume bars, the small speaker) get a 24 px tall/wide target.
+      // Thin elements (the 4–5 px progress and volume bars) get a 24 px tall target.
       const MIN = 24;
       const grow = (start, len) => (len < MIN ? [start - (MIN - len) / 2, MIN] : [start, len]);
       const items = [...document.querySelectorAll('[data-act]')].map(el => {
@@ -753,24 +971,30 @@
   }
 
   /* ---------- start ---------- */
-  const refit = () => { fit(); sizeViz(); wake(); reportHits(); };
+  const refit = () => { fit(); relayout(); wake(); reportHits(); };
   addEventListener('resize', refit); api.onLayoutChanged(refit); fit(); sizeViz();
   api.onRender(setFrozen);
   setFrozen(await api.getRender());
   // Apply the look; fetch the own picture only when it is new.
+  let lookApplied = false;
   function applyLook(look) {
     const newImage = look.imageVersion !== S.imageVersion || (look.bg === 'photo' && !userImg);
-    S = look;
-    stage.dataset.theme = S.theme || 'dusty';
+    const layout = look.layout || 'a';
+    S = { ...look, layout: S.layout };
+    stage.dataset.theme = S.theme || 'default';
     readTheme();
-    setCount(S.snowCount);
-    applyBg();
+    setCount(S.snowOn === false ? 0 : S.snowCount);
+    applyBg(); applyAccent();
     $('lyr').classList.toggle('off', !S.showLyrics);
+    applyLayout(layout, lookApplied);
+    applyState();
+    lookApplied = true;
     wake();
     if (newImage && look.hasImage) api.getImage().then(url => { userImg = url; applyBg(); });
   }
   api.onLook(applyLook);
   applyLook(await api.getLook());
+  tick();
   showMessage('starting');
   api.onPlayer(onPlayer);
   onPlayer(await api.getPlayer());
@@ -781,7 +1005,7 @@
   api.onWebState(st => onWeb({ loggedIn: st.loggedIn }));
   onWeb(await api.getWebNow());
   onLyrics(await api.getLyrics());
-  if (document.fonts) document.fonts.ready.then(() => { focusLine(true); reportHits(); });
+  if (document.fonts) document.fonts.ready.then(() => { relayout(); reportHits(); });
   reportHits();
   wake();
 })();

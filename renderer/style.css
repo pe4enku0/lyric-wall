@@ -1,156 +1,279 @@
-/* The look is taken 1:1 from mockup.html: dusty glass, fonts, blurred lyric lines.
-   Colours come from the theme (themes.css); the default theme is the mockup's dusty glass.
-   The mockup is drawn for a 1280×800 screen; app.js scales it to the real screen. */
-:root {
-  --display: 'Onest Variable', 'Onest', -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, Menlo, monospace;
-  color-scheme: dark;
-}
-html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #19171c; font-family: var(--display); user-select: none; cursor: default; }
+/* Wallpaper look. Colours come from the theme (themes.css); sizes from the platform (mac / win) and the
+   arrangement: data-layout="a" (side by side) or "b" (centered). Sizes are in screen points; app.js keeps the
+   content inside the safe area (menu bar, notch, Dock, taskbar) and shrinks everything on small screens. */
+:root { color-scheme: dark; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0C0B10; user-select: none; cursor: default; }
+[hidden] { display: none !important; }
 
+/* ---------- sizes ---------- */
+.stage {
+  --display: 'Archivo Variable', 'Archivo', 'Onest Variable', system-ui, sans-serif;
+  --ease: cubic-bezier(.45, 0, .25, 1);
+}
+.stage[data-platform="mac"] {
+  --ui-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Onest Variable', sans-serif;
+  --col: 400px; --gutter: 64px;
+  --cover: 368px; --cover-r: 18px; --card-r: 30px; --small-r: 24px;
+  --title: 32px; --artist: 17px;
+  --clock: 136px; --date: 22px; --line: 60px;
+  --b-clock: 112px; --b-date: 20px; --b-line: 66px; --lyr-max: 1120px;
+  --strip: 120px; --sound-w: 220px; --next-w: 280px; --b-cover: 88px; --b-cover-r: 14px; --b-meta: 170px; --strip-r: 26px;
+  --btn-r: 50%; --pp-r: 50%; --lyb-r: 10px; --dev-r: 18px; --thumb-r: 10px;
+  --skip: 48px; --pp: 64px; --b-skip: 40px; --b-pp: 48px;
+}
+.stage[data-platform="win"] {
+  --ui-font: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', 'Onest Variable', sans-serif;
+  --col: 440px; --gutter: 80px;
+  --cover: 408px; --cover-r: 6px; --card-r: 8px; --small-r: 8px;
+  --title: 34px; --artist: 18px;
+  --clock: 160px; --date: 24px; --line: 72px;
+  --b-clock: 128px; --b-date: 22px; --b-line: 80px; --lyr-max: 1400px;
+  --strip: 128px; --sound-w: 260px; --next-w: 340px; --b-cover: 96px; --b-cover-r: 4px; --b-meta: 220px; --strip-r: 8px;
+  --btn-r: 4px; --pp-r: 6px; --lyb-r: 4px; --dev-r: 4px; --thumb-r: 4px;
+  --skip: 44px; --pp: 56px; --b-skip: 40px; --b-pp: 48px;
+}
+
+/* ---------- background ---------- */
 .stage {
   --hue: 225;
   --sat: 1;
-  transition: --hue 2.4s ease, --sat 1.2s ease;
-  position: absolute; top: 0; left: 0; width: 1280px; height: 800px;
-  transform-origin: 0 0; overflow: hidden; color: var(--ink);
-  background: var(--stage-bg);
+  --glow: var(--glow-max);
+  transition: --hue 2.4s ease, --sat 1.2s ease, --accent .6s ease;
+  position: absolute; top: 0; left: 0; width: 1470px; height: 956px;
+  transform-origin: 0 0; overflow: hidden; color: var(--text);
+  background: var(--bg-fill); font-family: var(--ui-font);
 }
+.stage[data-state="idle"] { --accent: var(--accent-idle); --glow: calc(var(--glow-max) / 3); }
 .bgimg { position: absolute; inset: -40px; background-size: cover; background-position: center; transition: opacity .6s ease, filter .4s ease; opacity: 0; }
 .dim { position: absolute; inset: 0; background: var(--dim); opacity: 0; transition: opacity .4s ease; pointer-events: none; }
+/* Glow of the accent colour behind the player (app.js keeps it centred on the cover). */
+.glow { position: absolute; left: 0; top: 0; width: 1100px; height: 1100px; margin: -550px 0 0 -550px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 62%); opacity: var(--glow); transition: opacity .6s ease; }
+.glow.ready { transition: opacity .6s ease, transform .7s var(--ease); }
 #snow { position: absolute; inset: 0; pointer-events: none; }
 .grain { position: absolute; inset: 0; pointer-events: none; opacity: var(--grain-opacity); mix-blend-mode: var(--grain-blend); background-size: 256px 256px; }
 
-.cols { position: absolute; top: 74px; left: 64px; right: 56px; bottom: 56px; display: grid; grid-template-columns: 480px 1fr; gap: 60px; }
-.left { display: flex; flex-direction: column; gap: 14px; }
-.glass {
-  position: relative;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border); border-radius: 26px;
-  backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-shadow);
-}
+/* ---------- arrangement A: player column on the left, clock and lyrics on the right ---------- */
+.ui { position: absolute; top: 69px; left: 48px; right: 48px; bottom: 32px; display: grid; }
+.stage[data-layout="a"] .ui { grid-template-columns: var(--col) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); column-gap: var(--gutter); }
+.stage[data-layout="a"] .leftcol { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.stage[data-layout="a"] .cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; flex: 1; min-height: 0; }
+.stage[data-layout="a"] .rightcol { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+/* ---------- arrangement B: clock on top, lyrics in the middle, a strip at the bottom ---------- */
+.stage[data-layout="b"] { --clock: var(--b-clock); --date: var(--b-date); --line: var(--b-line); --cover: var(--b-cover); --cover-r: var(--b-cover-r);
+  --card-r: var(--strip-r); --skip: var(--b-skip); --pp: var(--b-pp); --title: 22px; --artist: 14px; }
+.stage[data-layout="b"] .leftcol, .stage[data-layout="b"] .rightcol, .stage[data-layout="b"] .cards { display: contents; }
+.stage[data-layout="b"] .ui { grid-template-columns: var(--sound-w) minmax(0, 1fr) var(--next-w); grid-template-rows: auto minmax(0, 1fr) var(--strip);
+  grid-template-areas: "clock clock clock" "lyr lyr lyr" "sound player upnext"; gap: 16px; }
+.stage[data-layout="b"] .clock { grid-area: clock; align-items: center; }
+.stage[data-layout="b"] .lyr { grid-area: lyr; justify-self: center; width: min(100%, var(--lyr-max)); margin: 8px 0; }
+.stage[data-layout="b"] .sound { grid-area: sound; }
+.stage[data-layout="b"] .player { grid-area: player; }
+.stage[data-layout="b"] .upnext { grid-area: upnext; }
+
+/* ---------- glass ---------- */
+.glass { background: var(--card-bg); border: 1px solid var(--card-border); backdrop-filter: var(--card-filter); box-shadow: var(--card-shadow); }
+
+/* ---------- player ---------- */
+.player { position: relative; min-width: 0; min-height: 0; }
+.pbg { position: absolute; inset: 0; border-radius: var(--card-r); }
+.player > :not(.pbg) { position: relative; }
+.stage[data-layout="a"] .player { padding: 16px; display: flex; flex-direction: column; }
+.stage[data-layout="b"] .player { padding: 0 20px 0 16px; display: grid; align-items: center; column-gap: 20px;
+  grid-template-columns: var(--cover) var(--b-meta) minmax(0, 1fr) auto; grid-template-rows: 1fr auto auto 1fr;
+  grid-template-areas: "cover meta . util" "cover meta transport util" "cover meta prog util" "cover meta . util"; }
+.stage[data-layout="b"] .cover { grid-area: cover; }
+.stage[data-layout="b"] .meta { grid-area: meta; }
+.stage[data-layout="b"] .transport { grid-area: transport; }
+.stage[data-layout="b"] .prog { grid-area: prog; }
+.stage[data-layout="b"] .util { grid-area: util; }
 
 /* cover */
-.art { height: 236px; overflow: hidden; padding: 0; border-radius: 28px; }
-.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1.2s ease, transform 8s ease-out; }
-.art img.out { opacity: 0; transform: scale(1.06); }
-.art::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 -60px 60px -30px rgba(0,0,0,.55); pointer-events: none; }
-.chip { position: absolute; z-index: 1; top: 16px; left: 18px; color: #fff; display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 99px; background: rgba(20,20,24,.55); backdrop-filter: blur(10px); }
-.dot { position: absolute; z-index: 1; top: 20px; right: 22px; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; }
-.art .cap { position: absolute; z-index: 1; left: 20px; right: 20px; bottom: 16px; display: flex; justify-content: space-between; gap: 16px; font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.82); font-variant-numeric: tabular-nums; }
+.cover { width: var(--cover); height: var(--cover); border-radius: var(--cover-r); overflow: hidden; flex: none; transition: opacity .4s ease; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; }
+.cover img.out { opacity: 0; }
+.cover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); pointer-events: none; }
+.cover .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); background: rgba(255,255,255,.04); opacity: 0; transition: opacity .4s ease; }
+.stage[data-state="idle"] .cover img { opacity: 0 !important; }
+.stage[data-state="idle"] .cover .empty { opacity: 1; }
+.stage[data-state="paused"] .cover { opacity: .72; }
+.stage[data-layout="b"] .cover .empty .ic { width: 26px; height: 26px; }
 
-/* player */
-.info { padding: 18px 22px 14px 24px; display: flex; flex-direction: column; gap: 10px; }
-.ttl { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.ttl h2 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 6px; line-height: 1.1; }
-.ttl h2 i { font-style: normal; font-size: 10px; font-weight: 800; width: 15px; height: 15px; border-radius: 3px; background: rgba(255,255,255,.55); color: #3d3a42; display: grid; place-items: center; }
-.ttl h2 i[hidden] { display: none; }
-/* Long titles: one line with "…"; the artist line (or a message) takes up to two lines. */
-.ttl > div:first-child { min-width: 0; }
-.ttl h2 { min-width: 0; }
-#title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#capL { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.ttl .ar { font-size: 18px; color: var(--ink2); margin-top: 4px; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.dots { display: flex; gap: 10px; }
-.dots span { width: 34px; height: 34px; border-radius: 50%; background: var(--soft); display: grid; place-items: center; }
-.prog { display: flex; align-items: center; gap: 14px; font-family: var(--mono); font-size: 10.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
-.prog span { width: 30px; }
-.prog span:last-child { text-align: right; width: 34px; }
-.bar { position: relative; flex: 1; height: 3px; border-radius: 3px; background: var(--track); }
-.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--fill); }
-.bar b { position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--knob); box-shadow: 0 0 10px var(--knob-glow); }
-.ctrl { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; }
-.vol { display: flex; align-items: center; gap: 10px; }
-.vol .vb { position: relative; width: 62px; height: 3px; border-radius: 3px; background: var(--track); }
-/* The fill follows the volume smoothly (scaleX); while the bar is dragged it follows the mouse at once. */
-.vol .vb i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 3px; background: var(--fill);
-  transform-origin: 0 50%; transform: scaleX(.64); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
-.vol .vb.drag i { transition: none; }
-/* Speaker: sound waves, or a cross when muted. */
+/* title and artist */
+.meta { min-width: 0; }
+.stage[data-layout="a"] .meta { margin-top: 18px; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); line-height: 16px; white-space: nowrap; overflow: hidden; }
+.status .ic { width: 13px; height: 13px; flex: none; }
+.meta h2 { margin: 6px 0 0; display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-family: var(--display); font-size: var(--title); font-weight: 800; font-stretch: 108%; letter-spacing: -.02em; line-height: 1.12; }
+#title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.meta h2 i { flex: none; font-style: normal; font-family: var(--ui-font); font-size: 10px; font-weight: 700; width: 15px; height: 15px; border-radius: 3px; background: var(--text-3); color: #0C0B10; display: grid; place-items: center; }
+.artist { margin-top: 3px; font-size: var(--artist); font-weight: 500; color: var(--text-2); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.stage[data-layout="b"] .meta h2 { margin-top: 4px; }
+.stage[data-layout="b"] .artist { -webkit-line-clamp: 1; }
+
+/* progress: a thin bar, times under it (A) or at its sides (B) */
+.prog { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "bar bar bar" "cur . rem"; align-items: center; row-gap: 8px;
+  font-size: 12px; font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.stage[data-layout="a"] .prog { margin-top: 18px; }
+.stage[data-layout="b"] .prog { grid-template-areas: "cur bar rem"; column-gap: 12px; margin-top: 8px; font-size: 11px; }
+#cur { grid-area: cur; min-width: 32px; }
+#rem { grid-area: rem; min-width: 32px; text-align: right; }
+.slider { position: relative; height: 5px; border-radius: 3px; background: var(--track); }
+.bar { grid-area: bar; }
+.slider i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--accent); transform-origin: 0 50%; transform: scaleX(0); }
+.slider b { display: none; }
+/* Windows 11 sliders: 4 px track and a round thumb (grey ring, accent dot). */
+.stage[data-platform="win"] .slider { height: 4px; border-radius: 2px; }
+.stage[data-platform="win"] .slider b { display: block; position: absolute; top: 50%; left: 0; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0 5px, #45404A 5.5px); box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 1px 3px rgba(0,0,0,.35); }
+
+/* transport: ☆ ⏮ ⏯ ⏭ ⋯ */
+.transport { display: flex; align-items: center; justify-content: space-between; }
+.stage[data-layout="a"] .transport { margin-top: 12px; }
+.stage[data-layout="b"] .transport { justify-content: center; gap: 14px; }
+.tb { display: grid; place-items: center; flex: none; color: var(--icon); border-radius: var(--btn-r); }
+.tb.like, .tb.more { width: 40px; height: 40px; }
+.tb.like .ic, .tb.more .ic { width: 22px; height: 22px; }
+.tb.like.on { color: var(--accent); }
+.tb.skip { width: var(--skip); height: var(--skip); }
+.tb.skip .ic { width: calc(var(--skip) * .58); height: calc(var(--skip) * .58); }
+.tb.pp { width: var(--pp); height: var(--pp); border-radius: var(--pp-r); background: var(--btn-light); color: var(--btn-light-ink); }
+.tb.pp .ic { width: calc(var(--pp) * .44); height: calc(var(--pp) * .44); }
+.stage[data-layout="b"] .tb.like, .stage[data-layout="b"] .tb.more { width: 36px; height: 36px; }
+.stage[data-layout="b"] .tb.like .ic, .stage[data-layout="b"] .tb.more .ic { width: 20px; height: 20px; }
+.stage[data-platform="win"] .tb.skip { background: rgba(255,255,255,.06); }
+.stage[data-platform="win"] .tb.skip .ic { width: 20px; height: 20px; }
+.stage[data-platform="win"] .tb.pp { background: var(--accent); color: var(--on-accent); }
+.stage[data-platform="win"] .tb.pp .ic { width: 24px; height: 24px; }
+.stage[data-state="idle"] .tb:not(.pp) { opacity: .35; }
+
+/* volume, lyrics button, sound output */
+.util { display: flex; align-items: center; gap: 10px; }
+.stage[data-layout="a"] .util { margin-top: 14px; }
+.vol { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.stage[data-layout="b"] .vol { flex: none; }
+.spk { width: 28px; height: 28px; display: grid; place-items: center; color: var(--text-2); flex: none; }
+.vb { flex: 1; min-width: 0; }
+.stage[data-layout="b"] .vb { flex: none; width: 80px; }
+.stage[data-platform="mac"] .vb i { background: var(--fill-plain); }
+.slider i, .slider b { transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+.bar i, .bar b, .slider.drag i, .slider.drag b { transition: none; }
 .vol .w, .vol .x { transition: opacity .2s ease; }
 .vol .x, .vol.muted .w { opacity: 0; }
 .vol.muted .x { opacity: 1; }
-.mid { display: flex; justify-content: center; align-items: center; gap: 30px; }
-.mid svg { fill: var(--icon); cursor: pointer; }
-.ex .dev { display: flex; align-items: center; gap: 14px; }
-.ex { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--ink2); }
-.lyb { width: 30px; height: 26px; border-radius: 7px; background: var(--btn-light); display: grid; place-items: center; }
+.vol.na { opacity: .35; }
+.lyb { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: var(--lyb-r); background: var(--soft); color: var(--text); transition: background .25s ease, color .25s ease, opacity .25s ease; }
+.lyb.on { background: var(--btn-light); color: var(--btn-light-ink); }
+.stage[data-platform="win"] .lyb.on { background: var(--accent); color: var(--on-accent); }
+.lyb.na { background: rgba(255,255,255,.06); color: rgba(245,242,244,.45); }
+.dev { height: 36px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 14px 0 10px; border-radius: var(--dev-r); background: var(--soft);
+  font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; }
+.devl { max-width: 140px; overflow: hidden; text-overflow: ellipsis; transition: opacity .3s ease; }
+.caret { display: none; color: var(--text-2); }
+.stage[data-platform="win"] .dev { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); padding: 0 8px 0 12px; }
+.stage[data-platform="win"] .caret { display: grid; }
+.stage[data-layout="b"] .dev { width: 36px; padding: 0; justify-content: center; border-radius: var(--btn-r); }
+.stage[data-layout="b"] .devl, .stage[data-layout="b"] .caret { display: none; }
 
-/* bottom cards */
-.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; min-height: 0; }
-.card { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; border-radius: 26px; }
-.ch { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 700; }
-.ch .k { display: flex; align-items: center; gap: 8px; }
-.ch small { font-size: 12px; font-weight: 500; color: var(--ink2); }
+/* short message, e.g. after pressing the star */
+.toast { position: absolute; z-index: 2; left: 50%; top: calc(16px + var(--cover) - 54px); transform: translate(-50%, 6px); max-width: 80%; padding: 8px 14px; border-radius: 99px;
+  background: rgba(20,18,24,.78); backdrop-filter: blur(10px); font-size: 13px; font-weight: 600; color: #fff; text-align: center; opacity: 0; transition: opacity .25s ease, transform .25s ease; pointer-events: none; }
+.stage[data-layout="b"] .toast { top: -52px; white-space: nowrap; max-width: none; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Sound and Up next ---------- */
+.card { position: relative; padding: 16px; display: flex; flex-direction: column; gap: 12px; border-radius: var(--small-r); min-height: 0; min-width: 0; overflow: hidden; }
+.stage[data-layout="b"] .card { border-radius: var(--strip-r); padding: 14px 16px; gap: 10px; }
+.ch { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 15px; font-weight: 700; font-stretch: 105%; flex: none; }
+.ch .k { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.ch .k .ic { width: 16px; height: 16px; color: var(--accent); }
+.ch small { font-family: var(--ui-font); font-size: 12px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
+.shuf { width: 22px; height: 22px; display: grid; place-items: center; color: var(--text-3); border-radius: 6px; }
+.shuf .ic { width: 16px; height: 16px; }
+.shuf.on { color: var(--accent); }
 #viz { width: 100%; flex: 1; min-height: 0; display: block; }
-/* Big volume number in the Sound card (the mouse wheel over it changes the volume). */
-.big { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; align-self: flex-start; }
-.big b { font-size: 58px; font-weight: 800; letter-spacing: -.04em; line-height: .95; font-variant-numeric: tabular-nums; color: var(--big); transition: color 2.4s; }
-.big span { font-size: 14px; font-weight: 600; color: var(--ink2); letter-spacing: .04em; }
 
-.q { display: flex; flex-direction: column; gap: 9px; flex: 1; }
-.qi { display: grid; grid-template-columns: 34px 1fr 22px; align-items: center; gap: 10px; transition: opacity .6s; }
-.qi img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--soft); }
-.qi .t { font-size: 14px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.qi .a { font-size: 11px; color: var(--ink2); }
-.qi .c { width: 22px; height: 22px; border-radius: 50%; background: var(--soft); display: grid; place-items: center; }
-.qi .c.on { background: var(--btn-light); }
-.qe { font-size: 13px; line-height: 1.4; color: var(--ink2); }
-.qe.link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; }
-.pill[hidden] { display: none; }
-.pill { text-align: center; font-size: 13px; font-weight: 600; padding: 9px 10px; border-radius: 14px; background: var(--soft); }
+.q { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: hidden; }
+.qi { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 10px; flex: none; }
+.qi img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--soft); }
+.stage[data-platform="win"] .qi img { border-radius: 4px; }
+.qi .t { font-size: 14px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qi .a { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage[data-layout="b"] .qi { grid-template-columns: 48px minmax(0, 1fr); }
+.stage[data-layout="b"] .qi img { width: 48px; height: 48px; }
+/* Empty queue: dashed squares and a hint. */
+.qe { display: flex; flex-direction: column; gap: 4px; }
+.qe .sq { display: flex; gap: 8px; margin-bottom: 6px; }
+.qe .sq i { width: 30px; height: 30px; border-radius: 7px; border: 1.5px dashed rgba(245,242,244,.28); }
+.stage[data-platform="win"] .qe .sq i { border-radius: 4px; }
+.qe .sq i:nth-child(2) { opacity: .6; }
+.qe .sq i:nth-child(3) { opacity: .3; }
+.qe b { font-size: 14px; font-weight: 600; }
+.qe span { font-size: 12px; line-height: 1.35; color: var(--text-2); }
+.qe .long { display: block; }
+.qe .short { display: none; }
+.stage[data-layout="b"] .qe { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+.stage[data-layout="b"] .qe .sq { grid-row: span 2; position: relative; width: 50px; height: 46px; margin: 0; }
+.stage[data-layout="b"] .qe .sq i { position: absolute; width: 34px; height: 34px; }
+.stage[data-layout="b"] .qe .sq i:nth-child(1) { left: 0; top: 0; }
+.stage[data-layout="b"] .qe .sq i:nth-child(2) { left: 14px; top: 10px; }
+.stage[data-layout="b"] .qe .sq i:nth-child(3) { display: none; }
+.stage[data-layout="b"] .qe .long { display: none; }
+.stage[data-layout="b"] .qe .short { display: block; }
+.qe.link b { text-decoration: underline; text-underline-offset: 3px; }
 
-/* lyrics */
-.lyr { position: relative; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
-/* The view reaches 48px past the text on both sides, so the blur of the lines fades out softly
-   there instead of being cut off at the edge of the text. */
-.vp { position: relative; flex: 1; overflow: hidden; margin: 0 -48px;
-  -webkit-mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%),
-                      linear-gradient(90deg, transparent 0, #000 48px, #000 calc(100% - 48px), transparent 100%);
-  -webkit-mask-composite: source-in;
-          mask-image: linear-gradient(transparent 0, #000 9%, #000 78%, transparent 100%),
-                      linear-gradient(90deg, transparent 0, #000 48px, #000 calc(100% - 48px), transparent 100%);
-          mask-composite: intersect; }
-#lines { list-style: none; margin: 0; padding: 0; position: absolute; left: 48px; right: 48px; top: 0;
-  transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .25s ease; }
-#lines li {
-  font-size: 52px; line-height: 1.16; font-weight: 800; letter-spacing: -.012em; word-spacing: .08em;
-  padding: 18px 0; transform-origin: left center; color: var(--line); text-wrap: balance;
-  transition: filter .4s ease, opacity .4s ease, transform .45s cubic-bezier(.2,.8,.2,1), color .4s ease;
-}
-/* The current line: a colour or a gradient, depending on the theme. */
-#lines li.on { color: var(--line-on); text-shadow: var(--line-on-shadow); filter: var(--line-on-filter);
-  background-image: var(--line-on-bg); -webkit-background-clip: text; background-clip: text; }
-#lines li.gap { padding: 0; height: 22px; }
+/* ---------- clock and date ---------- */
+.clock { display: flex; flex-direction: column; align-items: flex-start; flex: none; }
+.time { font-family: var(--display); font-size: var(--clock); font-weight: 800; font-stretch: 112%; letter-spacing: -.045em; line-height: .86;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.date { font-family: var(--display); font-size: var(--date); font-weight: 600; color: var(--text-2); margin-top: calc(var(--date) * .7); white-space: nowrap; }
+
+/* ---------- lyrics ----------
+   app.js places every line itself (absolute positions): the current line in the vertical middle at full size,
+   the lines around it smaller, fainter and blurred. A change of line moves everything in 400 ms. */
+.lyr { position: relative; flex: 1; min-height: 0; transition: opacity .4s ease; }
+.stage[data-layout="a"] .lyr { margin-top: 12px; }
+.stage[data-state="paused"] .lyr { opacity: .5; }
+.lyr.off { opacity: 0 !important; }
+.vp { position: absolute; top: 0; bottom: 0; left: -24px; right: -24px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%); }
+#lines { list-style: none; margin: 0; padding: 0; position: absolute; top: 0; left: 24px; right: 24px; height: 100%; transition: opacity .25s ease; }
+#lines li { position: absolute; left: 0; right: 0; top: 0; transform-origin: 0 50%;
+  font-family: var(--display); font-size: var(--line); font-weight: 800; font-stretch: 110%; letter-spacing: -.02em; line-height: 1.1;
+  color: var(--line-near); text-wrap: balance; overflow-wrap: anywhere;
+  transition: transform .4s var(--ease), opacity .4s ease, filter .4s ease; }
+.stage[data-layout="b"] #lines li { text-align: center; transform-origin: 50% 50%; }
+#lines li.on { color: var(--line-active); background-image: var(--line-on-bg); -webkit-background-clip: text; background-clip: text; filter: var(--line-on-filter); }
+/* Messages instead of lyrics: "Looking for the lyrics…" */
+#lines.msg li { font-size: calc(var(--line) * .62); color: var(--text-2); font-weight: 700; background: none; }
+/* Plain lyrics (no timing): smaller, all lines clear, scrolled through the song. */
+#lines.plain { height: auto; transition: transform .7s ease, opacity .7s ease; }
+#lines.plain li { position: static; font-size: calc(var(--line) * .5); line-height: 1.3; padding: 4px 0; font-weight: 700; color: var(--text); opacity: .85; transition: none; }
+#lines li.gap { height: 1px; }
+#lines.plain li.gap { height: 16px; padding: 0; }
+
+/* Nothing playing / no synced lyrics: big outlined words and a short note. */
+.quiet { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 22px; }
+.stage[data-layout="b"] .quiet { align-items: center; text-align: center; }
+.qt { font-family: var(--display); font-size: calc(var(--line) * 1.5); font-weight: 900; font-stretch: 110%; letter-spacing: -.02em; line-height: 1.02;
+  color: transparent; -webkit-text-stroke: 1.5px var(--outline); max-width: 100%;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding-bottom: .04em; }
+.qn { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 500; color: var(--text-2); }
+.qn .ic { flex: none; }
+
+/* ---------- motion ---------- */
 /* Paused wallpaper (locked screen, game, battery): nothing moves at all. */
 body.frozen *, body.frozen *::before, body.frozen *::after { animation-play-state: paused !important; transition: none !important; }
-/* Messages instead of lyrics: "Looking for the lyrics…", "Lyrics not found"… */
-#lines.msg li { font-size: 40px; color: var(--msg); }
-/* Plain lyrics (no timing): smaller, all lines clear, scrolled through the song. */
-#lines.plain { transition: opacity .7s ease; }
-#lines.plain li { font-size: 30px; line-height: 1.3; padding: 5px 0; font-weight: 700; color: var(--plain); opacity: .88; }
-#lines.plain li.gap { height: 18px; padding: 0; }
-
 @media (prefers-reduced-motion: reduce) {
-  #lines, #lines li, .art img, .stage, .vol .vb i { transition-duration: .01s !important; }
+  #lines, #lines li, .cover img, .stage, .slider i, .slider b, .glow { transition-duration: .01s !important; }
 }
 
 /* Buttons (data-act): hover and press feedback. */
-[data-act] { cursor: pointer; transition: transform .15s ease, filter .15s ease, opacity .15s ease; }
-[data-act].hover { filter: brightness(1.3); }
+[data-act] { cursor: pointer; transition: transform .15s ease, filter .15s ease, opacity .25s ease, background .25s ease, color .25s ease; }
+[data-act].hover { filter: brightness(1.25); }
 [data-act].pressed { transform: scale(.9); }
-.art[data-act].pressed, .bar[data-act].pressed, .vb[data-act].pressed { transform: scale(.98); }
-.lyr { transition: opacity .4s ease; }
-.lyr.off { opacity: 0; }
-/* Short message over the cover, e.g. after pressing the star. */
-.toast { position: absolute; z-index: 2; left: 50%; bottom: 46px; transform: translate(-50%, 6px); max-width: 80%; padding: 8px 14px; border-radius: 99px; background: rgba(20,20,24,.72); backdrop-filter: blur(10px); font-size: 13px; font-weight: 600; color: #fff; text-align: center; opacity: 0; transition: opacity .25s ease, transform .25s ease; }
-.toast.show { opacity: 1; transform: translate(-50%, 0); }
-.toast[hidden] { display: none; }
-
-/* Icons drawn with fixed colours in index.html follow the theme (outside the cover, which stays dark;
-   the chip, caption and toast on the cover are always white). */
-.info [fill="#fff"], .card [fill="#fff"], .info [fill="#e4e1e8"] { fill: var(--icon); }
-.info [stroke="#fff"], .info [stroke="#e4e1e8"] { stroke: var(--icon); }
-[fill="rgba(228,225,232,.75)"], [fill="rgba(228,225,232,.62)"] { fill: var(--ink2); }
-[fill="#3d3a42"] { fill: var(--icon-inv); }
+.cover[data-act].pressed, .bar[data-act].pressed, .vb[data-act].pressed { transform: scale(.98); }
