@@ -23,6 +23,7 @@
   "ui.output": "Вывод звука",
   "ui.soundSettings": "Настройки звука…",
   "ui.outputFailed": "Не удалось переключить вывод звука",
+  "ui.outputRestart": "Перезапускаю Spotify, чтобы звук пошёл туда…",
   "lyrics.loading": "Ищу текст…",
   "lyrics.not-found": "Текст не найден",
   "lyrics.instrumental": "Инструментал ♪",

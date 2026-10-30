@@ -988,7 +988,9 @@
     const d = outputs && outputs[i];
     closeOutputs();
     if (!d || d.default) return;
-    if (!(await api.setOutput(d.id, d.name))) toast(t('ui.outputFailed'));
+    const res = await api.setOutput(d.id, d.name);
+    if (!res) toast(t('ui.outputFailed'));
+    else if (res === 'restarting') toast(t('ui.outputRestart')); // Windows: Spotify is started again to move
   }
 
   function act(id, rid) {

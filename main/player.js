@@ -125,6 +125,23 @@ async function skip(n, id) {
   }
 }
 
+// Windows: after the sound output changed, Spotify is started again (it does not move to the new device
+// by itself) and continues the track where it was; a paused track stays paused.
+async function restartForOutput() {
+  const was = { ...current };
+  const pos = (was.position || 0) + (was.playing ? (Date.now() - (was.at || Date.now())) / 1000 : 0);
+  log.info(`Spotify: restarting it to play through the new output (${was.state} at ${Math.round(pos)} s)`);
+  const wait = async (ok, ms) => { for (const end = Date.now() + ms; Date.now() < end && !ok();) await new Promise(r => setTimeout(r, 300)); return ok(); };
+  const ready = () => !!current.title && (current.state === 'playing' || current.state === 'paused');
+  await adapter.restartSpotify();
+  await wait(() => !ready(), 5000); // gone
+  if (!(await wait(ready, 25000))) { log.warn('Spotify: it did not come back after the restart'); return; }
+  await new Promise(r => setTimeout(r, 800)); // it needs a moment before it takes commands
+  if (current.id === was.id && pos > 2) await control('seek', pos, 'o1');
+  if (was.playing && current.state === 'paused') await control('toggle', null, 'o2');
+  log.info('Spotify: back after the restart:', current.state, current.id === was.id ? '(same track)' : '(another track)');
+}
+
 // cmd: 'toggle' | 'next' | 'prev' | 'skip' (value: how many tracks) | 'seek' (value: seconds) | 'volume' (value: 0-100)
 //      | 'mute' | 'shuffle' | 'open'
 function control(cmd, value, rid) {
@@ -144,4 +161,4 @@ function control(cmd, value, rid) {
   return adapter.control(cmd, value, id);
 }
 
-module.exports = { subscribe, control, newId, sharperCover, get: () => current };
+module.exports = { subscribe, control, newId, sharperCover, restartForOutput, get: () => current };

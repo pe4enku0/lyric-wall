@@ -69,6 +69,12 @@ ipcMain.handle('outputs:set', async (_e, id, name) => {
   try {
     await adapter.setOutput(String(id));
     log.info('Sound output: switched to', String(name || id).slice(0, 120));
+    // Windows: Spotify moves to the new device only when started again.
+    const s = player.get().state;
+    if (adapter.restartSpotify && (s === 'playing' || s === 'paused')) {
+      player.restartForOutput().catch(e => log.warn('Spotify: restart failed:', e.message));
+      return 'restarting';
+    }
     return true;
   } catch (e) {
     log.warn('Sound output: could not switch:', e.message);

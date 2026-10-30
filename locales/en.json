@@ -23,6 +23,7 @@
   "ui.output": "Sound output",
   "ui.soundSettings": "Sound settings…",
   "ui.outputFailed": "Could not switch the sound output",
+  "ui.outputRestart": "Restarting Spotify to play through it…",
   "lyrics.loading": "Looking for the lyrics…",
   "lyrics.not-found": "Lyrics not found",
   "lyrics.instrumental": "Instrumental ♪",
