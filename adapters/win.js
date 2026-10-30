@@ -522,27 +522,6 @@ module.exports = {
     require('./win-audio').start(contents);
   },
 
-  // The menu of the sound output button: [{ id, name, default }] and switching the default device.
-  listOutputs: () => require('./win-audio').listOutputs(),
-  setOutput: id => require('./win-audio').setOutput(id),
-
-  // Spotify keeps playing through the device it started with (a new default output, even pinned to it, does
-  // not move it), so after a switch it is closed and started again (main/player.js continues the track).
-  async restartSpotify() {
-    const { execFile } = require('child_process');
-    const run = (file, args) => new Promise(resolve => execFile(file, args, { windowsHide: true }, (err, out) => resolve(err ? '' : String(out).trim())));
-    const exe = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '(Get-Process Spotify -ErrorAction SilentlyContinue | Select-Object -First 1).Path']);
-    if (!exe) throw new Error('Spotify is not running');
-    await run('taskkill.exe', ['/IM', 'Spotify.exe', '/F']);
-    await sleep(1200);
-    // The Microsoft Store version can only be started by its app id (package family + "!Spotify").
-    const store = exe.match(/\\WindowsApps\\([^_\\]+)_[^\\]*__([^\\]+)\\/i);
-    const child = store
-      ? spawn('explorer.exe', [`shell:AppsFolder\\${store[1]}_${store[2]}!Spotify`], { detached: true, stdio: 'ignore' })
-      : spawn(exe, [], { detached: true, stdio: 'ignore' });
-    child.unref();
-  },
-
   stopNowPlaying() {
     running = false;
     clearTimeout(retryTimer);

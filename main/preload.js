@@ -22,9 +22,6 @@ contextBridge.exposeInMainWorld('lyricWall', {
   control: (cmd, value, rid) => ipcRenderer.send('player:control', cmd, value, rid),
   log: (level, text) => ipcRenderer.send('app:log', level, String(text).slice(0, 500)),
   openSoundSettings: () => ipcRenderer.send('app:openSoundSettings'),
-  // Output devices for the menu of the sound output button: [{ id, name, default }] or null
-  listOutputs: () => ipcRenderer.invoke('outputs:list'),
-  setOutput: (id, name) => ipcRenderer.invoke('outputs:set', id, name),
   openControl: () => ipcRenderer.send('app:openControl'),
 
   // Spotify Web API: queue and likes (wallpaper), sign-in (settings window)
@@ -54,6 +51,8 @@ contextBridge.exposeInMainWorld('lyricWall', {
   startAudio: () => ipcRenderer.send('audio:start'),
   // Windows: a ready spectrum (bytes like AnalyserNode.getByteFrequencyData, binHz = Hz per byte)
   onAudioSpectrum: cb => ipcRenderer.on('audio:spectrum', (_e, bytes, binHz) => cb(bytes, binHz)),
+  // Windows: the name of the output device that plays (the label of the sound output button)
+  onAudioDevice: cb => ipcRenderer.on('audio:device', (_e, name) => cb(name)),
 
   // Control window: switches shared with the tray menu
   controlState: () => ipcRenderer.invoke('control:state'),

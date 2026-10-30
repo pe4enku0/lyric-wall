@@ -74,68 +74,6 @@ function objcApi() {
   };
   return objc;
 }
-// Sound outputs (the menu of the sound output button on the wallpaper): Core Audio via koffi.
-let ca = null;
-function coreAudio() {
-  if (ca) return ca;
-  const koffi = require('koffi');
-  const lib = koffi.load('/System/Library/Frameworks/CoreAudio.framework/CoreAudio');
-  const cf = koffi.load('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation');
-  koffi.struct('LwAudioAddress', { selector: 'uint32_t', scope: 'uint32_t', element: 'uint32_t' });
-  ca = {
-    size: lib.func('int32_t AudioObjectGetPropertyDataSize(uint32_t obj, const LwAudioAddress *addr, uint32_t qsize, void *q, _Out_ uint32_t *size)'),
-    get: lib.func('int32_t AudioObjectGetPropertyData(uint32_t obj, const LwAudioAddress *addr, uint32_t qsize, void *q, _Inout_ uint32_t *size, void *data)'),
-    set: lib.func('int32_t AudioObjectSetPropertyData(uint32_t obj, const LwAudioAddress *addr, uint32_t qsize, void *q, uint32_t size, void *data)'),
-    cfString: cf.func('bool CFStringGetCString(uintptr_t str, _Out_ uint8_t *buf, long size, uint32_t encoding)'),
-    release: cf.func('void CFRelease(uintptr_t obj)')
-  };
-  return ca;
-}
-const SYSTEM_OBJECT = 1, UTF8 = 0x08000100;
-const fourCC = s => [...s].reduce((n, c) => n * 256 + c.charCodeAt(0), 0);
-const address = (selector, scope = 'glob') => ({ selector: fourCC(selector), scope: fourCC(scope), element: 0 });
-
-function defaultOutput() {
-  const buf = Buffer.alloc(4);
-  const err = coreAudio().get(SYSTEM_OBJECT, address('dOut'), 0, null, [4], buf);
-  if (err) throw new Error(`Core Audio error ${err} (default output)`);
-  return buf.readUInt32LE(0);
-}
-
-function deviceName(id) {
-  const c = coreAudio(), ref = Buffer.alloc(8);
-  if (c.get(id, address('lnam'), 0, null, [8], ref)) return '';
-  const str = ref.readBigUInt64LE(0);
-  if (!str) return '';
-  const out = Buffer.alloc(512);
-  const ok = c.cfString(str, out, out.length, UTF8);
-  c.release(str);
-  return ok ? out.toString('utf8', 0, out.indexOf(0)) : '';
-}
-
-// The devices that can play sound (they have output streams), the default one marked.
-function listOutputs() {
-  const c = coreAudio(), size = [0];
-  if (c.size(SYSTEM_OBJECT, address('dev#'), 0, null, size)) throw new Error('Core Audio: no device list');
-  const buf = Buffer.alloc(size[0]);
-  if (c.get(SYSTEM_OBJECT, address('dev#'), 0, null, [buf.length], buf)) throw new Error('Core Audio: no device list');
-  const def = defaultOutput(), list = [];
-  for (let i = 0; i + 4 <= buf.length; i += 4) {
-    const id = buf.readUInt32LE(i), streams = [0];
-    if (c.size(id, address('stm#', 'outp'), 0, null, streams) || !streams[0]) continue;
-    const name = deviceName(id);
-    if (name) list.push({ id: String(id), name, default: id === def });
-  }
-  return list;
-}
-
-function setOutput(id) {
-  const buf = Buffer.alloc(4);
-  buf.writeUInt32LE(Number(id) >>> 0, 0);
-  const err = coreAudio().set(SYSTEM_OBJECT, address('dOut'), 0, null, 4, buf);
-  if (err) throw new Error(`Core Audio error ${err} (setting the default output)`);
-}
-
 // Native click helper (mac-helper/ClickLayer.swift): inside the app in the packaged app, built by npm in development.
 const CLICK_HELPER = app.isPackaged
   ? path.join(process.resourcesPath, 'lyric-wall-clicks')
@@ -229,10 +167,6 @@ module.exports = {
   deviceKey: 'device.mac',
   trayIcon: path.join(__dirname, '..', 'assets', 'trayTemplate.png'),
   soundSettingsUrl: 'x-apple.systempreferences:com.apple.Sound-Settings.extension',
-
-  // The menu of the sound output button: [{ id, name, default }] and switching the default device.
-  listOutputs: async () => listOutputs(),
-  setOutput: async id => setOutput(id),
 
   init() {
     // No Dock icon: the app lives in the menu bar only.

@@ -79,7 +79,15 @@ let volBusy = false, volNext = null, volGesture = { id: null, count: 0 }, volLog
 // Windows, signed in with the permission: Spotify's own volume through the Web API (at most ~3 a second,
 // one at a time); if Spotify refuses (no Premium, nothing playing on this computer), the volume mixer.
 let ownVolumeOffUntil = 0; // after a refusal the mixer is used for a minute
+let askedVolume = false;
 async function sendVolume(value, id, quiet) {
+  // Signed in before the volume permission existed: ask for it once per start, the Spotify page opens in
+  // the browser ("Agree"); until then the volume mixer.
+  if (process.platform === 'win32' && !askedVolume && spotifyWeb.state().loggedIn && !spotifyWeb.usesOwnVolume()) {
+    askedVolume = true;
+    log.info(`[${id}] Spotify's own volume needs one more permission: opening the Spotify sign-in page`);
+    spotifyWeb.login();
+  }
   if (spotifyWeb.usesOwnVolume() && Date.now() > ownVolumeOffUntil) {
     try {
       await spotifyWeb.setVolume(value);
@@ -125,23 +133,6 @@ async function skip(n, id) {
   }
 }
 
-// Windows: after the sound output changed, Spotify is started again (it does not move to the new device
-// by itself) and continues the track where it was; a paused track stays paused.
-async function restartForOutput() {
-  const was = { ...current };
-  const pos = (was.position || 0) + (was.playing ? (Date.now() - (was.at || Date.now())) / 1000 : 0);
-  log.info(`Spotify: restarting it to play through the new output (${was.state} at ${Math.round(pos)} s)`);
-  const wait = async (ok, ms) => { for (const end = Date.now() + ms; Date.now() < end && !ok();) await new Promise(r => setTimeout(r, 300)); return ok(); };
-  const ready = () => !!current.title && (current.state === 'playing' || current.state === 'paused');
-  await adapter.restartSpotify();
-  await wait(() => !ready(), 5000); // gone
-  if (!(await wait(ready, 25000))) { log.warn('Spotify: it did not come back after the restart'); return; }
-  await new Promise(r => setTimeout(r, 800)); // it needs a moment before it takes commands
-  if (current.id === was.id && pos > 2) await control('seek', pos, 'o1');
-  if (was.playing && current.state === 'paused') await control('toggle', null, 'o2');
-  log.info('Spotify: back after the restart:', current.state, current.id === was.id ? '(same track)' : '(another track)');
-}
-
 // cmd: 'toggle' | 'next' | 'prev' | 'skip' (value: how many tracks) | 'seek' (value: seconds) | 'volume' (value: 0-100)
 //      | 'mute' | 'shuffle' | 'open'
 function control(cmd, value, rid) {
@@ -161,4 +152,4 @@ function control(cmd, value, rid) {
   return adapter.control(cmd, value, id);
 }
 
-module.exports = { subscribe, control, newId, sharperCover, restartForOutput, get: () => current };
+module.exports = { subscribe, control, newId, sharperCover, get: () => current };

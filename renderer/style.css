@@ -175,22 +175,6 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .stage[data-layout="b"] .toast { top: -52px; white-space: nowrap; max-width: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* menu of the sound output button: glass like the cards, above the button (app.js places it) */
-.outs { position: absolute; z-index: 5; left: 0; top: 0; width: 360px; padding: 6px; border-radius: 16px; display: flex; flex-direction: column;
-  opacity: 0; transform: translateY(6px) scale(.98); transform-origin: 100% 100%; transition: opacity .2s ease, transform .22s cubic-bezier(.3, .7, .4, 1); }
-.outs.show { opacity: 1; transform: none; }
-.oh { padding: 8px 10px 6px; font-size: 12px; font-weight: 600; color: var(--text-3); }
-.outs .orow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; font-size: 14px; font-weight: 500; color: var(--text); }
-.orow .ic { width: 16px; height: 16px; flex: none; color: var(--accent); visibility: hidden; }
-.orow.on .ic { visibility: visible; }
-.orow span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.outs .orow.hover { background: rgba(255,255,255,.1); }
-.outs .orow.pressed { transform: scale(.98); }
-.osep { height: 1px; margin: 4px 10px; background: rgba(255,255,255,.08); }
-.outs .orow.more { color: var(--text-2); padding-left: 34px; }
-.outsbg { position: absolute; inset: 0; z-index: 4; }
-.outsbg[data-act].pressed { transform: none; }
-
 /* ---------- Sound and Up next ---------- */
 .card { position: relative; padding: 16px; display: flex; flex-direction: column; gap: 12px; border-radius: var(--small-r); min-height: 0; min-width: 0; overflow: hidden; }
 .stage[data-layout="b"] .card { border-radius: var(--strip-r); padding: 14px 16px; gap: 10px; }

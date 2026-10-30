@@ -48,7 +48,7 @@ The builds are not signed with a paid certificate:
 | "Shuffle" | shuffle on / off |
 | cover | open Spotify |
 | white lyrics button | hide / show the lyrics |
-| device ("MacBook" / "Speakers") | a menu of the output devices: pick one to play through it; "Sound settings…" at the bottom |
+| device ("MacBook" / the output device that plays, on Windows) | open the system sound settings |
 | "…" | open the control window |
 | a track in "Up next" | play it (skips forward to it, so the playlist and the queue stay) |
 | ★ | like / unlike the track (after signing in to Spotify; filled when the track is in Liked Songs) |
