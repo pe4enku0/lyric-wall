@@ -479,6 +479,8 @@
     } else if (s.art && s.art !== track.cover) {
       track.cover = s.art; applyBg(); updateColours();
     }
+    // Right after a switch the name may come a moment later than the track itself.
+    if (!changed) { put($('title'), 'textContent', s.title || ''); put($('artist'), 'textContent', s.artist || ''); }
     track.duration = s.duration || track.duration;
     setCover(track.cover);
 

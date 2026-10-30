@@ -19,6 +19,7 @@ const RETRY_S = [5, 10, 20, 40, 60];
 const OFFLINE = /ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|ERR_NETWORK_CHANGED|ERR_CONNECTION|ERR_ADDRESS_UNREACHABLE|ERR_TIMED_OUT|ERR_PROXY/;
 
 let current = { id: null, status: 'none' };
+let loadedFor = null; // id + artist + title + length of the track the lyrics were looked up for
 let sink = null;
 let retryTimer = null;
 
@@ -155,6 +156,8 @@ function publish(r) {
 async function load(s, attempt = 0) {
   clearTimeout(retryTimer);
   const id = s.id, file = cacheFile(s), name = `${s.artist} - ${s.title}`;
+  // A lookup that ends after the track (or its name) changed again must not show its result.
+  const key = loadedFor, stillWanted = () => loadedFor === key;
   const cached = readCache(file);
   if (cached) {
     log.info(`Lyrics: ${cached.status} (cache) for ${name}`);
@@ -166,21 +169,26 @@ async function load(s, attempt = 0) {
     const result = toResult(await lookup(s));
     writeCache(file, result);
     log.info(`Lyrics: ${result.status} for ${name}`);
-    if (current.id === id) publish({ id, ...result });
+    if (stillWanted()) publish({ id, ...result });
   } catch (e) {
     const status = e.busy ? 'busy' : OFFLINE.test(e.message) || e.name === 'TimeoutError' ? 'offline' : 'error';
     const wait = RETRY_S[Math.min(attempt, RETRY_S.length - 1)];
     log.warn(`Lyrics: ${status} for ${name}: ${e.message}; trying again in ${wait} s`);
-    if (current.id !== id) return;
+    if (!stillWanted()) return;
     publish({ id, status: status === 'busy' && attempt < 2 ? 'loading' : status });
-    retryTimer = setTimeout(() => { if (current.id === id) load(s, attempt + 1); }, wait * 1000);
+    retryTimer = setTimeout(() => { if (stillWanted()) load(s, attempt + 1); }, wait * 1000);
   }
 }
 
-// Called with every player snapshot; loads lyrics when the track changes.
+// Called with every player snapshot; loads lyrics when the track changes. The name, artist and length count
+// too: right after a switch a player may still report the old name under the new track for a moment.
 function onSnapshot(s) {
   const isTrack = (s.state === 'playing' || s.state === 'paused') && s.id && s.title;
-  if (isTrack && s.id !== current.id) load(s);
+  if (!isTrack) return;
+  const key = [s.id, s.artist, s.title, Math.round(s.duration || 0)].join('\n');
+  if (key === loadedFor) return;
+  loadedFor = key;
+  load(s);
 }
 
 module.exports = {

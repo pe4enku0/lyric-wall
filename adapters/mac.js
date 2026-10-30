@@ -19,12 +19,20 @@ on snapshot()
     set ps to player state as string
     if ps is "stopped" then return "stopped"
     set t to current track
+    set i1 to id of t
+    set nm to name of t
+    set ar to artist of t
+    set al to album of t
     set au to ""
     try
       set au to artwork url of t
     end try
+    set du to duration of t
+    -- Every field is asked separately: while Spotify switches tracks they may mix two tracks.
+    -- The same track at the end as at the start, or the answer is thrown away (asked again shortly).
+    if (id of t) is not i1 or (name of t) is not nm then return "switching"
     set d to character id 31
-    return ps & d & (name of t) & d & (artist of t) & d & (album of t) & d & au & d & (duration of t) & d & (player position) & d & (sound volume) & d & (shuffling) & d & (id of t)
+    return ps & d & nm & d & ar & d & al & d & au & d & du & d & (player position) & d & (sound volume) & d & (shuffling) & d & i1
   end tell
 end snapshot
 `;
@@ -34,7 +42,9 @@ repeat
   try
     set s to snapshot()
     log s
-    if s starts with "playing" then
+    if s is "switching" then
+      delay 0.15
+    else if s starts with "playing" then
       delay 0.5
     else
       delay 1
@@ -78,6 +88,7 @@ let retryTimer = null;
 let running = false;
 
 function parseLine(line) {
+  if (line === 'switching') return null; // Spotify was switching tracks: wait for the next answer
   if (line === 'not-running') return { state: 'not-running' };
   if (line === 'stopped') return { state: 'stopped' };
   const f = line.split(SEP);
@@ -131,7 +142,7 @@ function startLoop() {
       const snap = line && parseLine(line);
       if (snap && snap.volume != null) lastVolume = snap.volume;
       if (snap) onUpdate(snap);
-      else if (line) errors = (errors + '\n' + line).slice(-500);
+      else if (line && line !== 'switching') errors = (errors + '\n' + line).slice(-500);
     }
   });
   p.on('error', e => log.error('Spotify (mac): could not start osascript:', e.message));
