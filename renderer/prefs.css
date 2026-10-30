@@ -101,6 +101,7 @@ input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius:
 .webrow { display: flex; gap: 8px; align-items: center; }
 .webrow input { flex: 1; }
 .webrow span { flex: 1; }
+#webVolume { font-size: 11.5px; color: var(--text-2); }
 
 /* ---------- control window: now playing ---------- */
 .np { display: flex; flex-direction: column; gap: 10px; padding: 12px; }

@@ -93,6 +93,7 @@
   "web.waiting": "Waiting for the browser…",
   "web.signedIn": "Signed in to Spotify",
   "web.signedInAs": "Signed in as",
+  "web.volumeRelogin": "Sign out and sign in again: then the volume bar on the wallpaper changes Spotify's own volume, like its slider.",
   "web.badId": "The Client ID is 32 letters and digits from your app's Settings page.",
   "web.failed": "Could not sign in.",
   "ui.likeNoTrack": "Spotify does not know the current track yet — try again in a moment",

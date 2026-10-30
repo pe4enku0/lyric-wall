@@ -6,6 +6,7 @@
 // Spotify is read only while someone listens (the wallpaper or the control window).
 const { net } = require('electron');
 const adapter = require('../adapters');
+const spotifyWeb = require('./spotify-web');
 const log = require('./log');
 
 let current = { state: 'starting' };
@@ -41,6 +42,8 @@ let lastLogged = '';
 const listeners = new Set();
 
 function onUpdate(snap) {
+  // Windows, signed in: the volume bar shows Spotify's own volume, not its slider in the volume mixer.
+  if (snap.title && spotifyWeb.usesOwnVolume() && spotifyWeb.volume() != null) snap.volume = spotifyWeb.volume();
   // Windows sends the cover only when the track changes; keep it for the following updates.
   if (snap.art === undefined && snap.id && snap.id === current.id) snap.art = current.art;
   if (snap.title && snap.id && !snap.art) coverFallback(snap);
@@ -73,6 +76,25 @@ const newId = prefix => `${prefix}${++seq}`;
 // Volume: one command at a time; values that come while one runs are merged into the newest
 // (dragging the bar sends up to 10 a second). Only the first and the last of one drag are logged.
 let volBusy = false, volNext = null, volGesture = { id: null, count: 0 }, volLogTimer = null;
+// Windows, signed in with the permission: Spotify's own volume through the Web API (at most ~3 a second,
+// one at a time); if Spotify refuses (no Premium, nothing playing on this computer), the volume mixer.
+let ownVolumeOffUntil = 0; // after a refusal the mixer is used for a minute
+async function sendVolume(value, id, quiet) {
+  if (spotifyWeb.usesOwnVolume() && Date.now() > ownVolumeOffUntil) {
+    try {
+      await spotifyWeb.setVolume(value);
+      onUpdate({ ...current, volume: value, at: current.at });
+      await new Promise(r => setTimeout(r, 300));
+      return;
+    } catch (e) {
+      ownVolumeOffUntil = Date.now() + 60000;
+      log.warn(`[${id}] Spotify's own volume could not be set (${e.message}); using the volume mixer for a minute`);
+    }
+  }
+  return adapter.control('volume', value, id, quiet);
+}
+
+let beforeMute = 50;
 function setVolume(value, id) {
   if (volBusy) { volNext = { value, id }; return Promise.resolve(); }
   volBusy = true;
@@ -83,7 +105,7 @@ function setVolume(value, id) {
     log.info(`[${id}] Player command: volume ${value} (Spotify: ${current.state})`);
   }
   volGesture.count++;
-  return adapter.control('volume', value, id, quiet).finally(() => {
+  return sendVolume(value, id, quiet).finally(() => {
     volBusy = false;
     if (volNext) { const n = volNext; volNext = null; setVolume(n.value, n.id); }
     // The drag is over when no new value comes for a moment.
@@ -112,6 +134,11 @@ function control(cmd, value, rid) {
     const n = Math.max(1, Math.min(10, Math.round(Number(value) || 1)));
     log.info(`[${id}] Player command: skip ${n} track(s) (Spotify: ${current.state})`);
     return skip(n, id);
+  }
+  // Mute with Spotify's own volume: volume 0, and back to where it was.
+  if (cmd === 'mute' && spotifyWeb.usesOwnVolume() && Date.now() > ownVolumeOffUntil && current.volume != null) {
+    if (current.volume > 0) beforeMute = current.volume;
+    return setVolume(current.volume > 0 ? 0 : beforeMute, id);
   }
   log.info(`[${id}] Player command: ${cmd}${value == null ? '' : ' ' + value} (Spotify: ${current.state})`);
   return adapter.control(cmd, value, id);

@@ -158,6 +158,8 @@
     $('webIn').hidden = !st.loggedIn;
     if (document.activeElement !== $('webId')) $('webId').value = st.clientId;
     $('webUser').textContent = st.user ? `${t('web.signedInAs')} ${st.user}` : t('web.signedIn');
+    // Windows: a sign-in from before the volume permission; signing in again adds it.
+    $('webVolume').hidden = !(st.loggedIn && plat === 'win' && !st.volumeAccess);
     fit();
   }
   function webError(text) {

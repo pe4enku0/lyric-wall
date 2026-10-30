@@ -13,7 +13,8 @@ const log = require('./log');
 
 const PORT = 43821;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-const SCOPES = 'user-read-playback-state user-read-currently-playing user-library-read user-library-modify';
+// user-modify-playback-state: Windows sets Spotify's own volume with it (the volume bar), like macOS does through the app.
+const SCOPES = 'user-read-playback-state user-read-currently-playing user-library-read user-library-modify user-modify-playback-state';
 const TOKEN_FILE = path.join(app.getPath('userData'), 'spotify-token.bin');
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 const QUEUE_EVERY_MS = 30 * 1000; // the queue may change without a track change
@@ -74,7 +75,8 @@ async function tokenRequest(params) {
   token = {
     access: data.access_token,
     refresh: data.refresh_token || (token && token.refresh),
-    expires: Date.now() + (data.expires_in || 3600) * 1000
+    expires: Date.now() + (data.expires_in || 3600) * 1000,
+    scope: data.scope || (token && token.scope) || '' // a refresh may not repeat it
   };
   saveToken();
 }
@@ -107,7 +109,7 @@ async function api(method, pathAndQuery, retried) {
 
 /* ---------- sign in / out ---------- */
 function state() {
-  return { clientId: settings.get('spotifyClientId') || '', loggedIn: !!token, user: userName, redirectUri: REDIRECT_URI };
+  return { clientId: settings.get('spotifyClientId') || '', loggedIn: !!token, user: userName, redirectUri: REDIRECT_URI, volumeAccess: canVolume() };
 }
 
 function setClientId(id) {
@@ -186,6 +188,27 @@ const trackInfo = t => ({
   art: ((t.album && t.album.images) || t.images || []).slice(-1)[0]?.url || ''
 });
 
+/* ---------- Spotify's own volume (Windows) ----------
+   Windows media controls cannot change it (only Spotify's slider in the volume mixer), so with the
+   permission the volume bar sets it through the Web API, like the Spotify app's own slider. */
+let ownVolume = null; // 0-100, as Spotify last reported it; null = unknown
+const canVolume = () => !!token && String(token.scope || '').split(' ').includes('user-modify-playback-state');
+const usesOwnVolume = () => process.platform === 'win32' && canVolume();
+
+async function readVolume() {
+  try {
+    const p = await api('GET', '/me/player');
+    ownVolume = p && p.device && typeof p.device.volume_percent === 'number' ? p.device.volume_percent : null;
+  } catch (e) {
+    if (!e.waiting) log.warn('Spotify Web API:', e.message);
+  }
+}
+
+async function setVolume(percent) {
+  await api('PUT', '/me/player/volume?volume_percent=' + Math.round(percent));
+  ownVolume = Math.round(percent);
+}
+
 // The queue and the "liked" mark are asked separately: one failing does not lose the other.
 async function refreshNow() {
   if (!token) return;
@@ -201,6 +224,7 @@ async function refreshNow() {
   // playing: the current track with its biggest cover (Windows media controls give only 300×300).
   const playing = current ? { title: current.name, art: ((current.album && current.album.images) || current.images || [])[0]?.url || '' } : null;
   now = { ...now, uri, playing, queue: ((q && q.queue) || []).slice(0, 5).map(trackInfo) };
+  if (usesOwnVolume()) await readVolume();
   if (uri !== likedOf) {
     now.liked = false;
     try {
@@ -258,6 +282,7 @@ function stop() {
 
 module.exports = {
   REDIRECT_URI, start, stop, state, setClientId, login, logout, onSnapshot, setLiked,
+  usesOwnVolume, setVolume, volume: () => ownVolume,
   getNow: () => now,
   onChange: fn => events.on('change', fn),
   onNow: fn => events.on('now', fn)
