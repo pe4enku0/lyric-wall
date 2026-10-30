@@ -88,7 +88,8 @@
       "createStartMenuShortcut": true
     },
     "asarUnpack": [
-      "adapters/win-media.ps1"
+      "adapters/win-media.ps1",
+      "adapters/win-audio.ps1"
     ]
   },
   "allowScripts": {

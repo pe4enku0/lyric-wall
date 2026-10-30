@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld('lyricWall', {
   onLyrics: cb => ipcRenderer.on('lyrics:state', (_e, r) => cb(r)),
   // The computer's sound for the Sound card (see main/audio.js)
   startAudio: () => ipcRenderer.send('audio:start'),
+  // Windows: a ready spectrum (bytes like AnalyserNode.getByteFrequencyData, binHz = Hz per byte)
+  onAudioSpectrum: cb => ipcRenderer.on('audio:spectrum', (_e, bytes, binHz) => cb(bytes, binHz)),
 
   // Control window: switches shared with the tray menu
   controlState: () => ipcRenderer.invoke('control:state'),

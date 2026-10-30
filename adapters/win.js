@@ -517,6 +517,11 @@ module.exports = {
     if (!watchTimer) watchTimer = setInterval(watchHelper, 2000);
   },
 
+  // The system sound for the Sound card (see win-audio.js).
+  startSystemSound(contents) {
+    require('./win-audio').start(contents);
+  },
+
   stopNowPlaying() {
     running = false;
     clearTimeout(retryTimer);

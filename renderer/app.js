@@ -618,8 +618,9 @@
 
   /* ---------- Sound card: a spectrum of the computer's sound ----------
      main/audio.js hands the wallpaper the system sound (nothing is recorded or sent); an analyser splits it
-     into bands: bass on the left, treble on the right. Without the sound (no permission, an error) the bars
-     move in a calm wave. Paused or nothing playing: a flat, faint line. */
+     into bands: bass on the left, treble on the right. On Windows the spectrum comes ready from the main
+     process instead. Without the sound (no permission, an error) the bars move in a calm wave. Paused or
+     nothing playing: a flat, faint line. */
   const vc = $('viz'), vx = vc.getContext('2d'), lv = new Array(48).fill(.05);
   let vizAlpha = 1, accentUntil = 0, accentRgb = '163,157,173';
   // The canvas gets as many pixels as the screen has there (twice as many on a Retina screen), so the bars stay sharp.
@@ -630,7 +631,14 @@
     if (w && h && (vc.width !== w || vc.height !== h)) { vc.width = w; vc.height = h; }
   }
 
-  let actx = null, analyser = null, spectrum = null, audioTries = 0;
+  // spectrum: bytes per frequency bin, binHz apart (from the analyser, or ready from Windows at fedAt).
+  let actx = null, analyser = null, spectrum = null, binHz = 0, fedAt = -1e9, audioTries = 0;
+  const hearing = () => analyser || performance.now() - fedAt < 1000;
+  api.onAudioSpectrum((bytes, hz) => {
+    const now = performance.now();
+    if (now - fedAt > 1000) { heardAt = now; wake(); } // the first one (again)
+    spectrum = bytes; binHz = hz; fedAt = now;
+  });
   // Called by the main process "as a click" (getDisplayMedia needs one), see main/audio.js.
   window.lwStartAudio = async () => {
     try {
@@ -645,6 +653,7 @@
       analyser.minDecibels = -80; analyser.maxDecibels = -22;
       actx.createMediaStreamSource(new MediaStream([tr])).connect(analyser); // not to the speakers: no echo
       spectrum = new Uint8Array(analyser.frequencyBinCount);
+      binHz = actx.sampleRate / analyser.fftSize;
       // The sound device changed or went away: listen again in a few seconds.
       tr.onended = () => {
         api.log('warn', 'Sound card: the system sound stopped');
@@ -675,8 +684,8 @@
 
   // n bands from 40 Hz to 14 kHz, evenly spread over the octaves (as we hear them).
   function bands(n) {
-    analyser.getByteFrequencyData(spectrum);
-    const hz = actx.sampleRate / analyser.fftSize, out = new Array(n);
+    if (analyser) analyser.getByteFrequencyData(spectrum);
+    const hz = binHz, out = new Array(n);
     for (let i = 0; i < n; i++) {
       const f0 = 40 * Math.pow(350, i / n), f1 = 40 * Math.pow(350, (i + 1) / n);
       const a = Math.max(1, Math.floor(f0 / hz)), b = Math.max(a + 1, Math.ceil(f1 / hz));
@@ -691,7 +700,7 @@
 
   function heightsFor(n) {
     if (!playing) return () => .05;
-    if (analyser) {
+    if (hearing()) {
       const b = bands(n);
       checkHeard(b, performance.now());
       return i => .04 + .96 * b[i];
