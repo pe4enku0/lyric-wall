@@ -31,6 +31,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm test
       - run: npm run dist
       - uses: actions/upload-artifact@v7
         with:
@@ -60,6 +61,14 @@ jobs:
           $log = "$env:APPDATA\Lyric Wall\lyric-wall.log"
           Get-Content $log
           if (Select-String -Path $log -Pattern '\[ERROR\]' -Quiet) { Write-Host "::warning::Errors in app log" }
+      # The click helper's second mode: how much of the screen windows cover. Fails when it gives no value.
+      - name: Covered check helper test (Mac)
+        if: runner.os == 'macOS'
+        timeout-minutes: 1
+        run: |
+          out=$(echo '{"area":{"x":0,"y":0,"width":800,"height":600},"skip":[],"threshold":0.95}' | native/mac/lyric-wall-clicks --coverage)
+          echo "$out"
+          echo "$out" | grep -q '"type":"coverage"' || { echo "::error::Covered check helper gave no value"; exit 1; }
       - name: Smoke test (Mac)
         if: runner.os == 'macOS'
         timeout-minutes: 3

@@ -23,6 +23,7 @@ const defaults = {
   imageVersion: 0, // changes every time a new own picture is chosen
   imageName: '', // file name of the own picture, shown in the settings
   pauseOnBattery: false, // stop the wallpaper while running on battery (main/power.js)
+  pauseWhenCovered: true, // stop the wallpaper while other windows cover (almost) all of it (main/power.js)
   showLyrics: true,
   fps: 60, // wallpaper frames per second: 60, 45, 30, 20 or 15
   welcomeShown: false, // the first-start notification was shown

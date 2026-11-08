@@ -132,6 +132,7 @@
     $('spd').value = look.snowSpeed; $('cnt').value = look.snowCount;
     ['blur', 'dimR', 'spd', 'cnt'].forEach(id => paint($(id)));
     toggle($('battery'), look.pauseOnBattery);
+    toggle($('covered'), look.pauseWhenCovered !== false);
     fit();
   }
   async function set(key, value) {
@@ -150,6 +151,7 @@
   slider('cnt', 'snowCount');
   $('snowOn').onclick = () => set('snowOn', look.snowOn === false);
   $('battery').onclick = () => set('pauseOnBattery', !look.pauseOnBattery);
+  $('covered').onclick = () => set('pauseWhenCovered', look.pauseWhenCovered === false);
 
   /* ---------- Spotify sign-in ---------- */
   function renderWeb(st) {

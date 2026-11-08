@@ -40,7 +40,7 @@ The builds are not signed with a paid certificate:
   Always in English (the font has no Cyrillic). With the system's "reduce motion" nothing moves.
 - **Settings** (tray → Settings…, or "Background and snow…" in the control window): theme, background preset,
   colour from the cover, blurred cover, your own picture (copied into the app data folder), picture blur and dim,
-  snow speed and amount, smoothness (30 / 20 / 15 frames per second), pausing on battery.
+  snow speed and amount, smoothness (30 / 20 / 15 frames per second), pausing on battery, pausing when windows cover the wallpaper.
   Changes show right away and are saved.
 
 ### Buttons on the wallpaper
@@ -107,7 +107,15 @@ the login is stored encrypted (macOS Keychain / Windows data protection) and nev
   for "System Audio Recording". Without it the bars move in a calm wave; while the music is paused they rest.
 - The wallpaper draws at most 60 frames per second (45, 30, 20 or 15 in the settings), sleeps when nothing moves
   (music paused) and stops completely when the screen is locked, the computer sleeps, a game or another app
-  is full screen (Windows) or, if turned on in the settings, while running on battery.
+  is full screen (Windows), other windows cover it, or, if turned on in the settings, while running on battery.
+- **Covered by windows** (Settings → "Pause when covered by windows", on by default): when normal app windows hide
+  at least 95% of the wallpaper's screen, it stops drawing, like Wallpaper Engine. Only the main screen counts,
+  without the taskbar / menu bar / Dock; several windows count together (two windows side by side cover it all).
+  Minimized windows, windows on other desktops, see-through overlays (NVIDIA, Discord, Steam) and Lyric Wall's own
+  windows do not count. It pauses after the wallpaper has been covered for 1.5 s (switching windows does not pause
+  it) and comes back as soon as part of it shows (Win+D, minimizing, "Show Desktop" on a Mac).
+  Windows checks the windows every 0.75 s (about 0.25 ms each time); macOS uses the click helper
+  (`lyric-wall-clicks --coverage`, it reads only window positions and needs no permission).
 - The control window shows how much CPU the app uses. On a MacBook: about 1% of one CPU core with the music
   paused; while music plays and the wallpaper is fully visible, about 34% at 30 frames and 21% at 15 frames.
 
@@ -115,7 +123,7 @@ the login is stored encrypted (macOS Keychain / Windows data protection) and nev
 
 Everything important goes to `lyric-wall.log` in the app data folder (tray → **Open log**):
 start (system, screen), how the wallpaper window was placed, Spotify tracks and commands, lyrics, pauses
-(locked screen, game, battery), button presses, errors in any window and crashed processes.
+(locked screen, game, covered by windows, battery), button presses, errors in any window and crashed processes.
 Every button press gets a request id (`h1`, `h2`… from the wallpaper, `t1`… from the tray) that follows it
 through the log: click layer → wallpaper → main process → Windows helper → its answer with the time it took.
 A press that never reached the click layer is logged with the window Windows had under the cursor.
@@ -132,6 +140,7 @@ App data folder: Mac `~/Library/Application Support/Lyric Wall/`, Windows `%APPD
 5. The volume bar moves Spotify's slider in the volume mixer (Win+Ctrl+V), not the system volume; the Sound bars move with the music.
 6. Wallpaper buttons: ⏯, ⏭, progress bar, volume, "Shuffle" work; the cursor turns into a hand over them.
 7. Start a game full screen: the log shows `Render paused (+fullscreen)`; FPS is not lower than without the app.
+   Maximize any window: 1.5 s later the log shows `Render paused (+covered)`; minimize it: `Render running (-covered)`.
 8. Tray → Wallpaper off: the normal Windows wallpaper comes back.
 9. If the wallpaper is black or missing: tray → Wallpaper mode → Below all windows, then send the log.
 
@@ -146,7 +155,8 @@ npm run install-app  # build the app, put it in ~/Applications and start it (aft
 ```
 
 On macOS `npm start` also builds the click helper (`mac-helper/ClickLayer.swift`); it needs the
-Xcode Command Line Tools (`xcode-select --install`). Without them the buttons use a simpler click layer.
+Xcode Command Line Tools (`xcode-select --install`). Without them the buttons use a simpler click layer
+and the wallpaper does not pause when windows cover it.
 
 ## Project layout
 

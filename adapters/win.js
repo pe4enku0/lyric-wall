@@ -5,11 +5,12 @@ const { screen, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const log = require('../main/log');
+const { coveredFraction, THRESHOLD } = require('../main/coverage');
 
 const GWL_STYLE = -16, GWL_EXSTYLE = -20;
 const WS_CHILD = 0x40000000, WS_POPUP = 0x80000000;
 const WS_EX_TRANSPARENT = 0x20, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
-const DWMWA_CLOAKED = 14, PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+const DWMWA_EXTENDED_FRAME_BOUNDS = 9, DWMWA_CLOAKED = 14, PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
 const HWND_BOTTOM = 1, GW_HWNDLAST = 1, GW_HWNDNEXT = 2, GW_HWNDPREV = 3, GW_CHILD = 5, GA_PARENT = 1, GA_ROOT = 2;
 const VK_LBUTTON = 0x01;
@@ -39,6 +40,8 @@ function user32() {
     SetParent: fn('intptr_t __stdcall SetParent(intptr_t child, intptr_t parent)'),
     GetAncestor: fn('intptr_t __stdcall GetAncestor(intptr_t hwnd, uint32_t flags)'),
     GetWindow: fn('intptr_t __stdcall GetWindow(intptr_t hwnd, uint32_t cmd)'),
+    GetTopWindow: fn('intptr_t __stdcall GetTopWindow(intptr_t hwnd)'),
+    IsIconic: fn('int __stdcall IsIconic(intptr_t hwnd)'),
     SetWindowPos: fn('int __stdcall SetWindowPos(intptr_t hwnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)'),
     GetWindowLongPtrW: fn('intptr_t __stdcall GetWindowLongPtrW(intptr_t hwnd, int index)'),
     SetWindowLongPtrW: fn('intptr_t __stdcall SetWindowLongPtrW(intptr_t hwnd, int index, intptr_t value)'),
@@ -58,6 +61,8 @@ function user32() {
     WindowFromPoint: fn('intptr_t __stdcall WindowFromPoint(POINT point)'),
     GetAsyncKeyState: fn('int16_t __stdcall GetAsyncKeyState(int key)'),
     DwmGetWindowAttribute: dwm.func('int __stdcall DwmGetWindowAttribute(intptr_t hwnd, uint32_t attr, _Out_ int32_t *value, uint32_t size)'),
+    // The same function for DWMWA_EXTENDED_FRAME_BOUNDS, which gives a RECT.
+    DwmGetWindowRect: dwm.func('int __stdcall DwmGetWindowAttribute(intptr_t hwnd, uint32_t attr, _Out_ RECT *rect, uint32_t size)'),
     OpenProcess: kernel.func('intptr_t __stdcall OpenProcess(uint32_t access, int inherit, uint32_t pid)'),
     QueryFullProcessImageNameW: kernel.func('int __stdcall QueryFullProcessImageNameW(intptr_t process, uint32_t flags, _Out_ uint8_t *name, _Inout_ uint32_t *size)'),
     CloseHandle: kernel.func('int __stdcall CloseHandle(intptr_t handle)')
@@ -197,23 +202,27 @@ function processName(w, pid) {
   }
 }
 
-// Is a game or another app covering the whole screen? Looks at the active window: overlays of other apps
-// (NVIDIA, Discord, Steam…) also cover the screen but are see-through, so click-through, tool, non-activating
-// and system-hidden (cloaked) windows do not count. Then asks Windows (the same check it uses to hold back
-// notifications) and compares the window with its monitor.
+// A normal window of another app? Overlays of other apps (NVIDIA, Discord, Steam…) cover the screen but are
+// see-through, so click-through, tool and non-activating windows do not count; neither do the desktop and the
+// taskbar, our own windows and windows the system keeps hidden (cloaked: other virtual desktops, UWP apps).
+function isOtherAppWindow(w, hwnd) {
+  const ex = Number(w.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+  if (ex & (WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)) return false;
+  const pid = [0];
+  w.GetWindowThreadProcessId(hwnd, pid);
+  if (pid[0] === process.pid) return false;
+  if (DESKTOP_CLASSES.includes(windowClass(w, hwnd))) return false;
+  const cloaked = [0];
+  if (w.DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, cloaked, 4) === 0 && cloaked[0]) return false;
+  return true;
+}
+
+// Is a game or another app covering the whole screen? Looks at the active window (see isOtherAppWindow),
+// then asks Windows (the same check it uses to hold back notifications) and compares the window with its monitor.
 function fullscreenAppActive() {
   const w = user32();
   const fg = w.GetForegroundWindow();
-  if (!fg || !w.IsWindowVisible(fg)) return false;
-  const pid = [0];
-  w.GetWindowThreadProcessId(fg, pid);
-  if (pid[0] === process.pid) return false;
-  const cls = windowClass(w, fg);
-  if (DESKTOP_CLASSES.includes(cls)) return false;
-  const ex = Number(w.GetWindowLongPtrW(fg, GWL_EXSTYLE));
-  if (ex & (WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)) return false;
-  const cloaked = [0];
-  if (w.DwmGetWindowAttribute(fg, DWMWA_CLOAKED, cloaked, 4) === 0 && cloaked[0]) return false;
+  if (!fg || !w.IsWindowVisible(fg) || !isOtherAppWindow(w, fg)) return false;
 
   let why = '';
   const quns = [0];
@@ -227,11 +236,74 @@ function fullscreenAppActive() {
     }
   }
   if (!why) return false;
+  const pid = [0];
+  w.GetWindowThreadProcessId(fg, pid);
+  const cls = windowClass(w, fg);
   fullscreenWhy = `${processName(w, pid[0])} (${cls}): ${why}`;
   return true;
 }
 
 let fullscreenWarned = false;
+
+// ---------- Is the wallpaper covered by windows? ----------
+
+let lastCover = null;  // the last check: { fraction, area, windows: [{ hwnd, rect }] }, for the log
+let coverWarned = false;
+const coverTimes = []; // how long the first checks took (logged once, after 30 s)
+
+// How much of the wallpaper's screen the windows of other apps cover: walks the top-level windows from the
+// top of the z-order down to the desktop. Measured against the work area (the screen without the taskbar,
+// which a maximized window never covers). All in physical pixels: the work area of the wallpaper's monitor
+// and the visible frame of each window (GetWindowRect would include the invisible resize borders).
+function wallpaperCoverage() {
+  const w = user32();
+  if (!state.hwnd || !w.IsWindow(state.hwnd)) return null;
+  const info = { cbSize: 40 };
+  if (!w.GetMonitorInfoW(w.MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST), info)) return null;
+  const a = info.rcWork;
+  const area = { x: a.left, y: a.top, width: a.right - a.left, height: a.bottom - a.top };
+  // Windows below the desktop are hidden by it ("Show desktop" may put the desktop above them).
+  const desk = Number(desktopHost());
+  const windows = [], r = {};
+  let h = Number(w.GetTopWindow(0));
+  for (let i = 0; h && i < 5000; i++, h = Number(w.GetWindow(h, GW_HWNDNEXT))) {
+    if (h === desk) break;
+    if (!w.IsWindowVisible(h) || w.IsIconic(h) || !isOtherAppWindow(w, h)) continue;
+    if (w.DwmGetWindowRect(h, DWMWA_EXTENDED_FRAME_BOUNDS, r, 16) !== 0) continue;
+    if (r.right <= r.left || r.bottom <= r.top) continue;
+    windows.push({ hwnd: h, rect: { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top } });
+  }
+  return { fraction: coveredFraction(area, windows.map(x => x.rect)), area, windows };
+}
+
+// For the log: how much is covered and by which windows (the biggest first).
+function coverageReason() {
+  const c = lastCover;
+  if (!c) return 'no check yet';
+  const w = user32();
+  const big = c.windows
+    .map(x => ({ hwnd: x.hwnd, part: coveredFraction(c.area, [x.rect]) }))
+    .filter(x => x.part > 0)
+    .sort((p, q) => q.part - p.part);
+  const names = big.slice(0, 3).map(x => describeWindow(w, x.hwnd));
+  return `${Math.round(c.fraction * 100)}% of the work area ${c.area.width}x${c.area.height} by ${big.length} window(s): ` +
+    names.join(', ') + (big.length > 3 ? ', …' : '');
+}
+
+function checkCoverage() {
+  const t0 = performance.now();
+  lastCover = wallpaperCoverage();
+  if (lastCover && coverTimes.length < 40) {
+    coverTimes.push(performance.now() - t0);
+    if (coverTimes.length === 40) {
+      const later = coverTimes.slice(10); // the first ones are slower (the code is not warmed up yet)
+      const avg = later.reduce((s, t) => s + t, 0) / later.length;
+      log.info(`Covered check takes ${avg.toFixed(3)} ms on average, ${Math.max(...later).toFixed(3)} ms at most ` +
+        `(the very first ${coverTimes[0].toFixed(3)} ms; ${lastCover.windows.length} window(s) on screen)`);
+    }
+  }
+  return lastCover ? lastCover.fraction >= THRESHOLD : null;
+}
 
 // The window that was active when the pointer came onto a wallpaper button (see hitLayerHover).
 let focusBefore = 0;
@@ -499,6 +571,20 @@ module.exports = {
   },
   describeWallpaper(win) {
     try { return describeWallpaper(win); } catch (e) { return 'check failed: ' + e.message; }
+  },
+
+  // Do other apps' windows cover (almost) all of the wallpaper? null = cannot tell (no wallpaper window).
+  // Asked every 0.75 s by main/power.js.
+  isWallpaperCovered() {
+    try {
+      return checkCoverage();
+    } catch (e) {
+      if (!coverWarned) { coverWarned = true; log.warn('Covered check failed:', e.message); }
+      return null;
+    }
+  },
+  coverageReason() {
+    try { return coverageReason(); } catch (e) { return 'check failed: ' + e.message; }
   },
 
   isFullscreenAppActive() {

@@ -1,6 +1,8 @@
 // Builds the macOS click helper (mac-helper/ClickLayer.swift) into native/mac/lyric-wall-clicks.
 // Runs before "npm start" and "npm run dist". Does nothing on other systems or when it is up to date.
-// Without the Swift compiler (Xcode Command Line Tools) the app falls back to a simpler click layer.
+// The same binary also tells the app when windows cover the wallpaper ("--coverage" mode).
+// Without the Swift compiler (Xcode Command Line Tools) the app falls back to a simpler click layer
+// and does not pause the wallpaper when windows cover it.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');

@@ -16,6 +16,8 @@
 //         {"type":"click","id":"pp","fx":0.5}       button up inside the button it went down on
 //         {"type":"wheel","id":"volume","dy":1}     scroll; dy > 0 = wheel away / fingers up, 1 = one wheel notch
 // The helper quits when stdin closes (the app quit).
+//
+// "lyric-wall-clicks --coverage" is a second, separate mode: see runCoverage below.
 import AppKit
 
 final class ButtonPanel: NSPanel {
@@ -101,6 +103,118 @@ func show(_ items: [[String: Any]]) {
     panels.append(panel)
   }
 }
+
+// ---------- --coverage: how much of the wallpaper other windows cover ----------
+//
+// The app pauses the wallpaper while normal windows hide (almost) all of it. This mode runs as its own process,
+// started by adapters/mac.js apart from the click panels (those are stopped while the wallpaper is paused, and
+// the app must still notice when the wallpaper is uncovered again). It reads only the windows' bounds, which
+// needs no permission (their names would need Screen Recording).
+// stdin:  one JSON line per change: {"area":{"x":0,"y":25,"width":1440,"height":805},"skip":[123,456],"threshold":0.95}
+//         area: the main screen's work area (Electron's workArea: points, top-left origin, like the window bounds);
+//         skip: processes whose windows do not count (the app itself, the click helper)
+// stdout: {"type":"coverage","value":0.97} after each stdin line, then when the value moves by 2% or more or
+//         crosses the threshold (checked twice a second); {"type":"log","text":"..."} once with the check's cost.
+// It quits when stdin closes (the app quit).
+
+var coverArea = CGRect.zero
+var coverSkip: Set<pid_t> = []
+var coverThreshold = 0.95
+var coverLast = -1.0
+var coverTimer: DispatchSourceTimer?
+var coverTimes: [Double] = []
+
+// The same grid as main/coverage.js: 64×36 cell centers, a cell is covered when its center is inside a window.
+func coveredFraction(_ area: CGRect, _ rects: [CGRect]) -> Double {
+  guard area.width > 0, area.height > 0 else { return 0 }
+  let inside = rects.map { $0.intersection(area) }.filter { !$0.isNull && $0.width > 0 && $0.height > 0 }
+  if inside.isEmpty { return 0 }
+  let cols = 64, rows = 36
+  let cw = area.width / CGFloat(cols), ch = area.height / CGFloat(rows)
+  var covered = 0
+  for j in 0..<rows {
+    let y = area.minY + (CGFloat(j) + 0.5) * ch
+    let row = inside.filter { y >= $0.minY && y < $0.maxY }
+    if row.isEmpty { continue }
+    for i in 0..<cols {
+      let x = area.minX + (CGFloat(i) + 0.5) * cw
+      if row.contains(where: { x >= $0.minX && x < $0.maxX }) { covered += 1 }
+    }
+  }
+  return Double(covered) / Double(cols * rows)
+}
+
+// Normal windows (layer 0, not fully transparent) of other apps that are on screen now. Windows of other Spaces
+// and minimized ones are not on screen; "Show Desktop" moves windows off the screen, so they fall outside the area.
+func measureCoverage() -> Double {
+  guard coverArea.width > 0, coverArea.height > 0,
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+  else { return 0 }
+  var rects: [CGRect] = []
+  for info in list {
+    guard let layer = info[kCGWindowLayer as String] as? NSNumber, layer.intValue == 0,
+          let alpha = info[kCGWindowAlpha as String] as? NSNumber, alpha.doubleValue > 0,
+          let owner = info[kCGWindowOwnerPID as String] as? NSNumber, !coverSkip.contains(owner.int32Value),
+          let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+          let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+          rect.width > 0, rect.height > 0
+    else { continue }
+    rects.append(rect)
+  }
+  return coveredFraction(coverArea, rects)
+}
+
+func checkCoverage(force: Bool) {
+  let start = DispatchTime.now().uptimeNanoseconds
+  let value = measureCoverage()
+  if coverTimes.count < 20 {
+    coverTimes.append(Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000)
+    if coverTimes.count == 20 {
+      let later = coverTimes.dropFirst()
+      let avg = later.reduce(0, +) / Double(later.count)
+      emit(["type": "log", "text": String(format: "covered check takes %.3f ms on average, %.3f ms at most (first %.3f ms)",
+                                          avg, later.max() ?? 0, coverTimes[0])])
+    }
+  }
+  let crossed = (value >= coverThreshold) != (coverLast >= coverThreshold)
+  guard force || coverLast < 0 || crossed || abs(value - coverLast) >= 0.02 else { return }
+  coverLast = value
+  emit(["type": "coverage", "value": (value * 1000).rounded() / 1000])
+}
+
+func configureCoverage(_ config: [String: Any]) {
+  if let a = config["area"] as? [String: Any],
+     let x = a["x"] as? Double, let y = a["y"] as? Double,
+     let w = a["width"] as? Double, let h = a["height"] as? Double {
+    coverArea = CGRect(x: x, y: y, width: w, height: h)
+  }
+  if let skip = config["skip"] as? [NSNumber] { coverSkip = Set(skip.map { $0.int32Value }) }
+  coverSkip.insert(getpid())
+  if let t = config["threshold"] as? Double { coverThreshold = t }
+  checkCoverage(force: true)
+}
+
+func runCoverage() -> Never {
+  coverSkip.insert(getpid())
+  DispatchQueue.global().async {
+    while let line = readLine() {
+      guard let data = line.data(using: .utf8),
+            let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+      DispatchQueue.main.async { configureCoverage(config) }
+    }
+    DispatchQueue.main.async { exit(0) }
+  }
+  let timer = DispatchSource.makeTimerSource(queue: .main)
+  timer.schedule(deadline: .now() + 0.5, repeating: 0.5)
+  timer.setEventHandler { checkCoverage(force: false) }
+  timer.resume()
+  coverTimer = timer
+  dispatchMain()
+}
+
+if CommandLine.arguments.contains("--coverage") { runCoverage() }
+
+// ---------- the click panels ----------
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory) // no Dock icon, no menu bar

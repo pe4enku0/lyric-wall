@@ -1,4 +1,5 @@
-// Options of the settings window: arrangement, theme, background, picture blur/dim, snow, pausing on battery;
+// Options of the settings window: arrangement, theme, background, picture blur/dim, snow, pausing on battery
+// or when covered by windows;
 // plus showing the lyrics (the lyrics button on the wallpaper).
 // Applied right away and kept in settings.json.
 const { app } = require('electron');
@@ -41,6 +42,7 @@ function get() {
     imageVersion: settings.get('imageVersion'),
     imageName: settings.get('imageName'),
     pauseOnBattery: settings.get('pauseOnBattery'),
+    pauseWhenCovered: settings.get('pauseWhenCovered'),
     showLyrics: settings.get('showLyrics'),
     fps: settings.get('fps')
   };
@@ -58,7 +60,7 @@ function set(key, value) {
     if (!['a', 'b'].includes(value)) return get();
   } else if (key === 'bgColor') {
     if (!/^#[0-9a-f]{6}$/i.test(String(value))) return get();
-  } else if (['pauseOnBattery', 'showLyrics', 'snowOn'].includes(key)) {
+  } else if (['pauseOnBattery', 'pauseWhenCovered', 'showLyrics', 'snowOn'].includes(key)) {
     value = !!value;
   } else if (key === 'fps') {
     if (![15, 20, 30, 45, 60].includes(Number(value))) return get();

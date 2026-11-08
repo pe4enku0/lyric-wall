@@ -103,7 +103,7 @@ app.whenReady().then(() => {
   audio.setup();
   power.start();
   spotifyWeb.start();
-  appearance.onChange(power.checkBattery);
+  appearance.onChange(power.checkSettings);
   wallpaper.watchDisplays();
   if (settings.get('wallpaperEnabled')) wallpaper.create();
   tray.create();

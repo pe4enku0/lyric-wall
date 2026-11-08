@@ -1,9 +1,10 @@
 // macOS-only code: desktop-level wallpaper window and Spotify via AppleScript.
-const { app } = require('electron');
+const { app, screen } = require('electron');
 const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const log = require('../main/log');
+const { THRESHOLD } = require('../main/coverage');
 
 const SEP = '\x1f';
 
@@ -75,6 +76,7 @@ function objcApi() {
   return objc;
 }
 // Native click helper (mac-helper/ClickLayer.swift): inside the app in the packaged app, built by npm in development.
+// Its "--coverage" mode tells how much of the wallpaper other windows cover.
 const CLICK_HELPER = app.isPackaged
   ? path.join(process.resourcesPath, 'lyric-wall-clicks')
   : path.join(__dirname, '..', 'native', 'mac', 'lyric-wall-clicks');
@@ -86,6 +88,90 @@ let proc = null;
 let onUpdate = null;
 let retryTimer = null;
 let running = false;
+
+// ---------- Is the wallpaper covered by windows? ----------
+// The same helper binary in its own mode ("lyric-wall-clicks --coverage"), a separate process: the click
+// panels are stopped while the wallpaper is paused, and this one must keep watching to see it uncovered.
+let cover = null;        // { proc, cb } of the running coverage helper
+let coverRetry = null;
+let coverMissingLogged = false;
+let coverValue = null;   // last fraction from the helper
+let clickPid = 0;        // the click helper's windows do not count either
+let displaysWatched = false;
+
+// The main screen's work area (without the menu bar and the Dock), in the same points as the window bounds.
+function coverConfig() {
+  const a = screen.getPrimaryDisplay().workArea;
+  return { area: { x: a.x, y: a.y, width: a.width, height: a.height }, skip: [process.pid, clickPid].filter(Boolean), threshold: THRESHOLD };
+}
+
+function sendCoverConfig() {
+  if (cover && cover.proc.stdin.writable) cover.proc.stdin.write(JSON.stringify(coverConfig()) + '\n');
+}
+
+function startCoverage(cb) {
+  clearTimeout(coverRetry);
+  coverRetry = null;
+  coverValue = null;
+  if (!fs.existsSync(CLICK_HELPER)) {
+    if (!coverMissingLogged) {
+      coverMissingLogged = true;
+      log.warn('Covered check: helper not found, the wallpaper will not pause when windows cover it:', path.basename(CLICK_HELPER));
+    }
+    cb(null);
+    return;
+  }
+  if (!displaysWatched) {
+    displaysWatched = true;
+    // The Dock or the menu bar may have moved, or another screen became the main one.
+    for (const ev of ['display-metrics-changed', 'display-added', 'display-removed']) screen.on(ev, sendCoverConfig);
+  }
+  let pending = '';
+  const p = spawn(CLICK_HELPER, ['--coverage'], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const c = { proc: p, cb };
+  cover = c;
+  p.stdout.setEncoding('utf8');
+  p.stdout.on('data', chunk => {
+    pending += chunk;
+    let i;
+    while ((i = pending.indexOf('\n')) >= 0) {
+      const line = pending.slice(0, i).trim();
+      pending = pending.slice(i + 1);
+      if (!line || cover !== c) continue;
+      try {
+        const m = JSON.parse(line);
+        if (m.type === 'log') log.info('Covered check:', String(m.text).slice(0, 200));
+        if (m.type === 'coverage' && Number.isFinite(m.value)) { coverValue = m.value; cb(m.value >= THRESHOLD); }
+      } catch (_) {
+        log.warn('Covered check: bad helper output:', line.slice(0, 200));
+      }
+    }
+  });
+  p.stderr.setEncoding('utf8');
+  p.stderr.on('data', d => log.warn('Covered check helper:', d.trim().slice(0, 300)));
+  p.stdin.on('error', () => {});
+  p.on('error', e => log.error('Covered check: helper could not start:', e.message));
+  p.on('exit', code => {
+    // A helper we stopped ourselves (or an old one) must not touch the current state.
+    if (cover !== c) return;
+    cover = null;
+    coverValue = null;
+    cb(null);
+    log.warn('Covered check: helper exited with code', code, '- restarting in 10 s');
+    coverRetry = setTimeout(() => startCoverage(cb), 10000);
+  });
+  sendCoverConfig();
+  log.info('Covered check: helper started');
+}
+
+function stopCoverage() {
+  clearTimeout(coverRetry);
+  coverRetry = null;
+  coverValue = null;
+  const c = cover;
+  cover = null;
+  if (c) { c.proc.stdin.end(); setTimeout(() => c.proc.kill(), 500); }
+}
 
 function parseLine(line) {
   if (line === 'switching') return null; // Spotify was switching tracks: wait for the next answer
@@ -204,6 +290,8 @@ module.exports = {
     }
     let stopped = false, pending = '';
     const p = spawn(CLICK_HELPER, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+    clickPid = p.pid || 0;
+    sendCoverConfig();
     p.stdout.setEncoding('utf8');
     p.stdout.on('data', chunk => {
       pending += chunk;
@@ -221,7 +309,12 @@ module.exports = {
     p.stdin.on('error', () => {});
     return {
       setRects: rects => { if (!stopped && p.stdin.writable) p.stdin.write(JSON.stringify(rects) + '\n'); },
-      destroy: () => { stopped = true; p.stdin.end(); setTimeout(() => p.kill(), 500); }
+      destroy: () => {
+        stopped = true;
+        if (clickPid === p.pid) { clickPid = 0; sendCoverConfig(); }
+        p.stdin.end();
+        setTimeout(() => p.kill(), 500);
+      }
     };
   },
 
@@ -241,6 +334,13 @@ module.exports = {
       log.error('Click layer: could not place it behind the windows:', e.message);
     }
   },
+
+  // Covered by windows (main/power.js): cb(true / false / null = cannot tell) whenever the helper sees a change.
+  watchCoverage(cb) {
+    if (!cover) startCoverage(cb);
+  },
+  stopCoverage,
+  coverageReason: () => coverValue == null ? 'no value yet' : `${Math.round(coverValue * 100)}% of the main screen's work area`,
 
   startNowPlaying(cb) {
     onUpdate = cb;
