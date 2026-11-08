@@ -15,7 +15,7 @@
     "predist": "node scripts/build-mac-helper.js",
     "dist": "electron-builder --publish never",
     "install-app": "npm run dist && node scripts/install-mac-app.js",
-    "test": "node --test test/"
+    "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
